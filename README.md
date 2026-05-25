@@ -1,4 +1,9 @@
-# Iron for Pebble 🏃‍♂️⌚
+# Iron for Android 🏃‍♂️⌚
+
+**Note**: This is the Android companion app. To use the full features, you also need the **Iron for Pebble** watch app (coming soon).
+**注意**: これは Android 用のコンパニオンアプリです。全機能を利用するには、**Iron for Pebble** ウォッチアプリ（近日公開予定）も必要です。
+
+---
 
 **Iron** is a modern and high-performance Android running tracker designed to work seamlessly with your Pebble smartwatch.
 Built with Kotlin Multiplatform (KMP), focusing on privacy and provided without any advertisements.
