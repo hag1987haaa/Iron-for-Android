@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+
+    <!-- Health Connect Permissions (Write Only) -->
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+    <uses-permission android:name="android.permission.health.WRITE_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.WRITE_STEPS" />
+    <uses-permission android:name="android.permission.health.WRITE_ACTIVE_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.WRITE_DISTANCE" />
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE_ROUTE" />
+
+    <!-- PebbleKit 2 & Legacy Pebble -->
+    <uses-permission android:name="io.rebble.pebblekit2.permission.RECEIVE_DATA" />
+    <uses-permission android:name="io.rebble.pebblekit2.permission.RECEIVE_DATA_FROM_WATCH" />
+    <uses-permission android:name="io.rebble.pebblekit2.permission.SEND_DATA" />
+    <uses-permission android:name="com.getpebble.android.permission.RECEIVE_DATA" />
+    <uses-permission android:name="com.getpebble.android.permission.SEND_DATA" />
+
+    <queries>
+        <package android:name="io.rebble.cobble" />
+        <package android:name="coredevices.coreapp" />
+        <package android:name="com.getpebble.android" />
+        <package android:name="com.google.android.apps.healthdata" />
+        <intent>
+            <action android:name="io.rebble.pebblekit2.SENDER" />
+        </intent>
+        <intent>
+            <action android:name="com.getpebble.action.app.START" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".PebbleTrackerApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <activity
+            android:exported="true"
+            android:name=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Pebble Discovery Metadata (Application Level) -->
+        <meta-data
+            android:name="com.getpebble.android.kit.WATCH_APP_UUID"
+            android:value="0ec71971-1191-4e05-87f5-27a3c749023c" />
+
+        <service
+            android:name=".service.TrackingService"
+            android:foregroundServiceType="location|connectedDevice"
+            android:exported="false" />
+
+        <service
+            android:name=".pebble.PebbleCommandService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.rebble.pebblekit2.RECEIVE_DATA_FROM_WATCH" />
+                <action android:name="com.getpebble.action.app.RECEIVE" />
+                <action android:name="com.getpebble.action.app.RECEIVE_ACK" />
+                <action android:name="com.getpebble.action.app.RECEIVE_NACK" />
+            </intent-filter>
+        </service>
+
+        <!-- Health Connect: Android 14+ 必須要件 -->
+        <activity
+            android:name=".presentation.HealthConnectPermissionActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.health.connect.action.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Android 14+ で Health Connect 画面にアプリを表示させるためのエイリアス -->
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".presentation.HealthConnectPermissionActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- ヘルスコネクトの「詳細」からプライバシーポリシーを開くための定義 -->
+        <meta-data android:name="health_permissions_rationale_activity" android:value="hag1987haaa.pebble.iron.presentation.HealthConnectPermissionActivity" />
+        <meta-data android:name="androidx.health.PROPERTY_PRIVACY_POLICY_ACTION" android:value="android.intent.action.VIEW" />
+
+        <!-- Android 14 (API 34) 以降で必須のプロパティ定義 -->
+        <property android:name="android.health.PROPERTY_HEALTH_CONNECT_PERMISSION_RATIONALE_ACTIVITY" android:value="hag1987haaa.pebble.iron.presentation.HealthConnectPermissionActivity" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>

@@ -1,0 +1,126 @@
+<resources>
+    <string name="app_name">Iron</string>
+    <string name="history_delete_title">Delete History</string>
+    <string name="history_delete_message">Are you sure you want to delete this workout record?\n(Synchronized data will also be deleted if Health Connect is linked)</string>
+    <string name="history_delete_confirm">Delete</string>
+    <string name="history_delete_cancel">Cancel</string>
+    <string name="history_list_item_run_prefix">Run: </string>
+    <string name="history_list_item_distance_prefix">Distance: </string>
+    <string name="history_export_button">Export Data</string>
+    <string name="history_import_button">Import Data</string>
+    <string name="history_backup_title">Backup &amp; Restore</string>
+
+    <string name="detail_discard">Discard</string>
+    <string name="detail_save">Save</string>
+    <string name="detail_title_confirm">Confirm Details</string>
+    <string name="detail_title_view">Workout Details</string>
+    <string name="detail_label_name">Workout Name</string>
+    <string name="detail_label_type">Type: %s</string>
+    <string name="detail_performance_analysis">Performance Analysis</string>
+    <string name="detail_stat_distance">Distance</string>
+    <string name="detail_stat_time">Time</string>
+    <string name="detail_stat_elevation">Elevation Gain</string>
+    <string name="detail_stat_calories">Calories</string>
+    <string name="detail_stat_steps">Steps</string>
+    <string name="detail_chart_altitude">Altitude (m)</string>
+    <string name="detail_chart_heart_rate">Heart Rate (bpm)</string>
+    <string name="detail_chart_speed">Speed (km/h)</string>
+    <string name="detail_chart_steps">Cumulative Steps</string>
+
+    <string name="permission_rationale">Please select a provider app to allow communication with Pebble.</string>
+
+    <string name="notif_status_active">Tracking - Iron for pebble</string>
+    <string name="notif_status_paused">Paused - Iron for pebble</string>
+    <string name="notif_status_preparing">Searching GPS - Iron for pebble</string>
+    <string name="notif_status_ready">Ready - Iron for pebble</string>
+    <string name="notif_content_tracking">Tracking in progress</string>
+    <string name="notif_content_executing">Running: %s</string>
+    <string name="notif_content_current_state">Current state: %s</string>
+
+    <string name="activity_running">Running</string>
+    <string name="activity_walking">Walking</string>
+    <string name="activity_cycling">Cycling</string>
+    <string name="activity_hiking">Hiking</string>
+    <string name="activity_kayaking">Kayaking</string>
+    <string name="activity_rowing">Rowing</string>
+    <string name="activity_other">Other</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_device">Device Integration</string>
+    <string name="settings_pebble_app_title">Select Pebble Provider App</string>
+    <string name="settings_pebble_app_desc">Choose the app (Coreapp, Cobble, etc.) used for communication</string>
+    <string name="settings_button_configure">Configure</string>
+    <string name="settings_section_profile">User Profile</string>
+    <string name="settings_label_weight">Weight (kg)</string>
+    <string name="settings_label_weight_desc">Used for calculating calories burned during workouts</string>
+    <string name="settings_section_data">Data Integration</string>
+    <string name="settings_hc_title">Health Connect Settings</string>
+    <string name="settings_hc_desc">Sync your workout records (distance, route, heart rate, steps, calories) with other health apps. You can choose which data to sync in the following system settings.</string>
+    <string name="settings_hc_button_manage">Manage Permissions</string>
+    <string name="settings_hc_rationale_title">Health Connect Sync</string>
+    <string name="settings_hc_rationale_text">Permissions are required to sync workout records (heart rate, distance, route, steps, calories) with Health Connect.\n\nThis allows you to see Iron data in other health management apps.</string>
+    <string name="settings_hc_button_settings">To Settings</string>
+    <string name="settings_hc_notice_title">Notice Regarding Sync</string>
+    <string name="settings_hc_notice_1">Data is automatically written to Health Connect upon saving.</string>
+    <string name="settings_hc_notice_2">Deleting history in Iron will also delete the corresponding data in Health Connect.</string>
+    <string name="settings_hc_notice_3">Heart rate, steps, distance, and route information are synced.</string>
+    <string name="settings_hc_notice_4">Weight is used for calorie calculation.</string>
+    <string name="settings_hc_button_re_request">Re-request Permissions</string>
+    <string name="settings_section_about">About App</string>
+    <string name="settings_support_title">Support the Developer (Tips)</string>
+    <string name="settings_support_desc">This app is free and has no ads. If you like it, consider buying the developer a coffee or beer to support ongoing development! (It won\'t unlock features, but it greatly motivates me!)</string>
+    <string name="settings_support_thanks">Thank you for your support! It means a lot to me.</string>
+    <string name="settings_label_version">Version</string>
+    <string name="settings_label_license">Open Source Licenses</string>
+    <string name="settings_section_privacy">Privacy</string>
+    <string name="settings_privacy_map_title">Privacy Map Mode</string>
+    <string name="settings_privacy_map_desc">Hide map background, show only GPS track</string>
+    <string name="settings_section_music">Remote Control</string>
+    <string name="settings_music_title">Music Control</string>
+    <string name="settings_music_desc">Control phone music from your Pebble.\nOps: Double tap(Play/Pause), Up/Down swipe(Volume), Left/Right swipe(Track skip)\n* Please open your music app on the phone first. Also, enable pebbleOS touch operation on your Pebble watch.</string>
+    <string name="settings_touch_title">Touch Gesture Control</string>
+    <string name="settings_touch_desc">Enable music control via touch gestures (Pebble Time 2/Round)</string>
+
+    <string name="settings_section_automation">Automation Triggers</string>
+    <string name="settings_auto_title">Enable External Integration (Intent)</string>
+    <string name="settings_auto_desc">Sends Pebble operations and app state changes as "Intent signals". Use automation apps to build your own custom actions.</string>
+    <string name="settings_auto_state_info">State Change Event: \nhag1987haaa.pebble.iron.ACTION_STATE_CHANGED</string>
+    <string name="settings_auto_btn_50">UP Long Action: ACTION_LONGPRESS_UP</string>
+    <string name="settings_auto_btn_51">SELECT Long Action: ACTION_LONGPRESS_SELECT</string>
+    <string name="settings_auto_btn_52">DOWN Long Action: ACTION_LONGPRESS_DOWN</string>
+    <string name="settings_auto_copy_toast">Copied to clipboard</string>
+    <string name="settings_auto_footer_note">* Actions are triggered after long pressing for 2+ seconds and releasing.\n* State changes (state_name) include: IDLE, PREPARING, READY, ACTIVE, PAUSED, FINISHED, RESULT.</string>
+
+    <string name="share_gpx_chooser_title">Share GPX</string>
+
+    <string name="nav_home">Home</string>
+    <string name="nav_history">History</string>
+    <string name="nav_settings">Settings</string>
+
+    <string name="run_gps_fixed">GPS: FIXED</string>
+    <string name="run_gps_searching">GPS: SEARCHING...</string>
+    <string name="run_ready_to_start">READY TO START</string>
+    <string name="run_label_time">TIME</string>
+    <string name="run_label_km">KM</string>
+    <string name="run_label_pace">PACE</string>
+
+    <string name="run_btn_start_gps">Start GPS Search</string>
+    <string name="run_btn_cancel">Cancel</string>
+    <string name="run_btn_start_workout">Start Workout</string>
+    <string name="run_btn_pause">Pause</string>
+    <string name="run_btn_resume">Resume</string>
+    <string name="run_btn_finish">Finish</string>
+    <string name="run_btn_reset">Reset View</string>
+    <string name="run_status_processing">Processing...</string>
+
+    <string name="location_disclosure_title">Location Usage Disclosure</string>
+    <string name="location_disclosure_text">This app collects location data to record your workout route even when the app is closed or not in use.\n\nCollected data is used only for calculating distance, pace, and displaying your route on the map. We never share your data with third parties or use it for advertising.</string>
+    <string name="battery_optimization_title">Disable Battery Optimization</string>
+    <string name="battery_optimization_text">To ensure stable workout tracking, we recommend disabling system \"Battery Optimization\". This prevents the app from being terminated during long recording sessions.</string>
+    <string name="battery_optimization_button">Open Settings</string>
+
+    <string name="detail_sync_hc">Sync to Health Connect</string>
+    <string name="detail_sync_hc_update">Update Health Connect data</string>
+    <string name="detail_sync_hc_success">Synced to Health Connect!</string>
+    <string name="detail_sync_hc_already">Already synced to Health Connect</string>
+</resources>

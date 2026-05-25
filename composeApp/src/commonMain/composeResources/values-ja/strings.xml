@@ -1,0 +1,126 @@
+<resources>
+    <string name="app_name">Iron</string>
+    <string name="history_delete_title">履歴の削除</string>
+    <string name="history_delete_message">このワークアウト記録を削除してもよろしいですか？\n(Health Connect 連携時は同期データも削除されます)</string>
+    <string name="history_delete_confirm">削除</string>
+    <string name="history_delete_cancel">キャンセル</string>
+    <string name="history_list_item_run_prefix">Run: </string>
+    <string name="history_list_item_distance_prefix">Distance: </string>
+    <string name="history_export_button">データ出力</string>
+    <string name="history_import_button">データ取込</string>
+    <string name="history_backup_title">バックアップと復元</string>
+
+    <string name="detail_discard">破棄</string>
+    <string name="detail_save">保存</string>
+    <string name="detail_title_confirm">内容の確認</string>
+    <string name="detail_title_view">ワークアウト詳細</string>
+    <string name="detail_label_name">ワークアウト名</string>
+    <string name="detail_label_type">種別: %s</string>
+    <string name="detail_performance_analysis">パフォーマンス分析</string>
+    <string name="detail_stat_distance">距離</string>
+    <string name="detail_stat_time">時間</string>
+    <string name="detail_stat_elevation">上昇高度</string>
+    <string name="detail_stat_calories">カロリー</string>
+    <string name="detail_stat_steps">歩数</string>
+    <string name="detail_chart_altitude">高度 (m)</string>
+    <string name="detail_chart_heart_rate">心拍数 (bpm)</string>
+    <string name="detail_chart_speed">速度 (km/h)</string>
+    <string name="detail_chart_steps">累積歩数</string>
+
+    <string name="permission_rationale">Pebble との通信を許可するために、管理アプリを選択してください。</string>
+
+    <string name="notif_status_active">計測中 - Iron for pebble</string>
+    <string name="notif_status_paused">一時停止中 - Iron for pebble</string>
+    <string name="notif_status_preparing">GPS 検索中 - Iron for pebble</string>
+    <string name="notif_status_ready">開始準備完了 - Iron for pebble</string>
+    <string name="notif_content_tracking">トラッキングを継続中</string>
+    <string name="notif_content_executing">実行中: %s</string>
+    <string name="notif_content_current_state">現在の状態: %s</string>
+
+    <string name="activity_running">ランニング</string>
+    <string name="activity_walking">ウォーキング</string>
+    <string name="activity_cycling">サイクリング</string>
+    <string name="activity_hiking">ハイキング</string>
+    <string name="activity_kayaking">カヤック</string>
+    <string name="activity_rowing">ボート</string>
+    <string name="activity_other">その他</string>
+
+    <string name="settings_title">設定</string>
+    <string name="settings_section_device">デバイス連携</string>
+    <string name="settings_pebble_app_title">Pebble 管理アプリの選択</string>
+    <string name="settings_pebble_app_desc">通信に使用するアプリ（Coreapp/Cobble等）を指定します</string>
+    <string name="settings_button_configure">設定</string>
+    <string name="settings_section_profile">ユーザープロファイル</string>
+    <string name="settings_label_weight">体重 (kg)</string>
+    <string name="settings_label_weight_desc">ワークアウト中の消費カロリー計算に使用されます</string>
+    <string name="settings_section_data">データ連携</string>
+    <string name="settings_hc_title">Health Connect 連携の設定</string>
+    <string name="settings_hc_desc">ワークアウト記録（距離、ルート、心拍数、歩数、カロリー）を他の健康管理アプリと同期します。同期する項目は、次の画面のシステム設定で個別に選択できます。</string>
+    <string name="settings_hc_button_manage">権限を管理・設定する</string>
+    <string name="settings_hc_rationale_title">Health Connect 連携</string>
+    <string name="settings_hc_rationale_text">ワークアウト記録（心拍数、距離、ルート、歩数、カロリー）を Health Connect と同期するために、次の画面で権限の許可が必要です。\n\nこれにより、他の健康管理アプリでも Iron のデータを確認できるようになります。</string>
+    <string name="settings_hc_button_settings">設定へ</string>
+    <string name="settings_hc_notice_title">同期に関するお知らせ</string>
+    <string name="settings_hc_notice_1">保存時、自動的に Health Connect へデータを書き込みます。</string>
+    <string name="settings_hc_notice_2">Iron で履歴を削除すると、Health Connect 側の該当データも自動的に削除されます。</string>
+    <string name="settings_hc_notice_3">心拍数、歩数、距離、ルート情報が同期対象です。</string>
+    <string name="settings_hc_notice_4">体重は消費カロリーの計算に使用されます。</string>
+    <string name="settings_hc_button_re_request">権限を再リクエストする</string>
+    <string name="settings_section_about">アプリについて</string>
+    <string name="settings_support_title">開発者を応援する (チップ)</string>
+    <string name="settings_support_desc">このアプリは無料で広告もありません。もし気に入っていただけたら、開発者にコーヒーやビールをおごって応援しませんか？（機能は変わりませんが、開発の大きな励みになります！）</string>
+    <string name="settings_support_thanks">応援ありがとうございます！制作の励みにさせていただきます。</string>
+    <string name="settings_label_version">バージョン</string>
+    <string name="settings_label_license">オープンソースライセンス</string>
+    <string name="settings_section_privacy">プライバシー</string>
+    <string name="settings_privacy_map_title">プライバシーマップ</string>
+    <string name="settings_privacy_map_desc">地図背景を隠し、GPS軌跡のみを表示します</string>
+    <string name="settings_section_music">リモートコントロール</string>
+    <string name="settings_music_title">音楽コントロール</string>
+    <string name="settings_music_desc">Pebble からスマホの音楽を操作します。\n操作：画面ダブルタップ(再生停止)、上下スワイプ(音量)、左右スワイプ(曲送り)\n※スマートフォン側で音楽アプリを前もって起動しておいてください。また、Pebble ウォッチ側で pebbleOS のタッチ操作を有効化してください。</string>
+    <string name="settings_touch_title">タッチジェスチャー操作</string>
+    <string name="settings_touch_desc">画面のタッチで音楽を操作します（対応機種のみ）</string>
+
+    <string name="settings_section_automation">自動化アプリ連携トリガー</string>
+    <string name="settings_auto_title">外部連携（インテント）を有効にする</string>
+    <string name="settings_auto_desc">Pebble の操作やアプリの状態変化を「インテント信号」として送信します。自動化アプリでこれを受信することで、独自の動作を組み込むことが可能です。</string>
+    <string name="settings_auto_state_info">状態変化イベント：\nhag1987haaa.pebble.iron.ACTION_STATE_CHANGED</string>
+    <string name="settings_auto_btn_50">UP長押し連携：ACTION_LONGPRESS_UP</string>
+    <string name="settings_auto_btn_51">SELECT長押し連携：ACTION_LONGPRESS_SELECT</string>
+    <string name="settings_auto_btn_52">DOWN長押し連携：ACTION_LONGPRESS_DOWN</string>
+    <string name="settings_auto_copy_toast">クリップボードにコピーしました</string>
+    <string name="settings_auto_footer_note">※各ボタンの連携は2秒以上長押しして指を離した際に送信されます。\n※状態変化（state_name）には IDLE, PREPARING, READY, ACTIVE, PAUSED, FINISHED, RESULT が含まれます。</string>
+
+    <string name="share_gpx_chooser_title">GPX を共有</string>
+
+    <string name="nav_home">ホーム</string>
+    <string name="nav_history">履歴</string>
+    <string name="nav_settings">設定</string>
+
+    <string name="run_gps_fixed">GPS: 測位済み</string>
+    <string name="run_gps_searching">GPS: 検索中...</string>
+    <string name="run_ready_to_start">準備完了</string>
+    <string name="run_label_time">TIME</string>
+    <string name="run_label_km">KM</string>
+    <string name="run_label_pace">PACE</string>
+
+    <string name="run_btn_start_gps">GPS サーチ開始</string>
+    <string name="run_btn_cancel">キャンセル</string>
+    <string name="run_btn_start_workout">ワークアウト開始</string>
+    <string name="run_btn_pause">一時停止</string>
+    <string name="run_btn_resume">再開</string>
+    <string name="run_btn_finish">計測終了</string>
+    <string name="run_btn_reset">ワークアウトリセット</string>
+    <string name="run_status_processing">処理中...</string>
+
+    <string name="location_disclosure_title">位置情報の利用について</string>
+    <string name="location_disclosure_text">このアプリは、ワークアウトのルートを記録するために、アプリが閉じているときや使用されていないときでも位置情報を収集します。\n\n収集されたデータは走行距離やペースの計算、および地図への表示のみに使用され、外部への共有や広告への利用は一切行いません。</string>
+    <string name="battery_optimization_title">バッテリー最適化の解除</string>
+    <string name="battery_optimization_text">ワークアウトの計測を安定させるために、システムの「バッテリー最適化」を解除することをお勧めします。これにより、長時間計測してもアプリが強制終了されにくくなります。</string>
+    <string name="battery_optimization_button">設定画面を開く</string>
+
+    <string name="detail_sync_hc">Health Connect に同期</string>
+    <string name="detail_sync_hc_update">Health Connect のデータを更新</string>
+    <string name="detail_sync_hc_success">Health Connect に同期しました！</string>
+    <string name="detail_sync_hc_already">すでに Health Connect に同期済みです</string>
+</resources>

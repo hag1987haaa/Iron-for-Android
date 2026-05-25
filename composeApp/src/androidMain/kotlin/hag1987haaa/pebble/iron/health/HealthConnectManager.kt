@@ -1,0 +1,155 @@
+package hag1987haaa.pebble.iron.health
+
+import android.content.Context
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.*
+import androidx.health.connect.client.units.*
+import hag1987haaa.pebble.iron.domain.model.ActivityType
+import hag1987haaa.pebble.iron.domain.model.RunActivity
+import kotlinx.datetime.toJavaInstant
+import java.time.ZoneOffset
+
+class HealthConnectManager(private val context: Context) {
+
+    private val healthConnectClient by lazy { HealthConnectClient.getOrCreate(context) }
+    
+    fun isSdkAvailable(): Boolean {
+        return HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
+    }
+
+    // 権限セットを定義（書き込み権限のみに制限）
+    val permissions = setOf(
+        HealthPermission.getWritePermission(ExerciseSessionRecord::class),
+        HealthPermission.getWritePermission(HeartRateRecord::class),
+        HealthPermission.getWritePermission(StepsRecord::class),
+        HealthPermission.getWritePermission(DistanceRecord::class),
+        HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class),
+        // 運動ルート権限 (Android 14+ で詳細なマップ表示に必須)
+        "android.permission.health.WRITE_EXERCISE_ROUTE"
+    )
+
+    suspend fun hasAllPermissions(): Boolean {
+        val granted = healthConnectClient.permissionController.getGrantedPermissions()
+        return granted.containsAll(permissions)
+    }
+
+    suspend fun writeRunActivity(run: RunActivity): String? {
+        try {
+            if (!hasAllPermissions()) return null
+
+            val startTime = run.startTime.toJavaInstant()
+            val endTime = (run.endTime ?: run.startTime).toJavaInstant()
+            val zoneOffset = ZoneOffset.systemDefault().rules.getOffset(startTime)
+
+            // 1. 運動ルートの作成
+            val exerciseRoute = if (run.route.isNotEmpty()) {
+                ExerciseRoute(
+                    route = run.route.map {
+                        ExerciseRoute.Location(
+                            time = it.timestamp.toJavaInstant(),
+                            latitude = it.latitude,
+                            longitude = it.longitude,
+                            altitude = it.altitude?.let { a -> Length.meters(a) }
+                        )
+                    }
+                )
+            } else null
+
+            // 2. エクササイズセッションの作成
+            val exerciseType = when (run.type) {
+                ActivityType.RUNNING -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING
+                ActivityType.WALKING -> ExerciseSessionRecord.EXERCISE_TYPE_WALKING
+                ActivityType.CYCLING -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING
+                ActivityType.HIKING -> ExerciseSessionRecord.EXERCISE_TYPE_HIKING
+                ActivityType.KAYAKING -> ExerciseSessionRecord.EXERCISE_TYPE_PADDLING
+                ActivityType.ROWING -> ExerciseSessionRecord.EXERCISE_TYPE_ROWING
+                ActivityType.OTHER -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            }
+
+            val sessionRecord = ExerciseSessionRecord(
+                startTime = startTime,
+                startZoneOffset = zoneOffset,
+                endTime = endTime,
+                endZoneOffset = zoneOffset,
+                exerciseType = exerciseType,
+                title = run.name ?: "Workout",
+                notes = "Recorded via Iron for pebble",
+                exerciseRoute = exerciseRoute
+            )
+
+            // 3. 距離データの作成
+            val distanceRecord = DistanceRecord(
+                startTime = startTime,
+                startZoneOffset = zoneOffset,
+                endTime = endTime,
+                endZoneOffset = zoneOffset,
+                distance = Length.meters(run.distanceMeters)
+            )
+
+            // 4. 心拍数データの作成
+            val samples = run.route.filter { it.heartRate != null }.map {
+                HeartRateRecord.Sample(
+                    time = it.timestamp.toJavaInstant(),
+                    beatsPerMinute = it.heartRate!!.toLong()
+                )
+            }
+            val heartRateRecord = if (samples.isNotEmpty()) {
+                HeartRateRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset,
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset,
+                    samples = samples
+                )
+            } else null
+
+            // 5. カロリーデータの作成 (運動による消費カロリーとして記録)
+            val caloriesRecord = run.calories?.let {
+                ActiveCaloriesBurnedRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset,
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset,
+                    energy = Energy.kilocalories(it)
+                )
+            }
+
+            // 6. 歩数データの作成
+            val stepsRecord = run.steps?.let {
+                StepsRecord(
+                    count = it.toLong(),
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset,
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset
+                )
+            }
+
+            val records = mutableListOf<Record>(sessionRecord, distanceRecord)
+            heartRateRecord?.let { records.add(it) }
+            caloriesRecord?.let { records.add(it) }
+            stepsRecord?.let { records.add(it) }
+            
+            android.util.Log.d("HealthConnect", "Inserting ${records.size} records for session: ${run.name}")
+            val response = healthConnectClient.insertRecords(records)
+            return response.recordIdsList.firstOrNull()
+        } catch (e: Exception) {
+            android.util.Log.e("HealthConnect", "Write failed", e)
+            return null
+        }
+    }
+
+    suspend fun deleteRunActivity(healthConnectId: String) {
+        try {
+            healthConnectClient.deleteRecords(
+                ExerciseSessionRecord::class,
+                recordIdsList = listOf(healthConnectId),
+                clientRecordIdsList = emptyList()
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("HealthConnect", "Delete failed", e)
+        }
+    }
+}

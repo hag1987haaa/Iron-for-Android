@@ -1,0 +1,79 @@
+-- Database Schema version 4 (Force Refresh)
+CREATE TABLE RunEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    type TEXT NOT NULL DEFAULT 'RUNNING',
+    startTime TEXT NOT NULL,
+    endTime TEXT,
+    distanceMeters REAL NOT NULL DEFAULT 0.0,
+    durationSeconds INTEGER NOT NULL DEFAULT 0,
+    averagePaceSecondsPerKm REAL NOT NULL DEFAULT 0.0,
+    calories REAL,
+    steps INTEGER,
+    avgHeartRate REAL,
+    maxHeartRate REAL,
+    elevationGain REAL,
+    healthConnectId TEXT
+);
+
+CREATE TABLE LocationEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    runId INTEGER NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    altitude REAL,
+    speed REAL,
+    heartRate INTEGER,
+    steps INTEGER,
+    timestamp TEXT NOT NULL,
+    FOREIGN KEY (runId) REFERENCES RunEntity(id) ON DELETE CASCADE
+);
+
+insertRun:
+INSERT INTO RunEntity(name, type, startTime) VALUES (?, ?, ?);
+
+lastInsertId:
+SELECT last_insert_rowid();
+
+updateRun:
+UPDATE RunEntity SET
+    name = ?,
+    endTime = ?,
+    distanceMeters = ?,
+    durationSeconds = ?,
+    averagePaceSecondsPerKm = ?,
+    calories = ?,
+    steps = ?,
+    avgHeartRate = ?,
+    maxHeartRate = ?,
+    elevationGain = ?,
+    healthConnectId = ?
+WHERE id = ?;
+
+updateHealthConnectId:
+UPDATE RunEntity SET healthConnectId = ? WHERE id = ?;
+
+updateRunName:
+UPDATE RunEntity SET name = ? WHERE id = ?;
+
+updateActivityType:
+UPDATE RunEntity SET type = ? WHERE id = ?;
+
+updateActivityTypeAndCalories:
+UPDATE RunEntity SET type = ?, calories = ? WHERE id = ?;
+
+insertLocation:
+INSERT INTO LocationEntity(runId, latitude, longitude, altitude, speed, heartRate, steps, timestamp)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+getAllRuns:
+SELECT * FROM RunEntity ORDER BY startTime DESC;
+
+getLocationsForRun:
+SELECT * FROM LocationEntity WHERE runId = ? ORDER BY timestamp ASC;
+
+deleteRun:
+DELETE FROM RunEntity WHERE id = ?;
+
+deleteLocationsForRun:
+DELETE FROM LocationEntity WHERE runId = ?;
