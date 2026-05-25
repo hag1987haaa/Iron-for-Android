@@ -53,7 +53,7 @@ If you have any questions regarding this privacy policy, please contact us at: h
 
 ---
 
-# Iron for Pebble (日本語) 🇯🇵
+# Iron for Android (日本語) 🇯🇵
 
 『Iron』は、Pebbleスマートウォッチと連携し、あなたのワークアウトデータを強力にサポートする専用Androidアプリです。
 
