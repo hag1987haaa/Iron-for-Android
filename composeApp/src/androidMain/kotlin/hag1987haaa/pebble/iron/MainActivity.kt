@@ -31,6 +31,8 @@ import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.presentation.AndroidPebblePermissionDialogProvider
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
 import hag1987haaa.pebble.iron.presentation.AppActions
 import hag1987haaa.pebble.iron.presentation.LocalPebblePermissionDialog
 import hag1987haaa.pebble.iron.service.TrackingService
@@ -55,7 +57,7 @@ class MainActivity : ComponentActivity() {
     ) { _ -> }
 
     private val healthPermissionLauncher = registerForActivityResult(
-        androidx.health.connect.client.PermissionController.createRequestPermissionResultContract()
+        PermissionController.createRequestPermissionResultContract()
     ) { granted ->
         Log.d("MainActivity", "Health Connect granted: $granted")
         if (granted.isEmpty()) {
@@ -211,10 +213,10 @@ class MainActivity : ComponentActivity() {
 
             override fun requestHealthPermissions() {
                 val manager = AndroidDependencies.healthConnectManager
-                val sdkStatus = androidx.health.connect.client.HealthConnectClient.getSdkStatus(this@MainActivity)
+                val sdkStatus = HealthConnectClient.getSdkStatus(this@MainActivity)
                 
                 when (sdkStatus) {
-                    androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE -> {
+                    HealthConnectClient.SDK_AVAILABLE -> {
                         lifecycleScope.launch {
                             if (manager.hasAllPermissions()) {
                                 openHealthConnectSettings()
@@ -227,7 +229,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    androidx.health.connect.client.HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> {
+                    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> {
                         val providerPackageName = "com.google.android.apps.healthdata"
                         val uriString = "market://details?id=$providerPackageName&url=healthconnect%3A%2F%2Fonboarding"
                         try {
@@ -249,7 +251,7 @@ class MainActivity : ComponentActivity() {
 
             private fun openHealthConnectSettings() {
                 try {
-                    val intent = Intent(androidx.health.connect.client.HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
+                    val intent = Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
                     startActivity(intent)
                 } catch (_: Exception) {
                     Log.e("MainActivity", "Failed to open Health Connect settings")
@@ -411,7 +413,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkBatteryOptimization() {
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val powerManager = getSystemService(PowerManager::class.java)
         if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
             if (!showLocationDisclosure) {
                 showBatteryOptimizationDialog = true
