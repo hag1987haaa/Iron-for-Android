@@ -13,7 +13,10 @@ import hag1987haaa.pebble.iron.db.DatabaseDriverFactory
 
 object AndroidDependencies {
     private var isInitialized = false
-    lateinit var healthConnectManager: HealthConnectManager
+    private var _healthConnectManager: HealthConnectManager? = null
+
+    val healthConnectManager: HealthConnectManager
+        get() = _healthConnectManager ?: throw IllegalStateException("AndroidDependencies not initialized")
 
     fun initialize(context: Context) {
         if (isInitialized) return
@@ -50,7 +53,7 @@ object AndroidDependencies {
         }
         // ------------------------------------------
 
-        healthConnectManager = HealthConnectManager(appContext)
+        _healthConnectManager = HealthConnectManager(appContext)
         
         // DatabaseDriverFactory を使用して暗号化対応のドライバーを作成
         val driver = DatabaseDriverFactory(appContext).createDriver()
