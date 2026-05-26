@@ -5,39 +5,45 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
-import org.jetbrains.compose.resources.stringResource
-import hag1987haaa.pebble.iron.presentation.AppActions
-import hag1987haaa.pebble.iron.presentation.LocalPebblePermissionDialog
-import hag1987haaa.pebble.iron.presentation.AndroidPebblePermissionDialogProvider
-import hag1987haaa.pebble.iron.service.TrackingService
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.tracker.RunState
-import hag1987haaa.pebble.iron.util.HealthUtils
+import hag1987haaa.pebble.iron.presentation.AndroidPebblePermissionDialogProvider
+import hag1987haaa.pebble.iron.presentation.AppActions
+import hag1987haaa.pebble.iron.presentation.LocalPebblePermissionDialog
+import hag1987haaa.pebble.iron.service.TrackingService
 import hag1987haaa.pebble.iron.util.GpxExporter
+import hag1987haaa.pebble.iron.util.HealthUtils
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import java.io.File
-import androidx.core.content.FileProvider
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.decodeFromString
+import org.jetbrains.compose.resources.stringResource
+import java.io.File
 
 class MainActivity : ComponentActivity() {
 
@@ -51,9 +57,9 @@ class MainActivity : ComponentActivity() {
     private val healthPermissionLauncher = registerForActivityResult(
         androidx.health.connect.client.PermissionController.createRequestPermissionResultContract()
     ) { granted ->
-        android.util.Log.d("MainActivity", "Health Connect granted: $granted")
+        Log.d("MainActivity", "Health Connect granted: $granted")
         if (granted.isEmpty()) {
-            android.util.Log.w("MainActivity", "No permissions granted.")
+            Log.w("MainActivity", "No permissions granted.")
         }
     }
 
@@ -61,14 +67,14 @@ class MainActivity : ComponentActivity() {
         uri?.let {
             lifecycleScope.launch {
                 try {
-                    val content = contentResolver.openInputStream(it)?.bufferedReader()?.use { it.readText() }
+                    val content = contentResolver.openInputStream(it)?.bufferedReader()?.use { br -> br.readText() }
                     if (content != null) {
                         val runs = Json.decodeFromString<List<RunActivity>>(content)
                         KmpDependencies.runRepository.importRuns(runs)
-                        android.util.Log.i("MainActivity", "Imported ${runs.size} workouts successfully.")
+                        Log.i("MainActivity", "Imported ${runs.size} workouts successfully.")
                     }
                 } catch (_: Exception) {
-                    android.util.Log.e("MainActivity", "Import failed")
+                    Log.e("MainActivity", "Import failed")
                 }
             }
         }
@@ -86,14 +92,14 @@ class MainActivity : ComponentActivity() {
             }
 
             private fun sendCommand(action: String) {
-                android.util.Log.d("MainActivity", "Sending command: $action")
+                Log.d("MainActivity", "Sending command: $action")
                 try {
                     val intent = Intent(this@MainActivity, TrackingService::class.java).apply { 
                         this.action = action 
                     }
                     startForegroundService(intent)
                 } catch (e: Exception) {
-                    android.util.Log.e("MainActivity", "Failed to send command", e)
+                    Log.e("MainActivity", "Failed to send command", e)
                 }
             }
 
@@ -104,7 +110,7 @@ class MainActivity : ComponentActivity() {
             override fun finishTracking() = sendCommand("FINISH")
             
             override fun saveTracking() {
-                val stats = RunState.currentStats.value // 非同期処理に入る前に現在のデータを確実にキャプチャ
+                val stats = RunState.currentStats.value
                 lifecycleScope.launch {
                     try {
                         val settings = KmpDependencies.appSettings
@@ -135,24 +141,21 @@ class MainActivity : ComponentActivity() {
                             route = stats.route
                         )
 
-                        // Health Connect 同期を常に試行 (権限がなければ HealthConnectManager 側でスキップされる)
                         var hcId: String? = null
                         try {
                             hcId = AndroidDependencies.healthConnectManager.writeRunActivity(run)
                             if (hcId != null) {
-                                android.util.Log.d("MainActivity", "Health Connect synced ID: $hcId")
+                                Log.d("MainActivity", "Health Connect synced ID: $hcId")
                             }
-                        } catch (e: Exception) {
-                            android.util.Log.e("MainActivity", "Health Connect sync failed", e)
+                        } catch (_: Exception) {
+                            Log.e("MainActivity", "Health Connect sync failed")
                         }
 
-                        // データベース保存
                         KmpDependencies.runRepository.saveRun(run.copy(healthConnectId = hcId))
-                        android.util.Log.i("MainActivity", "Workout saved successfully.")
+                        Log.i("MainActivity", "Workout saved successfully.")
                     } catch (e: Exception) {
-                        android.util.Log.e("MainActivity", "FAILED TO SAVE WORKOUT", e)
+                        Log.e("MainActivity", "FAILED TO SAVE WORKOUT", e)
                     } finally {
-                        // 保存後はリザルト表示モード（RESULT）へ移行させ、データを保持する
                         sendCommand("SAVE_TO_RESULT")
                     }
                 }
@@ -165,20 +168,17 @@ class MainActivity : ComponentActivity() {
                 lifecycleScope.launch {
                     try {
                         val manager = AndroidDependencies.healthConnectManager
-                        // 1. もしすでに同期済みIDがあるなら、古いデータを削除（上書きの準備）
                         run.healthConnectId?.let { oldId ->
                             try {
                                 manager.deleteRunActivity(oldId)
-                                android.util.Log.d("MainActivity", "Old HC record deleted: $oldId")
+                                Log.d("MainActivity", "Old HC record deleted: $oldId")
                             } catch (_: Exception) {
-                                android.util.Log.w("MainActivity", "Failed to delete old HC record, continuing...")
+                                Log.w("MainActivity", "Failed to delete old HC record, continuing...")
                             }
                         }
 
-                        // 2. 最新のデータ（再計算後のカロリー等）を書き込む
                         val hcId = manager.writeRunActivity(run)
                         if (hcId != null) {
-                            // 重要：同期に成功したら、既存のレコードの ID を更新する（新規保存しない！）
                             val runId = run.id
                             if (runId != 0L) {
                                 KmpDependencies.runRepository.updateHealthConnectId(runId, hcId)
@@ -188,7 +188,7 @@ class MainActivity : ComponentActivity() {
                             onComplete(false)
                         }
                     } catch (_: Exception) {
-                        android.util.Log.e("MainActivity", "Manual HC sync failed")
+                        Log.e("MainActivity", "Manual HC sync failed")
                         onComplete(false)
                     }
                 }
@@ -199,11 +199,10 @@ class MainActivity : ComponentActivity() {
                     val run = KmpDependencies.runRepository.getRunDetails(id)
                     val hcId = run?.healthConnectId
                     if (hcId != null) {
-                        // 同期済みデータがあれば Health Connect 側も削除を試みる
                         try {
                             AndroidDependencies.healthConnectManager.deleteRunActivity(hcId)
                         } catch (_: Exception) {
-                            android.util.Log.e("MainActivity", "Failed to delete from HC")
+                            Log.e("MainActivity", "Failed to delete from HC")
                         }
                     }
                     KmpDependencies.runRepository.deleteRun(id)
@@ -218,21 +217,17 @@ class MainActivity : ComponentActivity() {
                     androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE -> {
                         lifecycleScope.launch {
                             if (manager.hasAllPermissions()) {
-                                // すべて許可済みの場合は、管理画面を開いて確認してもらう
                                 openHealthConnectSettings()
                             } else {
-                                // 未許可がある場合はリクエストを試みる
                                 try {
                                     healthPermissionLauncher.launch(manager.permissions)
-                                } catch (e: Exception) {
-                                    // リクエストがブロックされる場合は設定画面を直接開く
+                                } catch (_: Exception) {
                                     openHealthConnectSettings()
                                 }
                             }
                         }
                     }
                     androidx.health.connect.client.HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> {
-                        // (既存のアップデート処理)
                         val providerPackageName = "com.google.android.apps.healthdata"
                         val uriString = "market://details?id=$providerPackageName&url=healthconnect%3A%2F%2Fonboarding"
                         try {
@@ -247,7 +242,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     else -> {
-                        android.util.Log.w("MainActivity", "Health Connect SDK not available")
+                        Log.w("MainActivity", "Health Connect SDK not available")
                     }
                 }
             }
@@ -257,7 +252,7 @@ class MainActivity : ComponentActivity() {
                     val intent = Intent(androidx.health.connect.client.HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
                     startActivity(intent)
                 } catch (_: Exception) {
-                    android.util.Log.e("MainActivity", "Failed to open Health Connect settings")
+                    Log.e("MainActivity", "Failed to open Health Connect settings")
                 }
             }
 
@@ -265,7 +260,6 @@ class MainActivity : ComponentActivity() {
                 lifecycleScope.launch {
                     try {
                         val gpxContent = GpxExporter.export(run)
-                        
                         val localTime = run.startTime.toLocalDateTime(TimeZone.currentSystemDefault())
                         val dateStr = "${localTime.year}${localTime.monthNumber.toString().padStart(2, '0')}${localTime.dayOfMonth.toString().padStart(2, '0')}"
                         val timeStr = "${localTime.hour.toString().padStart(2, '0')}${localTime.minute.toString().padStart(2, '0')}${localTime.second.toString().padStart(2, '0')}"
@@ -288,7 +282,7 @@ class MainActivity : ComponentActivity() {
                         }
                         startActivity(Intent.createChooser(intent, getString(R.string.share_gpx_chooser_title)))
                     } catch (_: Exception) {
-                        android.util.Log.e("MainActivity", "GPX export failed")
+                        Log.e("MainActivity", "GPX export failed")
                     }
                 }
             }
@@ -298,7 +292,6 @@ class MainActivity : ComponentActivity() {
                     try {
                         val allRuns = KmpDependencies.runRepository.getAllRunsWithDetails()
                         val jsonContent = Json.encodeToString(allRuns)
-                        
                         val fileName = "iron_backup_${System.currentTimeMillis()}.json"
                         val cacheFile = File(cacheDir, fileName)
                         cacheFile.writeText(jsonContent)
@@ -316,7 +309,7 @@ class MainActivity : ComponentActivity() {
                         }
                         startActivity(Intent.createChooser(intent, "ワークアウトデータをエクスポート"))
                     } catch (_: Exception) {
-                        android.util.Log.e("MainActivity", "Export failed")
+                        Log.e("MainActivity", "Export failed")
                     }
                 }
             }
@@ -346,7 +339,6 @@ class MainActivity : ComponentActivity() {
                                 if (missing.isNotEmpty()) {
                                     requestPermissionLauncher.launch(missing.toTypedArray())
                                 }
-                                // 位置情報の説明が終わった後に、バッテリー最適化のチェックを再実行
                                 checkBatteryOptimization()
                             }) {
                                 Text("OK")
@@ -407,7 +399,6 @@ class MainActivity : ComponentActivity() {
         }
 
         if (missingPermissions.isNotEmpty()) {
-            // 位置情報が含まれる場合はディスクロージャーを表示
             if (missingPermissions.contains(Manifest.permission.ACCESS_FINE_LOCATION) ||
                 missingPermissions.contains(Manifest.permission.ACCESS_COARSE_LOCATION)) {
                 showLocationDisclosure = true
@@ -422,7 +413,6 @@ class MainActivity : ComponentActivity() {
     private fun checkBatteryOptimization() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-            // 他の重要なダイアログ（位置情報の説明）が表示されていない場合のみ表示
             if (!showLocationDisclosure) {
                 showBatteryOptimizationDialog = true
             }
@@ -431,20 +421,18 @@ class MainActivity : ComponentActivity() {
 
     @SuppressLint("BatteryLife")
     private fun openBatteryOptimizationSettings() {
-        // 直接設定ダイアログを開く試み
         val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
             data = "package:$packageName".toUri()
         }
         try {
             startActivity(intent)
         } catch (_: Exception) {
-            android.util.Log.e("MainActivity", "Failed to open direct battery settings, falling back to list.")
-            // 失敗した場合は、ユーザーに手動でアプリを探してもらう設定一覧画面を開く
+            Log.e("MainActivity", "Failed to open direct battery settings, falling back to list.")
             val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             try {
                 startActivity(fallbackIntent)
             } catch (_: Exception) {
-                android.util.Log.e("MainActivity", "Total failure to open battery settings")
+                Log.e("MainActivity", "Total failure to open battery settings")
             }
         }
     }
@@ -452,7 +440,7 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("InlinedApi")
     private fun checkBackgroundLocationPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            android.util.Log.i("MainActivity", "Requesting Background Location Permission")
+            Log.i("MainActivity", "Requesting Background Location Permission")
             requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
         }
     }
