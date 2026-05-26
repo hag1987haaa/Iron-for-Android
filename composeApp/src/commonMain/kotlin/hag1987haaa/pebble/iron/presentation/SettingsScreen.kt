@@ -42,8 +42,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
     val scrollState = rememberScrollState()
 
     // Android ターゲットのみ Pebble 権限ダイアログを表示
-    @Suppress("OVERLOAD_RESOLUTION_AMBIGUITY")
-    PlatformPebblePermissionDialog(
+    hag1987haaa.pebble.iron.presentation.PlatformPebblePermissionDialog(
         show = showPebbleDialog,
         onDismiss = { setShowPebbleDialog(false) }
     )
