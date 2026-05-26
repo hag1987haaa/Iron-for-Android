@@ -1,3 +1,4 @@
+@file:Suppress("SpellCheckingInspection")
 package hag1987haaa.pebble.iron.presentation
 
 import androidx.compose.foundation.clickable
@@ -5,14 +6,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,14 +38,14 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
     val isCmd52Enabled by viewModel.isCommand52Enabled.collectAsState()
     val isPrivacyMapEnabled by viewModel.isPrivacyMapModeEnabled.collectAsState()
     val userWeight by viewModel.userWeight.collectAsState()
-    var showPebbleDialog by remember { mutableStateOf(false) }
+    val (showPebbleDialog, setShowPebbleDialog) = remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
     // Android ターゲットのみ Pebble 権限ダイアログを表示
     @Suppress("OVERLOAD_RESOLUTION_AMBIGUITY")
     PlatformPebblePermissionDialog(
         show = showPebbleDialog,
-        onDismiss = { showPebbleDialog = false }
+        onDismiss = { setShowPebbleDialog(false) }
     )
 
     Scaffold(
@@ -183,6 +184,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                     }
 
                     if (isAutoEnabled) {
+                        @Suppress("DEPRECATION")
                         val clipboardManager = LocalClipboardManager.current
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                         
@@ -277,7 +279,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                     supportingContent = { Text(stringResource(Res.string.settings_pebble_app_desc)) },
                     leadingContent = { Icon(Icons.Default.Settings, contentDescription = null) },
                     trailingContent = {
-                        TextButton(onClick = { showPebbleDialog = true }) {
+                        TextButton(onClick = { setShowPebbleDialog(true) }) {
                             Text(stringResource(Res.string.settings_button_configure))
                         }
                     }
@@ -315,6 +317,7 @@ private fun AutomationToggle(
     checked: Boolean, 
     onCheckedChange: (Boolean) -> Unit
 ) {
+    @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
     
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
