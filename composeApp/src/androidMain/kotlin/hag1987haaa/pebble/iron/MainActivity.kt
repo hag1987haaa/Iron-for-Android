@@ -1,6 +1,7 @@
 package hag1987haaa.pebble.iron
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -66,7 +67,7 @@ class MainActivity : ComponentActivity() {
                         KmpDependencies.runRepository.importRuns(runs)
                         android.util.Log.i("MainActivity", "Imported ${runs.size} workouts successfully.")
                     }
-                } catch (ignored: Exception) {
+                } catch (_: Exception) {
                     android.util.Log.e("MainActivity", "Import failed")
                 }
             }
@@ -169,7 +170,7 @@ class MainActivity : ComponentActivity() {
                             try {
                                 manager.deleteRunActivity(oldId)
                                 android.util.Log.d("MainActivity", "Old HC record deleted: $oldId")
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 android.util.Log.w("MainActivity", "Failed to delete old HC record, continuing...")
                             }
                         }
@@ -186,8 +187,8 @@ class MainActivity : ComponentActivity() {
                         } else {
                             onComplete(false)
                         }
-                    } catch (e: Exception) {
-                        android.util.Log.e("MainActivity", "Manual HC sync failed", e)
+                    } catch (_: Exception) {
+                        android.util.Log.e("MainActivity", "Manual HC sync failed")
                         onComplete(false)
                     }
                 }
@@ -201,8 +202,8 @@ class MainActivity : ComponentActivity() {
                         // 同期済みデータがあれば Health Connect 側も削除を試みる
                         try {
                             AndroidDependencies.healthConnectManager.deleteRunActivity(hcId)
-                        } catch (e: Exception) {
-                            android.util.Log.e("MainActivity", "Failed to delete from HC", e)
+                        } catch (_: Exception) {
+                            android.util.Log.e("MainActivity", "Failed to delete from HC")
                         }
                     }
                     KmpDependencies.runRepository.deleteRun(id)
@@ -237,12 +238,12 @@ class MainActivity : ComponentActivity() {
                         try {
                             startActivity(Intent(Intent.ACTION_VIEW).apply {
                                 setPackage("com.android.vending")
-                                data = android.net.Uri.parse(uriString)
+                                data = uriString.toUri()
                                 putExtra("overlay", true)
                                 putExtra("callerId", packageName)
                             })
-                        } catch (e: Exception) {
-                            startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(uriString)))
+                        } catch (_: Exception) {
+                            startActivity(Intent(Intent.ACTION_VIEW, uriString.toUri()))
                         }
                     }
                     else -> {
@@ -255,8 +256,8 @@ class MainActivity : ComponentActivity() {
                 try {
                     val intent = Intent(androidx.health.connect.client.HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
                     startActivity(intent)
-                } catch (e: Exception) {
-                    android.util.Log.e("MainActivity", "Failed to open Health Connect settings", e)
+                } catch (_: Exception) {
+                    android.util.Log.e("MainActivity", "Failed to open Health Connect settings")
                 }
             }
 
@@ -286,8 +287,8 @@ class MainActivity : ComponentActivity() {
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
                         startActivity(Intent.createChooser(intent, getString(R.string.share_gpx_chooser_title)))
-                    } catch (e: Exception) {
-                        android.util.Log.e("MainActivity", "GPX export failed", e)
+                    } catch (_: Exception) {
+                        android.util.Log.e("MainActivity", "GPX export failed")
                     }
                 }
             }
@@ -314,8 +315,8 @@ class MainActivity : ComponentActivity() {
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
                         startActivity(Intent.createChooser(intent, "ワークアウトデータをエクスポート"))
-                    } catch (e: Exception) {
-                        android.util.Log.e("MainActivity", "Export failed", e)
+                    } catch (_: Exception) {
+                        android.util.Log.e("MainActivity", "Export failed")
                     }
                 }
             }
@@ -428,6 +429,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @SuppressLint("BatteryLife")
     private fun openBatteryOptimizationSettings() {
         // 直接設定ダイアログを開く試み
         val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
@@ -435,18 +437,19 @@ class MainActivity : ComponentActivity() {
         }
         try {
             startActivity(intent)
-        } catch (ignored: Exception) {
+        } catch (_: Exception) {
             android.util.Log.e("MainActivity", "Failed to open direct battery settings, falling back to list.")
             // 失敗した場合は、ユーザーに手動でアプリを探してもらう設定一覧画面を開く
             val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             try {
                 startActivity(fallbackIntent)
-            } catch (ignored2: Exception) {
+            } catch (_: Exception) {
                 android.util.Log.e("MainActivity", "Total failure to open battery settings")
             }
         }
     }
 
+    @SuppressLint("InlinedApi")
     private fun checkBackgroundLocationPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             android.util.Log.i("MainActivity", "Requesting Background Location Permission")
