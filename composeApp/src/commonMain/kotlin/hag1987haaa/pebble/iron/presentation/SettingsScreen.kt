@@ -42,7 +42,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
     val scrollState = rememberScrollState()
 
     // Android ターゲットのみ Pebble 権限ダイアログを表示
-    hag1987haaa.pebble.iron.presentation.PlatformPebblePermissionDialog(
+    LocalPebblePermissionDialog.current.Show(
         show = showPebbleDialog,
         onDismiss = { setShowPebbleDialog(false) }
     )

@@ -20,6 +20,8 @@ import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import org.jetbrains.compose.resources.stringResource
 import hag1987haaa.pebble.iron.presentation.AppActions
+import hag1987haaa.pebble.iron.presentation.LocalPebblePermissionDialog
+import hag1987haaa.pebble.iron.presentation.AndroidPebblePermissionDialogProvider
 import hag1987haaa.pebble.iron.service.TrackingService
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
@@ -324,50 +326,54 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            App(actions)
+            CompositionLocalProvider(
+                LocalPebblePermissionDialog provides AndroidPebblePermissionDialogProvider()
+            ) {
+                App(actions)
 
-            if (showLocationDisclosure) {
-                AlertDialog(
-                    onDismissRequest = { },
-                    title = { Text(stringResource(Res.string.location_disclosure_title)) },
-                    text = { Text(stringResource(Res.string.location_disclosure_text)) },
-                    confirmButton = {
-                        Button(onClick = {
-                            showLocationDisclosure = false
-                            val missing = getRequiredPermissions().filter {
-                                ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
+                if (showLocationDisclosure) {
+                    AlertDialog(
+                        onDismissRequest = { },
+                        title = { Text(stringResource(Res.string.location_disclosure_title)) },
+                        text = { Text(stringResource(Res.string.location_disclosure_text)) },
+                        confirmButton = {
+                            Button(onClick = {
+                                showLocationDisclosure = false
+                                val missing = getRequiredPermissions().filter {
+                                    ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
+                                }
+                                if (missing.isNotEmpty()) {
+                                    requestPermissionLauncher.launch(missing.toTypedArray())
+                                }
+                                // 位置情報の説明が終わった後に、バッテリー最適化のチェックを再実行
+                                checkBatteryOptimization()
+                            }) {
+                                Text("OK")
                             }
-                            if (missing.isNotEmpty()) {
-                                requestPermissionLauncher.launch(missing.toTypedArray())
-                            }
-                            // 位置情報の説明が終わった後に、バッテリー最適化のチェックを再実行
-                            checkBatteryOptimization()
-                        }) {
-                            Text("OK")
                         }
-                    }
-                )
-            }
+                    )
+                }
 
-            if (showBatteryOptimizationDialog) {
-                AlertDialog(
-                    onDismissRequest = { showBatteryOptimizationDialog = false },
-                    title = { Text(stringResource(Res.string.battery_optimization_title)) },
-                    text = { Text(stringResource(Res.string.battery_optimization_text)) },
-                    confirmButton = {
-                        Button(onClick = {
-                            showBatteryOptimizationDialog = false
-                            openBatteryOptimizationSettings()
-                        }) {
-                            Text(stringResource(Res.string.battery_optimization_button))
+                if (showBatteryOptimizationDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showBatteryOptimizationDialog = false },
+                        title = { Text(stringResource(Res.string.battery_optimization_title)) },
+                        text = { Text(stringResource(Res.string.battery_optimization_text)) },
+                        confirmButton = {
+                            Button(onClick = {
+                                showBatteryOptimizationDialog = false
+                                openBatteryOptimizationSettings()
+                            }) {
+                                Text(stringResource(Res.string.battery_optimization_button))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showBatteryOptimizationDialog = false }) {
+                                Text(stringResource(Res.string.history_delete_cancel))
+                            }
                         }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showBatteryOptimizationDialog = false }) {
-                            Text(stringResource(Res.string.history_delete_cancel))
-                        }
-                    }
-                )
+                    )
+                }
             }
         }
         
