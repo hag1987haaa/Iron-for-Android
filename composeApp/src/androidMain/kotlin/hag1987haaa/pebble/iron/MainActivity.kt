@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import org.jetbrains.compose.resources.stringResource
 import hag1987haaa.pebble.iron.presentation.AppActions
@@ -63,8 +64,8 @@ class MainActivity : ComponentActivity() {
                         KmpDependencies.runRepository.importRuns(runs)
                         android.util.Log.i("MainActivity", "Imported ${runs.size} workouts successfully.")
                     }
-                } catch (e: Exception) {
-                    android.util.Log.e("MainActivity", "Import failed", e)
+                } catch (ignored: Exception) {
+                    android.util.Log.e("MainActivity", "Import failed")
                 }
             }
         }
@@ -175,7 +176,7 @@ class MainActivity : ComponentActivity() {
                         val hcId = manager.writeRunActivity(run)
                         if (hcId != null) {
                             // 重要：同期に成功したら、既存のレコードの ID を更新する（新規保存しない！）
-                            val runId = run.id ?: 0L
+                            val runId = run.id
                             if (runId != 0L) {
                                 KmpDependencies.runRepository.updateHealthConnectId(runId, hcId)
                             }
@@ -424,28 +425,26 @@ class MainActivity : ComponentActivity() {
     private fun openBatteryOptimizationSettings() {
         // 直接設定ダイアログを開く試み
         val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-            data = Uri.parse("package:$packageName")
+            data = "package:$packageName".toUri()
         }
         try {
             startActivity(intent)
-        } catch (e: Exception) {
-            android.util.Log.e("MainActivity", "Failed to open direct battery settings, falling back to list.", e)
+        } catch (ignored: Exception) {
+            android.util.Log.e("MainActivity", "Failed to open direct battery settings, falling back to list.")
             // 失敗した場合は、ユーザーに手動でアプリを探してもらう設定一覧画面を開く
             val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             try {
                 startActivity(fallbackIntent)
-            } catch (e2: Exception) {
-                android.util.Log.e("MainActivity", "Total failure to open battery settings", e2)
+            } catch (ignored2: Exception) {
+                android.util.Log.e("MainActivity", "Total failure to open battery settings")
             }
         }
     }
 
     private fun checkBackgroundLocationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                android.util.Log.i("MainActivity", "Requesting Background Location Permission")
-                requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
-            }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            android.util.Log.i("MainActivity", "Requesting Background Location Permission")
+            requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
         }
     }
 }

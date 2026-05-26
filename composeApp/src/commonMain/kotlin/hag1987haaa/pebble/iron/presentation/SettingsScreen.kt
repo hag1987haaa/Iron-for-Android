@@ -21,7 +21,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hag1987haaa.pebble.iron.*
@@ -342,13 +341,5 @@ private fun AutomationToggle(
                 Text(text = intentAction, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
         }
-    }
-}
-
-@Composable
-private fun BulletPoint(text: String) {
-    Row(modifier = Modifier.padding(vertical = 2.dp)) {
-        Text("• ", style = MaterialTheme.typography.bodySmall)
-        Text(text = text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
