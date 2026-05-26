@@ -1,16 +1,18 @@
 package hag1987haaa.pebble.iron
 
+import android.annotation.SuppressLint
 import android.content.Context
-import kotlinx.coroutines.MainScope
 import hag1987haaa.pebble.iron.data.repository.SqlRunRepository
+import hag1987haaa.pebble.iron.db.DatabaseDriverFactory
 import hag1987haaa.pebble.iron.db.PebbleTrackerDatabase
 import hag1987haaa.pebble.iron.domain.settings.AppSettings
 import hag1987haaa.pebble.iron.domain.tracker.RunTrackerEngine
+import hag1987haaa.pebble.iron.health.HealthConnectManager
 import hag1987haaa.pebble.iron.location.AndroidLocationTracker
 import hag1987haaa.pebble.iron.pebble.AndroidPebbleMessenger
-import hag1987haaa.pebble.iron.health.HealthConnectManager
-import hag1987haaa.pebble.iron.db.DatabaseDriverFactory
+import kotlinx.coroutines.MainScope
 
+@SuppressLint("StaticFieldLeak")
 object AndroidDependencies {
     private var isInitialized = false
     private var _healthConnectManager: HealthConnectManager? = null
@@ -21,6 +23,8 @@ object AndroidDependencies {
     fun initialize(context: Context) {
         if (isInitialized) return
         android.util.Log.d("AndroidDependencies", "Initializing dependencies...")
+        
+        // Ensure we use application context to avoid leaks
         val appContext = context.applicationContext
         
         val settings = AppSettings()

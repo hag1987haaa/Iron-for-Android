@@ -20,7 +20,6 @@ import androidx.lifecycle.lifecycleScope
 import org.jetbrains.compose.resources.stringResource
 import hag1987haaa.pebble.iron.presentation.AppActions
 import hag1987haaa.pebble.iron.service.TrackingService
-import hag1987haaa.pebble.iron.pebble.AndroidPebbleMessenger
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.tracker.RunState
@@ -88,11 +87,7 @@ class MainActivity : ComponentActivity() {
                     val intent = Intent(this@MainActivity, TrackingService::class.java).apply { 
                         this.action = action 
                     }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(intent)
-                    } else {
-                        startService(intent)
-                    }
+                    startForegroundService(intent)
                 } catch (e: Exception) {
                     android.util.Log.e("MainActivity", "Failed to send command", e)
                 }

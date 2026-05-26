@@ -1,15 +1,15 @@
 package hag1987haaa.pebble.iron.presentation
 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
-import io.rebble.pebblekit2.client.DefaultPebbleAndroidAppPicker
-import io.rebble.pebblekit2.client.ui.PebbleAppPermissionDialog
-import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import hag1987haaa.pebble.iron.Res
-import hag1987haaa.pebble.iron.*
+import hag1987haaa.pebble.iron.permission_rationale
+import io.rebble.pebblekit2.client.DefaultPebbleAndroidAppPicker
+import io.rebble.pebblekit2.client.ui.PebbleAppPermissionDialog
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
