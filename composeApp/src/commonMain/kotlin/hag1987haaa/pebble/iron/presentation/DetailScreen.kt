@@ -356,6 +356,12 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                         color = Color(0xFF4CAF50)
                     )
 
+                    SimpleLineChart(
+                        title = stringResource(Res.string.detail_chart_steps) + if (isDistanceBased) " (steps vs km)" else " (steps vs time)",
+                        data = displayRoute.map { it.steps?.toFloat() ?: 0f }.downsample(100),
+                        color = Color(0xFFFF9800)
+                    )
+
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     actionButtons()
