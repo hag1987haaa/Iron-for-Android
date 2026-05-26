@@ -9,16 +9,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import hag1987haaa.pebble.iron.KmpDependencies
-import hag1987haaa.pebble.iron.Res
-import hag1987haaa.pebble.iron.history_delete_cancel
-import hag1987haaa.pebble.iron.history_delete_confirm
-import hag1987haaa.pebble.iron.history_delete_message
-import hag1987haaa.pebble.iron.history_delete_title
-import hag1987haaa.pebble.iron.history_list_item_distance_prefix
-import hag1987haaa.pebble.iron.history_list_item_run_prefix
+import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.util.getDisplayName
 import org.jetbrains.compose.resources.stringResource
 

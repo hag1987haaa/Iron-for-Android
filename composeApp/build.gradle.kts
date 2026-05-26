@@ -37,7 +37,6 @@ kotlin {
             implementation(libs.osmdroid)
             implementation(libs.pebblekit2)
             implementation(libs.pebblekit2.ui)
-            implementation(libs.google.billing)
         }
     }
 }

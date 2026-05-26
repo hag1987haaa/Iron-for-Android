@@ -9,13 +9,11 @@ import hag1987haaa.pebble.iron.domain.tracker.RunTrackerEngine
 import hag1987haaa.pebble.iron.location.AndroidLocationTracker
 import hag1987haaa.pebble.iron.pebble.AndroidPebbleMessenger
 import hag1987haaa.pebble.iron.health.HealthConnectManager
-import hag1987haaa.pebble.iron.billing.BillingManager
 import hag1987haaa.pebble.iron.db.DatabaseDriverFactory
 
 object AndroidDependencies {
     private var isInitialized = false
     lateinit var healthConnectManager: HealthConnectManager
-    lateinit var billingManager: BillingManager
 
     fun initialize(context: Context) {
         if (isInitialized) return
@@ -53,7 +51,6 @@ object AndroidDependencies {
         // ------------------------------------------
 
         healthConnectManager = HealthConnectManager(appContext)
-        billingManager = BillingManager(appContext)
         
         // DatabaseDriverFactory を使用して暗号化対応のドライバーを作成
         val driver = DatabaseDriverFactory(appContext).createDriver()

@@ -19,5 +19,4 @@ interface AppActions {
     fun shareGpx(run: RunActivity) // GPXファイルを共有
     fun exportData() // 全データをエクスポート
     fun importData() // バックアップからインポート
-    fun buyCoffee() // 開発者にチップを送る
 }

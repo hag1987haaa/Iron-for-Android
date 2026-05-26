@@ -18,7 +18,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import org.jetbrains.compose.resources.stringResource
-import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.presentation.AppActions
 import hag1987haaa.pebble.iron.service.TrackingService
 import hag1987haaa.pebble.iron.pebble.AndroidPebbleMessenger
@@ -326,15 +325,6 @@ class MainActivity : ComponentActivity() {
             override fun importData() {
                 importLauncher.launch("application/json")
             }
-
-            override fun buyCoffee() {
-                val billing = AndroidDependencies.billingManager
-                val products = billing.products.value
-                if (products.isNotEmpty()) {
-                    // とりあえず最初のアイテム（tip_coffeeなど）を起動
-                    billing.launchPurchase(this@MainActivity, products.first())
-                }
-            }
         }
 
         setContent {
@@ -484,7 +474,6 @@ fun AppAndroidPreview() {
         override fun shareGpx(run: RunActivity) {}
         override fun exportData() {}
         override fun importData() {}
-        override fun buyCoffee() {}
     }
     App(actions)
 }

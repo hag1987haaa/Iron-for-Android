@@ -16,7 +16,7 @@ class AppSettings {
     var isCommand51Enabled: Boolean = true
     var isCommand52Enabled: Boolean = true
     
-    private val _isPrivacyMapModeEnabled = MutableStateFlow(false)
+    private val _isPrivacyMapModeEnabled = MutableStateFlow(value = false)
     val isPrivacyMapModeEnabledFlow: StateFlow<Boolean> = _isPrivacyMapModeEnabled.asStateFlow()
     var isPrivacyMapModeEnabled: Boolean
         get() = _isPrivacyMapModeEnabled.value

@@ -67,9 +67,6 @@
     <string name="settings_hc_notice_4">体重は消費カロリーの計算に使用されます。</string>
     <string name="settings_hc_button_re_request">権限を再リクエストする</string>
     <string name="settings_section_about">アプリについて</string>
-    <string name="settings_support_title">開発者を応援する (チップ)</string>
-    <string name="settings_support_desc">このアプリは無料で広告もありません。もし気に入っていただけたら、開発者にコーヒーやビールをおごって応援しませんか？（機能は変わりませんが、開発の大きな励みになります！）</string>
-    <string name="settings_support_thanks">応援ありがとうございます！制作の励みにさせていただきます。</string>
     <string name="settings_label_version">バージョン</string>
     <string name="settings_label_license">オープンソースライセンス</string>
     <string name="settings_section_privacy">プライバシー</string>

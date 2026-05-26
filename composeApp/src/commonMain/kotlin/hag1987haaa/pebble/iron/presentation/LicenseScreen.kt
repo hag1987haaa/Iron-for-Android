@@ -11,14 +11,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import hag1987haaa.pebble.iron.Res
-import hag1987haaa.pebble.iron.settings_label_license
+import hag1987haaa.pebble.iron.*
 import org.jetbrains.compose.resources.stringResource
 
 data class LibraryLicense(
     val name: String,
     val copyright: String,
     val licenseName: String,
-    val licenseText: String
+    val licenseText: String,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,43 +29,43 @@ fun LicenseScreen(onBack: () -> Unit) {
             "Kotlin & Kotlinx Libraries",
             "Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.",
             "Apache License 2.0",
-            APACHE_2_0
+            APACHE_2_0,
         ),
         LibraryLicense(
             "Jetpack Compose Multiplatform",
             "Copyright 2020-2024 JetBrains s.r.o. and Google Inc.",
             "Apache License 2.0",
-            APACHE_2_0
+            APACHE_2_0,
         ),
         LibraryLicense(
             "osmdroid",
             "Copyright 2008-2024 osmdroid contributors.",
             "Apache License 2.0",
-            APACHE_2_0
+            APACHE_2_0,
         ),
         LibraryLicense(
             "PebbleKit 2 (Rebble)",
             "Copyright 2023 Rebble contributors.",
             "Apache License 2.0",
-            APACHE_2_0
+            APACHE_2_0,
         ),
         LibraryLicense(
             "SQLDelight",
             "Copyright 2016 Square, Inc.",
             "Apache License 2.0",
-            APACHE_2_0
+            APACHE_2_0,
         ),
         LibraryLicense(
             "Kermit",
             "Copyright 2021 Touchlab.",
             "Apache License 2.0",
-            APACHE_2_0
+            APACHE_2_0,
         ),
         LibraryLicense(
             "SQLCipher",
             "Copyright (c) 2008-2024 Zetetic LLC",
             "BSD 3-Clause License",
-            BSD_LICENSE
+            BSD_LICENSE,
         )
     )
 

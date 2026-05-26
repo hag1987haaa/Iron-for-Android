@@ -24,9 +24,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import hag1987haaa.pebble.iron.KmpDependencies
-import hag1987haaa.pebble.iron.Res
 import hag1987haaa.pebble.iron.*
+import hag1987haaa.pebble.iron.platform.PlatformPebblePermissionDialog
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,6 +43,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
     val scrollState = rememberScrollState()
 
     // Android ターゲットのみ Pebble 権限ダイアログを表示
+    @Suppress("OVERLOAD_RESOLUTION_AMBIGUITY")
     PlatformPebblePermissionDialog(
         show = showPebbleDialog,
         onDismiss = { showPebbleDialog = false }
@@ -288,40 +288,11 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 6. 開発者応援セクション
             Text(
                 text = stringResource(Res.string.settings_section_about),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Surface(
-                tonalElevation = 2.dp,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(stringResource(Res.string.settings_support_title), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        stringResource(Res.string.settings_support_desc),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { actions.buyCoffee() },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
-                    ) {
-                        Icon(Icons.Default.Favorite, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("開発者を応援する")
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(16.dp))
             
             ListItem(

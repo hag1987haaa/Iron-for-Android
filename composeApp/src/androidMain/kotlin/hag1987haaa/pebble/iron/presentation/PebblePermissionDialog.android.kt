@@ -1,4 +1,4 @@
-package hag1987haaa.pebble.iron.presentation
+package hag1987haaa.pebble.iron.platform
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import hag1987haaa.pebble.iron.Res
-import hag1987haaa.pebble.iron.permission_rationale
+import hag1987haaa.pebble.iron.*
 import org.jetbrains.compose.resources.stringResource
 
 @Composable

@@ -27,8 +27,6 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Straighten
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
-import hag1987haaa.pebble.iron.KmpDependencies
-import hag1987haaa.pebble.iron.Res
 import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity

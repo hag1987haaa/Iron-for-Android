@@ -29,9 +29,6 @@ Built with Kotlin Multiplatform (KMP), focusing on privacy and provided without 
 ## 🤝 Acknowledgement
 This project was inspired by the open-source project **RunnerUp** and rebuilt from scratch using a modern technology stack. We respect and appreciate the pioneering work of the original developers.
 
-## ☕ Support the Developer
-If you love this app, you can support ongoing development by "buying the developer a coffee or a beer" through the in-app purchase feature in the settings. Your support is greatly appreciated!
-
 ---
 
 ## 📄 Privacy Policy
@@ -45,10 +42,7 @@ Only with your explicit permission granted in the app settings, Iron will reques
 ### 3. Manual Export and Wearable Data
 Any export of data outside the app (such as generating and sharing GPX files) is strictly initiated by your direct action. Furthermore, data transmitted between your Android device and your Pebble smartwatch is handled locally via Bluetooth and is not intercepted or stored by the developer.
 
-### 4. In-App Purchases
-The app offers optional in-app purchases to support the developer. All payment transactions are securely processed through the Google Play Billing system. We do not collect, process, or store your financial information, such as credit card numbers.
-
-### 5. Contact
+### 4. Contact
 If you have any questions regarding this privacy policy, please contact us at: https://x.com/1987haaa
 
 ---
@@ -70,9 +64,6 @@ If you have any questions regarding this privacy policy, please contact us at: h
 ## 🤝 謝辞
 本プロジェクトは、オープンソースプロジェクト **RunnerUp** にインスパイアされ、一から現代的な技術スタックで再構築されたものです。素晴らしい先行開発に敬意を表します。
 
-## ☕ 開発者をサポート
-本アプリは完全にオープンソースであり、すべての機能を無料でご利用いただけます。もし気に入いただけましたら、開発の励みになる「応援課金（コーヒーやビールを奢る）」機能を設定画面にご用意しています。ご支援いただけますと幸いです！
-
 ---
 
 ## 📄 プライバシーポリシー
@@ -86,9 +77,6 @@ If you have any questions regarding this privacy policy, please contact us at: h
 ### 3. データの手動エクスポートとウェアラブル連携
 アプリ外部へのデータの書き出し（GPXファイルの生成や共有など）は、すべてユーザー自身の直接的な操作によってのみ実行されます。また、Android端末とPebbleスマートウォッチ間で送受信されるデータはBluetooth経由でローカルに処理され、開発者が傍受または保存することはありません。
 
-### 4. アプリ内課金
-本アプリは、開発者を支援するための任意のアプリ内課金を提供しています。すべての決済処理はGoogle Playのシステムを通じて安全に行われます。開発者がユーザーのクレジットカード番号などの財務情報を収集、処理、保存することはありません。
-
-### 5. お問い合わせ
+### 4. お問い合わせ
 このプライバシーポリシーに関するご質問がある場合は、以下までご連絡ください：
 https://x.com/1987haaa

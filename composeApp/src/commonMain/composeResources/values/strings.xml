@@ -67,9 +67,6 @@
     <string name="settings_hc_notice_4">Weight is used for calorie calculation.</string>
     <string name="settings_hc_button_re_request">Re-request Permissions</string>
     <string name="settings_section_about">About App</string>
-    <string name="settings_support_title">Support the Developer (Tips)</string>
-    <string name="settings_support_desc">This app is free and has no ads. If you like it, consider buying the developer a coffee or beer to support ongoing development! (It won\'t unlock features, but it greatly motivates me!)</string>
-    <string name="settings_support_thanks">Thank you for your support! It means a lot to me.</string>
     <string name="settings_label_version">Version</string>
     <string name="settings_label_license">Open Source Licenses</string>
     <string name="settings_section_privacy">Privacy</string>

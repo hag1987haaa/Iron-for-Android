@@ -22,7 +22,6 @@ ktor = "3.0.1"
 logback = "1.5.12"
 androidx-health-connect = "1.1.0-alpha11"
 androidx-savedstate = "1.4.0"
-google-billing = "7.1.1"
 
 [libraries]
 androidx-health-connect = { module = "androidx.health.connect:connect-client", version.ref = "androidx-health-connect" }
@@ -53,7 +52,6 @@ osmdroid = { module = "org.osmdroid:osmdroid-android", version.ref = "osmdroid" 
 pebblekit2 = { module = "io.rebble.pebblekit2:client", version.ref = "pebblekit2" }
 pebblekit2-common = { module = "io.rebble.pebblekit2:common", version.ref = "pebblekit2" }
 pebblekit2-ui = { module = "io.rebble.pebblekit2:client-ui", version.ref = "pebblekit2" }
-google-billing = { module = "com.android.billingclient:billing-ktx", version.ref = "google-billing" }
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 ktorServerCore = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
 ktorServerNetty = { module = "io.ktor:ktor-server-netty-jvm", version.ref = "ktor" }

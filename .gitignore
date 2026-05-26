@@ -17,3 +17,8 @@ captures
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
+
+# Android Signing
+*.jks
+*.keystore
+signing.properties

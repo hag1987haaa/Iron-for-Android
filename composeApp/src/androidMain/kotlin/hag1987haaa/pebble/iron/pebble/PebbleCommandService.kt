@@ -3,8 +3,6 @@ package hag1987haaa.pebble.iron.pebble
 import android.util.Log
 import android.media.AudioManager
 import android.view.KeyEvent
-import android.content.Context
-import android.os.Build
 import io.rebble.pebblekit2.client.BasePebbleListenerService
 import io.rebble.pebblekit2.common.model.PebbleDictionaryItem
 import io.rebble.pebblekit2.common.model.WatchIdentifier
@@ -93,7 +91,7 @@ class PebbleCommandService : BasePebbleListenerService() {
         if (cmd != null) {
             val currentTime = System.currentTimeMillis()
             // 同じコマンドが短時間に連続した場合は無視する (長押しによる連打対策)
-            if (cmd == lastCommandVal && (currentTime - lastCommandTime < DEBOUNCE_MS)) {
+            if (cmd == lastCommandVal && ((currentTime - lastCommandTime) < DEBOUNCE_MS)) {
                 Log.w("PebbleCommand", "Ignoring repeated command: $cmd (debounce)")
                 return ReceiveResult.Ack
             }
@@ -209,8 +207,8 @@ class PebbleCommandService : BasePebbleListenerService() {
         }
     }
 
-    private suspend fun sendMediaKey(cmd: Int) {
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+    private fun sendMediaKey(cmd: Int) {
+        val audioManager = getSystemService(AUDIO_SERVICE) as? AudioManager ?: return
         
         // 音量操作 (コマンド 4, 5) の場合は adjustStreamVolume を使用
         if (cmd == 4) {
