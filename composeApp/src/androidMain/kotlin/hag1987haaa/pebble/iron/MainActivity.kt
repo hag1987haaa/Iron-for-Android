@@ -31,8 +31,6 @@ import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.presentation.AndroidPebblePermissionDialogProvider
-import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.PermissionController
 import hag1987haaa.pebble.iron.presentation.AppActions
 import hag1987haaa.pebble.iron.presentation.LocalPebblePermissionDialog
 import hag1987haaa.pebble.iron.service.TrackingService
@@ -46,6 +44,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.jetbrains.compose.resources.stringResource
 import java.io.File
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
 
 class MainActivity : ComponentActivity() {
 
@@ -60,9 +60,6 @@ class MainActivity : ComponentActivity() {
         PermissionController.createRequestPermissionResultContract()
     ) { granted ->
         Log.d("MainActivity", "Health Connect granted: $granted")
-        if (granted.isEmpty()) {
-            Log.w("MainActivity", "No permissions granted.")
-        }
     }
 
     private val importLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -146,9 +143,6 @@ class MainActivity : ComponentActivity() {
                         var hcId: String? = null
                         try {
                             hcId = AndroidDependencies.healthConnectManager.writeRunActivity(run)
-                            if (hcId != null) {
-                                Log.d("MainActivity", "Health Connect synced ID: $hcId")
-                            }
                         } catch (_: Exception) {
                             Log.e("MainActivity", "Health Connect sync failed")
                         }
@@ -173,10 +167,7 @@ class MainActivity : ComponentActivity() {
                         run.healthConnectId?.let { oldId ->
                             try {
                                 manager.deleteRunActivity(oldId)
-                                Log.d("MainActivity", "Old HC record deleted: $oldId")
-                            } catch (_: Exception) {
-                                Log.w("MainActivity", "Failed to delete old HC record, continuing...")
-                            }
+                            } catch (_: Exception) {}
                         }
 
                         val hcId = manager.writeRunActivity(run)
@@ -199,13 +190,10 @@ class MainActivity : ComponentActivity() {
             override fun deleteRunRecord(id: Long) {
                 lifecycleScope.launch {
                     val run = KmpDependencies.runRepository.getRunDetails(id)
-                    val hcId = run?.healthConnectId
-                    if (hcId != null) {
+                    run?.healthConnectId?.let { hcId ->
                         try {
                             AndroidDependencies.healthConnectManager.deleteRunActivity(hcId)
-                        } catch (_: Exception) {
-                            Log.e("MainActivity", "Failed to delete from HC")
-                        }
+                        } catch (_: Exception) {}
                     }
                     KmpDependencies.runRepository.deleteRun(id)
                 }
@@ -414,7 +402,7 @@ class MainActivity : ComponentActivity() {
 
     private fun checkBatteryOptimization() {
         val powerManager = getSystemService(PowerManager::class.java)
-        if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+        if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
             if (!showLocationDisclosure) {
                 showBatteryOptimizationDialog = true
             }
@@ -441,9 +429,11 @@ class MainActivity : ComponentActivity() {
 
     @SuppressLint("InlinedApi")
     private fun checkBackgroundLocationPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            Log.i("MainActivity", "Requesting Background Location Permission")
-            requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                Log.i("MainActivity", "Requesting Background Location Permission")
+                requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
+            }
         }
     }
 }
