@@ -39,6 +39,7 @@ object AndroidDependencies {
         settings.isCommand52Enabled = prefs.getBoolean("cmd52_enabled", true)
         settings.isPrivacyMapModeEnabled = prefs.getBoolean("privacy_map_enabled", false)
         settings.userWeightKg = prefs.getFloat("user_weight", 70.0f)
+        settings.hasAskedHealthConnectOnboarding = prefs.getBoolean("hc_onboarding_asked", false)
         
         // 保存用コールバックの登録
         settings.onSettingsChanged = {
@@ -51,6 +52,7 @@ object AndroidDependencies {
                 putBoolean("cmd52_enabled", settings.isCommand52Enabled)
                 putBoolean("privacy_map_enabled", settings.isPrivacyMapModeEnabled)
                 putFloat("user_weight", settings.userWeightKg)
+                putBoolean("hc_onboarding_asked", settings.hasAskedHealthConnectOnboarding)
                 apply()
             }
             android.util.Log.d("AndroidDependencies", "Settings saved to SharedPreferences")

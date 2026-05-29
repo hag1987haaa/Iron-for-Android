@@ -54,7 +54,9 @@ class MainActivity : ComponentActivity() {
 
     private val requestPermissionLauncher = registerForActivityResult<Array<String>, Map<String, Boolean>>(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ -> }
+    ) { _ -> 
+        checkAndRequestHealthPermissionsOnboarding()
+    }
 
     private val healthPermissionLauncher = registerForActivityResult(
         PermissionController.createRequestPermissionResultContract()
@@ -328,6 +330,8 @@ class MainActivity : ComponentActivity() {
                                 }
                                 if (missing.isNotEmpty()) {
                                     requestPermissionLauncher.launch(missing.toTypedArray())
+                                } else {
+                                    checkAndRequestHealthPermissionsOnboarding()
                                 }
                                 checkBatteryOptimization()
                             }) {
@@ -395,6 +399,28 @@ class MainActivity : ComponentActivity() {
             } else {
                 requestPermissionLauncher.launch(missingPermissions.toTypedArray())
             }
+        } else {
+            checkAndRequestHealthPermissionsOnboarding()
+        }
+    }
+
+    private fun checkAndRequestHealthPermissionsOnboarding() {
+        val settings = KmpDependencies.appSettings
+        if (settings.hasAskedHealthConnectOnboarding) return
+
+        val manager = AndroidDependencies.healthConnectManager
+        if (!manager.isSdkAvailable()) return
+
+        lifecycleScope.launch {
+            if (!manager.hasAllPermissions()) {
+                try {
+                    healthPermissionLauncher.launch(manager.permissions)
+                } catch (_: Exception) {
+                    // 失敗しても何もしない
+                }
+            }
+            settings.hasAskedHealthConnectOnboarding = true
+            settings.save()
         }
     }
 

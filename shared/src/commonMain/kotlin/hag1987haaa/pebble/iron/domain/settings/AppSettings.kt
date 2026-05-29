@@ -23,6 +23,7 @@ class AppSettings {
         set(value) { _isPrivacyMapModeEnabled.value = value }
 
     var userWeightKg: Float = 70.0f
+    var hasAskedHealthConnectOnboarding: Boolean = false
 
     // プラットフォーム固有の保存処理用コールバック
     var onSettingsChanged: (() -> Unit)? = null
