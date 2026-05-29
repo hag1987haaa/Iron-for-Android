@@ -44,6 +44,7 @@ kotlin {
 }
 
 android {
+    @Suppress("ComposeModifierMissing")
     namespace = "hag1987haaa.pebble.iron"
     compileSdk = 35
     defaultConfig {

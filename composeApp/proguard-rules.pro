@@ -3,7 +3,7 @@
 -keep interface io.rebble.pebblekit2.** { *; }
 -dontwarn io.rebble.pebblekit2.**
 
-# Kotlin Runtime (Avoid missing class errors with R8)
+# Kotlin Runtime
 -dontwarn kotlin.jvm.JvmExposeBoxed
 -dontwarn kotlin.jvm.internal.BoxingConstructorMarker
 -dontwarn kotlin.time.**
@@ -22,4 +22,4 @@
 -dontwarn androidx.health.connect.**
 
 # Compose Resources
--keep class hag1987haaa.pebble.iron.Res { *; }
+-keep class hag1987haaa.pebble.iron.** { *; }
