@@ -33,10 +33,18 @@ class DatabaseDriverFactory(private val context: Context) {
                 val factory = SupportOpenHelperFactory(passphrase.toByteArray())
                 val config = androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(context)
                     .name(dbName)
-                    .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(PebbleTrackerDatabase.Schema.version.toInt()) {
-                        override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {}
-                        override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
-                    })
+                    .callback(
+                        object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(
+                            PebbleTrackerDatabase.Schema.version.toInt(),
+                        ) {
+                            override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {}
+                            override fun onUpgrade(
+                                db: androidx.sqlite.db.SupportSQLiteDatabase,
+                                oldVersion: Int,
+                                newVersion: Int,
+                            ) {}
+                        },
+                    )
                     .build()
                 
                 factory.create(config).readableDatabase.close()
@@ -119,7 +127,7 @@ class DatabaseDriverFactory(private val context: Context) {
             // キーが新規作成されるタイミングでは、古い（開けなくなった）データベースが残っている可能性があるため削除
             context.getDatabasePath(dbName).delete()
             key = UUID.randomUUID().toString()
-            prefs.edit().putString("db_passphrase", key).apply()
+            prefs.edit { putString("db_passphrase", key) }
         }
         return key
     }

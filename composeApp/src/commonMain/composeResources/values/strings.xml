@@ -116,9 +116,13 @@
     <string name="battery_optimization_text">To ensure stable workout tracking, we recommend disabling system \"Battery Optimization\". This prevents the app from being terminated during long recording sessions.</string>
     <string name="battery_optimization_button">Open Settings</string>
 
-    <string name="pebble_permission_title">Select Pebble Provider App</string>
+    <string name="pebble_permission_title">Pebble Provider App</string>
     <string name="pebble_permission_text">To communicate with Pebble, you need a provider app like Cobble or the official Pebble app installed.\n\nWould you like to install Cobble (Recommended) from the Play Store?</string>
     <string name="pebble_permission_install">Go to Play Store</string>
+    <string name="pebble_provider_detected_title">Provider Detected</string>
+    <string name="pebble_provider_detected_text">%s is installed. Connection is ready.</string>
+    <string name="pebble_provider_missing_title">Provider Missing</string>
+    <string name="pebble_provider_missing_text">Pebble provider app (Cobble etc.) is required. Install from Play Store?</string>
 
     <string name="detail_sync_hc">Sync to Health Connect</string>
     <string name="detail_sync_hc_update">Update Health Connect data</string>

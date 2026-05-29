@@ -145,6 +145,9 @@ class MainActivity : ComponentActivity() {
                         var hcId: String? = null
                         try {
                             hcId = AndroidDependencies.healthConnectManager.writeRunActivity(run)
+                            if (hcId != null) {
+                                Log.d("MainActivity", "Health Connect synced ID: $hcId")
+                            }
                         } catch (_: Exception) {
                             Log.e("MainActivity", "Health Connect sync failed")
                         }
@@ -169,6 +172,7 @@ class MainActivity : ComponentActivity() {
                         run.healthConnectId?.let { oldId ->
                             try {
                                 manager.deleteRunActivity(oldId)
+                                Log.d("MainActivity", "Old HC record deleted: $oldId")
                             } catch (_: Exception) {}
                         }
 

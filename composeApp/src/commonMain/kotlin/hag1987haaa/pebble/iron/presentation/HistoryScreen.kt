@@ -18,22 +18,35 @@ import org.jetbrains.compose.resources.stringResource
 fun HistoryScreen(actions: AppActions, onRunSelected: (Long) -> Unit) {
     val viewModel: HistoryViewModel = viewModel { HistoryViewModel(KmpDependencies.runRepository) }
     val runs by viewModel.runs.collectAsState()
-    var runToDelete by remember { mutableStateOf<Long?>(null) }
+    val runToDelete = remember { mutableStateOf<Long?>(null) }
 
-    if (runToDelete != null) {
+    if (runToDelete.value != null) {
         AlertDialog(
-            onDismissRequest = { runToDelete = null },
+            onDismissRequest = { runToDelete.value = null },
             title = { Text(stringResource(Res.string.history_delete_title)) },
             text = { Text(stringResource(Res.string.history_delete_message)) },
             confirmButton = {
-                TextButton(onClick = {
-                    actions.deleteRunRecord(runToDelete!!)
-                    runToDelete = null
-                }) { Text(stringResource(Res.string.history_delete_confirm), color = MaterialTheme.colorScheme.error) }
+                TextButton(
+                    onClick = {
+                        runToDelete.value?.let { id ->
+                            actions.deleteRunRecord(id)
+                        }
+                        runToDelete.value = null
+                    },
+                ) {
+                    Text(
+                        stringResource(Res.string.history_delete_confirm),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             },
             dismissButton = {
-                TextButton(onClick = { runToDelete = null }) { Text(stringResource(Res.string.history_delete_cancel)) }
-            }
+                TextButton(
+                    onClick = { runToDelete.value = null },
+                ) {
+                    Text(stringResource(Res.string.history_delete_cancel))
+                }
+            },
         )
     }
 
@@ -55,11 +68,11 @@ fun HistoryScreen(actions: AppActions, onRunSelected: (Long) -> Unit) {
                     Text("$distPrefix$integerPart.${ff}km - ${run.durationSeconds / 60} min (${run.type.getDisplayName()})$caloriesStr")
                 },
                 trailingContent = {
-                    IconButton(onClick = { runToDelete = run.id }) {
+                    IconButton(onClick = { runToDelete.value = run.id }) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete")
                     }
                 },
-                modifier = Modifier.clickable { onRunSelected(run.id) }
+                modifier = Modifier.clickable { onRunSelected(run.id) },
             )
         }
     }

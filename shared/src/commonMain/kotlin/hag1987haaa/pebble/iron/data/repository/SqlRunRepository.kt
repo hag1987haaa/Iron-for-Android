@@ -36,7 +36,7 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                     speed = point.speed,
                     heartRate = point.heartRate?.toLong(),
                     steps = point.steps?.toLong(),
-                    timestamp = point.timestamp.toString()
+                    timestamp = point.timestamp.toString(),
                 )
             }
 
@@ -52,7 +52,7 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                 maxHeartRate = run.maxHeartRate,
                 elevationGain = run.elevationGain,
                 healthConnectId = run.healthConnectId,
-                id = runId
+                id = runId,
             )
         }
     }
@@ -67,9 +67,23 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                         RunActivity(
                             id = entity.id,
                             name = entity.name,
-                            type = try { ActivityType.valueOf(entity.type) } catch (_: Exception) { ActivityType.OTHER },
-                        startTime = try { Instant.parse(entity.startTime) } catch (_: Exception) { Instant.fromEpochMilliseconds(0) },
-                        endTime = entity.endTime?.let { try { Instant.parse(it) } catch (_: Exception) { null } },
+                            type = try {
+                                ActivityType.valueOf(entity.type)
+                            } catch (_: Exception) {
+                                ActivityType.OTHER
+                            },
+                            startTime = try {
+                                Instant.parse(entity.startTime)
+                            } catch (_: Exception) {
+                                Instant.fromEpochMilliseconds(0)
+                            },
+                            endTime = entity.endTime?.let {
+                                try {
+                                    Instant.parse(it)
+                                } catch (_: Exception) {
+                                    null
+                                }
+                            },
                             distanceMeters = entity.distanceMeters,
                             durationSeconds = entity.durationSeconds,
                             averagePaceSecondsPerKm = entity.averagePaceSecondsPerKm,
@@ -78,9 +92,9 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                             avgHeartRate = entity.avgHeartRate,
                             maxHeartRate = entity.maxHeartRate,
                             elevationGain = entity.elevationGain,
-                            healthConnectId = entity.healthConnectId
+                            healthConnectId = entity.healthConnectId,
                         )
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         null
                     }
                 }
@@ -98,14 +112,18 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                     speed = it.speed,
                     heartRate = it.heartRate?.toInt(),
                     steps = it.steps?.toInt(),
-                    timestamp = Instant.parse(it.timestamp)
+                    timestamp = Instant.parse(it.timestamp),
                 )
             }
 
             RunActivity(
                 id = runEntity.id,
                 name = runEntity.name,
-                type = try { ActivityType.valueOf(runEntity.type) } catch (_: Exception) { ActivityType.OTHER },
+                type = try {
+                    ActivityType.valueOf(runEntity.type)
+                } catch (_: Exception) {
+                    ActivityType.OTHER
+                },
                 startTime = Instant.parse(runEntity.startTime),
                 endTime = runEntity.endTime?.let { Instant.parse(it) },
                 distanceMeters = runEntity.distanceMeters,
@@ -117,7 +135,7 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                 maxHeartRate = runEntity.maxHeartRate,
                 elevationGain = runEntity.elevationGain,
                 healthConnectId = runEntity.healthConnectId,
-                route = locations
+                route = locations,
             )
         }
     }
@@ -125,7 +143,7 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
     override suspend fun importRuns(runs: List<RunActivity>) = withContext(Dispatchers.IO) {
         queries.transaction {
             runs.forEach { run ->
-                queries.insertRun(run.name, run.type.name, run.startTime.toString(),)
+                queries.insertRun(run.name, run.type.name, run.startTime.toString())
                 val runId = queries.lastInsertId().executeAsOne()
 
                 run.route.forEach { point ->
@@ -137,7 +155,7 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                         speed = point.speed,
                         heartRate = point.heartRate?.toLong(),
                         steps = point.steps?.toLong(),
-                        timestamp = point.timestamp.toString()
+                        timestamp = point.timestamp.toString(),
                     )
                 }
 
@@ -153,7 +171,7 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                     maxHeartRate = run.maxHeartRate,
                     elevationGain = run.elevationGain,
                     healthConnectId = run.healthConnectId,
-                    id = runId
+                    id = runId,
                 )
             }
         }
@@ -169,14 +187,18 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                 speed = it.speed,
                 heartRate = it.heartRate?.toInt(),
                 steps = it.steps?.toInt(),
-                timestamp = Instant.parse(it.timestamp)
+                timestamp = Instant.parse(it.timestamp),
             )
         }
 
         RunActivity(
             id = runEntity.id,
             name = runEntity.name,
-            type = try { ActivityType.valueOf(runEntity.type) } catch (_: Exception) { ActivityType.OTHER },
+            type = try {
+                ActivityType.valueOf(runEntity.type)
+            } catch (_: Exception) {
+                ActivityType.OTHER
+            },
             startTime = Instant.parse(runEntity.startTime),
             endTime = runEntity.endTime?.let { Instant.parse(it) },
             distanceMeters = runEntity.distanceMeters,
@@ -188,7 +210,7 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
             maxHeartRate = runEntity.maxHeartRate,
             elevationGain = runEntity.elevationGain,
             healthConnectId = runEntity.healthConnectId,
-            route = locations
+            route = locations,
         )
     }
 
@@ -215,7 +237,7 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                     durationSeconds = run.durationSeconds,
                     distanceMeters = run.distanceMeters,
                     elevationGainMeters = run.elevationGain ?: 0.0,
-                    avgHeartRate = run.avgHeartRate
+                    avgHeartRate = run.avgHeartRate,
                 )
                 queries.updateActivityTypeAndCalories(type.name, newCalories, runId)
             } else {
