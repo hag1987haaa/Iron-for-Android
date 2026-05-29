@@ -63,23 +63,27 @@ class SqlRunRepository(private val db: PebbleTrackerDatabase) : RunRepository {
             .asFlow()
             .mapToList(Dispatchers.IO)
             .map { entities ->
-                entities.map { entity ->
-                    RunActivity(
-                        id = entity.id,
-                        name = entity.name,
-                        type = try { ActivityType.valueOf(entity.type) } catch (e: Exception) { ActivityType.OTHER },
-                        startTime = Instant.parse(entity.startTime),
-                        endTime = entity.endTime?.let { Instant.parse(it) },
-                        distanceMeters = entity.distanceMeters,
-                        durationSeconds = entity.durationSeconds,
-                        averagePaceSecondsPerKm = entity.averagePaceSecondsPerKm,
-                        calories = entity.calories,
-                        steps = entity.steps?.toInt(),
-                        avgHeartRate = entity.avgHeartRate,
-                        maxHeartRate = entity.maxHeartRate,
-                        elevationGain = entity.elevationGain,
-                        healthConnectId = entity.healthConnectId
-                    )
+                entities.mapNotNull { entity ->
+                    try {
+                        RunActivity(
+                            id = entity.id,
+                            name = entity.name,
+                            type = try { ActivityType.valueOf(entity.type) } catch (e: Exception) { ActivityType.OTHER },
+                            startTime = try { Instant.parse(entity.startTime) } catch (e: Exception) { Instant.fromEpochMilliseconds(0) },
+                            endTime = entity.endTime?.let { try { Instant.parse(it) } catch (e: Exception) { null } },
+                            distanceMeters = entity.distanceMeters,
+                            durationSeconds = entity.durationSeconds,
+                            averagePaceSecondsPerKm = entity.averagePaceSecondsPerKm,
+                            calories = entity.calories,
+                            steps = entity.steps?.toInt(),
+                            avgHeartRate = entity.avgHeartRate,
+                            maxHeartRate = entity.maxHeartRate,
+                            elevationGain = entity.elevationGain,
+                            healthConnectId = entity.healthConnectId
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
                 }
             }
     }

@@ -86,7 +86,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         AndroidDependencies.initialize(this)
-        checkAndRequestPermissions()
 
         val actions = object : AppActions {
             override fun setActivityType(type: ActivityType) {
@@ -365,6 +364,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         
+        // アプリ起動時の初期権限チェック
         checkAndRequestPermissions()
         checkBatteryOptimization()
     }
@@ -401,6 +401,7 @@ class MainActivity : ComponentActivity() {
                 requestPermissionLauncher.launch(missingPermissions.toTypedArray())
             }
         } else {
+            // 全権限がある場合はヘルスコネクトのオンボーディングを確認
             checkAndRequestHealthPermissionsOnboarding()
         }
     }
@@ -413,15 +414,15 @@ class MainActivity : ComponentActivity() {
         if (!manager.isSdkAvailable()) return
 
         lifecycleScope.launch {
-            if (!manager.hasAllPermissions()) {
-                try {
+            try {
+                if (!manager.hasAllPermissions()) {
                     healthPermissionLauncher.launch(manager.permissions)
-                } catch (_: Exception) {
-                    // 失敗しても何もしない
                 }
+                settings.hasAskedHealthConnectOnboarding = true
+                settings.save()
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Health onboarding failed: ${e.message}")
             }
-            settings.hasAskedHealthConnectOnboarding = true
-            settings.save()
         }
     }
 

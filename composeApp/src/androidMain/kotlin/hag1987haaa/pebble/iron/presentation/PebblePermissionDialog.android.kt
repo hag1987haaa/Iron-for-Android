@@ -17,34 +17,64 @@ class AndroidPebblePermissionDialogProvider : PebblePermissionDialogProvider {
         if (!show) return
         
         val context = LocalContext.current
+        val packageManager = context.packageManager
         
+        // 管理アプリのパッケージ名リスト
+        val providers = listOf(
+            "io.rebble.cobble" to "Cobble",
+            "com.getpebble.android" to "Pebble (Official)",
+            "coredevices.coreapp" to "Coreapp"
+        )
+        
+        // インストール済みのアプリを探す
+        val installedProvider = providers.firstOrNull { (pkg, _) ->
+            try {
+                packageManager.getPackageInfo(pkg, 0)
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
+
         AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.pebble_permission_title)) },
-            text = { Text(stringResource(Res.string.pebble_permission_text)) },
+            title = { 
+                Text(if (installedProvider != null) "管理アプリを確認しました" else "管理アプリが見つかりません")
+            },
+            text = { 
+                if (installedProvider != null) {
+                    Text("${installedProvider.second} がインストールされています。Pebble との通信準備は整っています。")
+                } else {
+                    Text("Pebble と通信するには、管理アプリ（Cobble 推奨）が必要です。Play ストアからインストールしますか？")
+                }
+            },
             confirmButton = {
-                Button(onClick = {
-                    onDismiss()
-                    try {
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            data = "market://details?id=io.rebble.cobble".toUri()
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (installedProvider != null) {
+                    Button(onClick = onDismiss) { Text("OK") }
+                } else {
+                    Button(onClick = {
+                        onDismiss()
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                data = "market://details?id=io.rebble.cobble".toUri()
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                        } catch (_: Exception) {
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                data = "https://play.google.com/store/apps/details?id=io.rebble.cobble".toUri()
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
                         }
-                        context.startActivity(intent)
-                    } catch (_: Exception) {
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            data = "https://play.google.com/store/apps/details?id=io.rebble.cobble".toUri()
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        context.startActivity(intent)
+                    }) {
+                        Text("Play ストアへ")
                     }
-                }) {
-                    Text(stringResource(Res.string.pebble_permission_install))
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(Res.string.history_delete_cancel))
+                if (installedProvider == null) {
+                    TextButton(onClick = onDismiss) { Text("キャンセル") }
                 }
             }
         )
