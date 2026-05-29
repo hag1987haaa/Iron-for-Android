@@ -1,6 +1,7 @@
 package hag1987haaa.pebble.iron.pebble
 
 import android.util.Log
+import android.content.Intent
 import android.media.AudioManager
 import android.view.KeyEvent
 import io.rebble.pebblekit2.client.BasePebbleListenerService
@@ -166,9 +167,9 @@ class PebbleCommandService : BasePebbleListenerService() {
                                 else -> ""
                             }
                             Log.i("PebbleCommand", "Automation: Broadcasting intent $action")
-                            val intent = android.content.Intent(action).apply {
+                            val intent = Intent(action).apply {
                                 setPackage(null) // システム全体に放送
-                                addFlags(android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+                                addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
                             }
                             sendBroadcast(intent)
                         }
@@ -198,7 +199,7 @@ class PebbleCommandService : BasePebbleListenerService() {
     private fun sendCommandToService(action: String) {
         Log.i("PebbleCommand", "Sending action to service: $action")
         try {
-            val intent = android.content.Intent(this, hag1987haaa.pebble.iron.service.TrackingService::class.java).apply {
+            val intent = Intent(this, hag1987haaa.pebble.iron.service.TrackingService::class.java).apply {
                 this.action = action
             }
             startForegroundService(intent)

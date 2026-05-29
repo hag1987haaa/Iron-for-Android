@@ -32,6 +32,7 @@ import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.presentation.AndroidPebblePermissionDialogProvider
 import hag1987haaa.pebble.iron.presentation.AppActions
 import hag1987haaa.pebble.iron.presentation.LocalPebblePermissionDialog
+import hag1987haaa.pebble.iron.presentation.PebblePermissionDialogProvider
 import hag1987haaa.pebble.iron.service.TrackingService
 import hag1987haaa.pebble.iron.util.GpxExporter
 import hag1987haaa.pebble.iron.util.HealthUtils
@@ -310,7 +311,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             CompositionLocalProvider(
-                LocalPebblePermissionDialog provides AndroidPebblePermissionDialogProvider()
+                LocalPebblePermissionDialog provides (AndroidPebblePermissionDialogProvider() as PebblePermissionDialogProvider)
             ) {
                 App(actions)
 

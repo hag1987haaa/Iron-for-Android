@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /**
- * プラットフォーム固有のダイアログを表示するためのインターフェース
+ * Interface to show platform-specific dialog
  */
 interface PebblePermissionDialogProvider {
     @Composable
@@ -12,13 +12,23 @@ interface PebblePermissionDialogProvider {
 }
 
 /**
- * ダイアログの実装を UI 全体に提供するための Local 変数
+ * Default provider (does nothing)
+ */
+private val DefaultProvider = object : PebblePermissionDialogProvider {
+    @Composable
+    override fun Show(show: Boolean, onDismiss: () -> Unit) {
+        // No-op
+    }
+}
+
+/**
+ * CompositionLocal to provide the dialog implementation
  */
 val LocalPebblePermissionDialog = staticCompositionLocalOf<PebblePermissionDialogProvider> {
     object : PebblePermissionDialogProvider {
         @Composable
         override fun Show(show: Boolean, onDismiss: () -> Unit) {
-            // Android 以外では何もしない
+            // No-op
         }
     }
 }
