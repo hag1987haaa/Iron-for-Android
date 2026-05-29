@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -435,18 +436,22 @@ class MainActivity : ComponentActivity() {
 
     @SuppressLint("BatteryLife")
     private fun openBatteryOptimizationSettings() {
+        // 1. まずは自アプリを直接指定して除外を求めるダイアログを試みる
         val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-            data = "package:$packageName".toUri()
+            data = Uri.fromParts("package", packageName, null)
         }
+        
         try {
+            Log.d("MainActivity", "Attempting to open direct battery optimization request")
             startActivity(intent)
-        } catch (_: Exception) {
-            Log.e("MainActivity", "Failed to open direct battery settings, falling back to list.")
-            val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Direct battery settings failed: ${e.message}")
+            // 2. 失敗した場合は、ユーザーに手動でアプリを探してもらう設定一覧画面を開く
             try {
+                val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                 startActivity(fallbackIntent)
-            } catch (_: Exception) {
-                Log.e("MainActivity", "Total failure to open battery settings")
+            } catch (e2: Exception) {
+                Log.e("MainActivity", "Total failure to open battery settings: ${e2.message}")
             }
         }
     }

@@ -2,6 +2,7 @@ package hag1987haaa.pebble.iron
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.util.Log
 import hag1987haaa.pebble.iron.data.repository.SqlRunRepository
 import hag1987haaa.pebble.iron.db.DatabaseDriverFactory
 import hag1987haaa.pebble.iron.db.PebbleTrackerDatabase
@@ -22,7 +23,7 @@ object AndroidDependencies {
 
     fun initialize(context: Context) {
         if (isInitialized) return
-        android.util.Log.d("AndroidDependencies", "Initializing dependencies...")
+        Log.d("AndroidDependencies", "Initializing dependencies...")
         
         // Ensure we use application context to avoid leaks
         val appContext = context.applicationContext
@@ -55,7 +56,7 @@ object AndroidDependencies {
                 putBoolean("hc_onboarding_asked", settings.hasAskedHealthConnectOnboarding)
                 apply()
             }
-            android.util.Log.d("AndroidDependencies", "Settings saved to SharedPreferences")
+            Log.d("AndroidDependencies", "Settings saved to SharedPreferences")
         }
         // ------------------------------------------
 
