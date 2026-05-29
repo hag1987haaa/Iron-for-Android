@@ -18,7 +18,9 @@ captures
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
 
-# Android Signing
+# Android Artifacts
+*.aab
+*.apk
 *.jks
 *.keystore
 signing.properties

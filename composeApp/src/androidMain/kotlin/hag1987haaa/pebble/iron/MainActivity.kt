@@ -395,8 +395,6 @@ class MainActivity : ComponentActivity() {
             } else {
                 requestPermissionLauncher.launch(missingPermissions.toTypedArray())
             }
-        } else {
-            checkBackgroundLocationPermission()
         }
     }
 
@@ -424,14 +422,6 @@ class MainActivity : ComponentActivity() {
             } catch (_: Exception) {
                 Log.e("MainActivity", "Total failure to open battery settings")
             }
-        }
-    }
-
-    @SuppressLint("InlinedApi")
-    private fun checkBackgroundLocationPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            Log.i("MainActivity", "Requesting Background Location Permission")
-            requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
         }
     }
 }
