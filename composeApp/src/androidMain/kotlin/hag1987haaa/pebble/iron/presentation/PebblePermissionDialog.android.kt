@@ -1,13 +1,13 @@
 package hag1987haaa.pebble.iron.presentation
 
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
 import hag1987haaa.pebble.iron.*
 import org.jetbrains.compose.resources.stringResource
 
@@ -27,13 +27,13 @@ class AndroidPebblePermissionDialogProvider : PebblePermissionDialogProvider {
                     onDismiss()
                     try {
                         val intent = Intent(Intent.ACTION_VIEW).apply {
-                            data = Uri.parse("market://details?id=io.rebble.cobble")
+                            data = "market://details?id=io.rebble.cobble".toUri()
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
                         context.startActivity(intent)
                     } catch (_: Exception) {
                         val intent = Intent(Intent.ACTION_VIEW).apply {
-                            data = Uri.parse("https://play.google.com/store/apps/details?id=io.rebble.cobble")
+                            data = "https://play.google.com/store/apps/details?id=io.rebble.cobble".toUri()
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
                         context.startActivity(intent)

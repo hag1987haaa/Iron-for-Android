@@ -116,6 +116,10 @@
     <string name="battery_optimization_text">ワークアウトの計測を安定させるために、システムの「バッテリー最適化」を解除することをお勧めします。これにより、長時間計測してもアプリが強制終了されにくくなります。</string>
     <string name="battery_optimization_button">設定画面を開く</string>
 
+    <string name="pebble_permission_title">Pebble 管理アプリの選択</string>
+    <string name="pebble_permission_text">Pebble と通信するには、Cobble または公式の Pebble アプリがインストールされている必要があります。\n\nPlay ストアから Cobble (推奨) をインストールしますか？</string>
+    <string name="pebble_permission_install">Play ストアへ</string>
+
     <string name="detail_sync_hc">Health Connect に同期</string>
     <string name="detail_sync_hc_update">Health Connect のデータを更新</string>
     <string name="detail_sync_hc_success">Health Connect に同期しました！</string>
