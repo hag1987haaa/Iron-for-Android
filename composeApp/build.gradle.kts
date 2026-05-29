@@ -24,7 +24,7 @@ kotlin {
             implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(libs.composeUiToolingPreview)
-            implementation("org.jetbrains.androidx.navigation:navigation-compose:2.8.0-alpha10")
+            implementation(libs.androidx.navigation)
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
@@ -76,8 +76,8 @@ android {
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    kotlinOptions {
-        jvmTarget = "11"
-        freeCompilerArgs += listOf("-Xskip-metadata-version-check")
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        freeCompilerArgs.add("-Xskip-metadata-version-check")
     }
 }

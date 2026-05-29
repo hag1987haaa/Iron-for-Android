@@ -8,6 +8,7 @@ androidx-appcompat = "1.7.0"
 androidx-core = "1.13.1"
 androidx-health-connect = "1.1.0-alpha11"
 androidx-lifecycle = "2.8.7"
+androidx-navigation = "2.9.2"
 androidx-savedstate = "1.4.0"
 androidx-security = "1.1.0-alpha06"
 compose-multiplatform = "1.7.0"
@@ -29,6 +30,7 @@ androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "a
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
 androidx-health-connect = { module = "androidx.health.connect:connect-client", version.ref = "androidx-health-connect" }
 androidx-lifecycle-viewmodel = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }
+androidx-navigation = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "androidx-navigation" }
 androidx-savedstate = { module = "androidx.savedstate:savedstate", version.ref = "androidx-savedstate" }
 androidx-security = { module = "androidx.security:security-crypto", version.ref = "androidx-security" }
 composeFoundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
