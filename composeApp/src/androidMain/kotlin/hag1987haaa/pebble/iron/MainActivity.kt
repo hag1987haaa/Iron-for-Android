@@ -100,7 +100,7 @@ class MainActivity : ComponentActivity() {
                     }
                     startForegroundService(intent)
                 } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to send command", e)
+                    Log.e("MainActivity", "Failed to send command: ${e.message}")
                 }
             }
 
@@ -152,7 +152,7 @@ class MainActivity : ComponentActivity() {
                         KmpDependencies.runRepository.saveRun(run.copy(healthConnectId = hcId))
                         Log.i("MainActivity", "Workout saved successfully.")
                     } catch (e: Exception) {
-                        Log.e("MainActivity", "FAILED TO SAVE WORKOUT", e)
+                        Log.e("MainActivity", "FAILED TO SAVE WORKOUT: ${e.message}")
                     } finally {
                         sendCommand("SAVE_TO_RESULT")
                     }
@@ -243,8 +243,8 @@ class MainActivity : ComponentActivity() {
                 try {
                     val intent = Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
                     startActivity(intent)
-                } catch (_: Exception) {
-                    Log.e("MainActivity", "Failed to open Health Connect settings")
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to open Health Connect settings: ${e.message}")
                 }
             }
 

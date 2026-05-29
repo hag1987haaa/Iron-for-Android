@@ -3,7 +3,6 @@ package hag1987haaa.pebble.iron.data.repository
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -15,7 +14,7 @@ import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.repository.RunRepository
 import hag1987haaa.pebble.iron.util.HealthUtils
 
-class SqlRunRepository(private val db: PebbleTrackerDatabase) : RunRepository {
+class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
 
     private val queries = db.runActivityQueries
 
@@ -24,7 +23,7 @@ class SqlRunRepository(private val db: PebbleTrackerDatabase) : RunRepository {
             queries.insertRun(
                 run.name,
                 run.type.name,
-                run.startTime.toString()
+                run.startTime.toString(),
             )
             val runId = queries.lastInsertId().executeAsOne()
 
@@ -68,9 +67,9 @@ class SqlRunRepository(private val db: PebbleTrackerDatabase) : RunRepository {
                         RunActivity(
                             id = entity.id,
                             name = entity.name,
-                            type = try { ActivityType.valueOf(entity.type) } catch (e: Exception) { ActivityType.OTHER },
-                            startTime = try { Instant.parse(entity.startTime) } catch (e: Exception) { Instant.fromEpochMilliseconds(0) },
-                            endTime = entity.endTime?.let { try { Instant.parse(it) } catch (e: Exception) { null } },
+                            type = try { ActivityType.valueOf(entity.type) } catch (_: Exception) { ActivityType.OTHER },
+                        startTime = try { Instant.parse(entity.startTime) } catch (_: Exception) { Instant.fromEpochMilliseconds(0) },
+                        endTime = entity.endTime?.let { try { Instant.parse(it) } catch (_: Exception) { null } },
                             distanceMeters = entity.distanceMeters,
                             durationSeconds = entity.durationSeconds,
                             averagePaceSecondsPerKm = entity.averagePaceSecondsPerKm,
@@ -106,7 +105,7 @@ class SqlRunRepository(private val db: PebbleTrackerDatabase) : RunRepository {
             RunActivity(
                 id = runEntity.id,
                 name = runEntity.name,
-                type = try { ActivityType.valueOf(runEntity.type) } catch (e: Exception) { ActivityType.OTHER },
+                type = try { ActivityType.valueOf(runEntity.type) } catch (_: Exception) { ActivityType.OTHER },
                 startTime = Instant.parse(runEntity.startTime),
                 endTime = runEntity.endTime?.let { Instant.parse(it) },
                 distanceMeters = runEntity.distanceMeters,
@@ -126,7 +125,7 @@ class SqlRunRepository(private val db: PebbleTrackerDatabase) : RunRepository {
     override suspend fun importRuns(runs: List<RunActivity>) = withContext(Dispatchers.IO) {
         queries.transaction {
             runs.forEach { run ->
-                queries.insertRun(run.name, run.type.name, run.startTime.toString())
+                queries.insertRun(run.name, run.type.name, run.startTime.toString(),)
                 val runId = queries.lastInsertId().executeAsOne()
 
                 run.route.forEach { point ->
@@ -177,7 +176,7 @@ class SqlRunRepository(private val db: PebbleTrackerDatabase) : RunRepository {
         RunActivity(
             id = runEntity.id,
             name = runEntity.name,
-            type = try { ActivityType.valueOf(runEntity.type) } catch (e: Exception) { ActivityType.OTHER },
+            type = try { ActivityType.valueOf(runEntity.type) } catch (_: Exception) { ActivityType.OTHER },
             startTime = Instant.parse(runEntity.startTime),
             endTime = runEntity.endTime?.let { Instant.parse(it) },
             distanceMeters = runEntity.distanceMeters,

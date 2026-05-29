@@ -1,6 +1,7 @@
 package hag1987haaa.pebble.iron.health
 
 import android.content.Context
+import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
@@ -132,11 +133,11 @@ class HealthConnectManager(private val context: Context) {
             caloriesRecord?.let { records.add(it) }
             stepsRecord?.let { records.add(it) }
             
-            android.util.Log.d("HealthConnect", "Inserting ${records.size} records for session: ${run.name}")
+            Log.d("HealthConnect", "Inserting ${records.size} records for session: ${run.name}")
             val response = healthConnectClient.insertRecords(records)
             return response.recordIdsList.firstOrNull()
         } catch (e: Exception) {
-            android.util.Log.e("HealthConnect", "Write failed", e)
+            Log.e("HealthConnect", "Write failed", e)
             return null
         }
     }
@@ -149,7 +150,7 @@ class HealthConnectManager(private val context: Context) {
                 clientRecordIdsList = emptyList()
             )
         } catch (e: Exception) {
-            android.util.Log.e("HealthConnect", "Delete failed", e)
+            Log.e("HealthConnect", "Delete failed", e)
         }
     }
 }

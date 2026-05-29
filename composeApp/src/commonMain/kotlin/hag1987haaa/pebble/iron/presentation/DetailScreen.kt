@@ -428,7 +428,7 @@ private fun formatDistance(meters: Double): String {
     val km = meters / 1000.0
     val integerPart = km.toInt()
     val fractionalPart = ((km - integerPart) * 100).toInt()
-    val ff = if (fractionalPart < 10) "0$fractionalPart" else "$fractionalPart"
+    val ff = if (fractionalPart < 10) "0$fractionalPart" else fractionalPart.toString()
     return "$integerPart.$ff"
 }
 

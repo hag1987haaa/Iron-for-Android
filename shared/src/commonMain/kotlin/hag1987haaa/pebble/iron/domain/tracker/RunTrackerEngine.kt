@@ -77,7 +77,7 @@ class RunTrackerEngine(
     private var lastRawLocation: LocationPoint? = null
     private val rawLocationWindow = mutableListOf<LocationPoint>()
     private val fullRoute = mutableListOf<LocationPoint>() // 高速な記録用の内部リスト
-    private val WINDOW_SIZE = 3
+    private val windowSize = 3
 
     private var trackingJob: Job? = null
     private var timerJob: Job? = null
@@ -384,7 +384,7 @@ class RunTrackerEngine(
 
         // 2. スライディングウィンドウへの追加と加重移動平均の計算
         rawLocationWindow.add(location)
-        if (rawLocationWindow.size > WINDOW_SIZE) {
+        if (rawLocationWindow.size > windowSize) {
             rawLocationWindow.removeAt(0)
         }
 

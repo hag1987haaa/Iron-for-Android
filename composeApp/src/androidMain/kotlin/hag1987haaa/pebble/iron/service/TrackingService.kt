@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import hag1987haaa.pebble.iron.AndroidDependencies
 import hag1987haaa.pebble.iron.KmpDependencies
@@ -36,7 +37,7 @@ class TrackingService : Service() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Iron:TrackingWakeLock")
         wakeLock?.acquire()
-        android.util.Log.d("TrackingService", "WakeLock acquired")
+        Log.d("TrackingService", "WakeLock acquired")
 
         // ステータスの変化を監視して通知を自動更新 & 外部インテント送信
         serviceScope.launch {
@@ -49,13 +50,13 @@ class TrackingService : Service() {
 
                 // 2. 自動化アプリ向けインテントの送出
                 if (KmpDependencies.appSettings.isAutomationEnabled) {
-                    val intent = android.content.Intent("hag1987haaa.pebble.iron.ACTION_STATE_CHANGED").apply {
+                    val intent = Intent("hag1987haaa.pebble.iron.ACTION_STATE_CHANGED").apply {
                         putExtra("state_name", status.name)
                         putExtra("state_code", status.ordinal)
-                        addFlags(android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+                        addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
                     }
                     sendBroadcast(intent)
-                    android.util.Log.d("TrackingService", "Automation: Broadcasted STATE_CHANGED (${status.name})")
+                    Log.d("TrackingService", "Automation: Broadcasted STATE_CHANGED (${status.name})")
                 }
             }
         }
@@ -63,7 +64,7 @@ class TrackingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
-        android.util.Log.d("TrackingService", "onStartCommand: action=$action")
+        Log.d("TrackingService", "onStartCommand: action=$action")
 
         // Android 12+ 対応: startForegroundService() で呼ばれた場合、
         // どんなアクションであっても即座に通知を表示してフォアグラウンド状態を確立しなければならない。
@@ -114,7 +115,7 @@ class TrackingService : Service() {
                 stopSelf()
             }
             "RESET" -> {
-                android.util.Log.i("TrackingService", "Action RESET: Resetting engine and stopping service")
+                Log.i("TrackingService", "Action RESET: Resetting engine and stopping service")
                 engine.resetToIdle()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -142,7 +143,7 @@ class TrackingService : Service() {
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("TrackingService", "Vibration failed", e)
+            Log.e("TrackingService", "Vibration failed", e)
         }
     }
 
@@ -170,7 +171,7 @@ class TrackingService : Service() {
                 try {
                     hcId = AndroidDependencies.healthConnectManager.writeRunActivity(run)
                 } catch (e: Exception) {
-                    android.util.Log.e("TrackingService", "Health Connect sync failed", e)
+                    Log.e("TrackingService", "Health Connect sync failed", e)
                 }
                 
                 // データベース保存
@@ -179,13 +180,13 @@ class TrackingService : Service() {
                 // エンジンをリザルト表示モードへ移行
                 KmpDependencies.trackerEngine.saveToResult()
                 
-                android.util.Log.i("TrackingService", "Workout saved to RESULT state.")
+                Log.i("TrackingService", "Workout saved to RESULT state.")
                 
                 // ワークアウト終了に伴い、通知を消去してサービスを停止
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             } catch (e: Exception) {
-                android.util.Log.e("TrackingService", "Failed to save workout", e)
+                Log.e("TrackingService", "Failed to save workout", e)
             }
         }
     }
@@ -214,7 +215,7 @@ class TrackingService : Service() {
                 try {
                     hcId = AndroidDependencies.healthConnectManager.writeRunActivity(run)
                 } catch (e: Exception) {
-                    android.util.Log.e("TrackingService", "Health Connect sync failed", e)
+                    Log.e("TrackingService", "Health Connect sync failed", e)
                 }
 
                 // データベース保存
@@ -223,9 +224,9 @@ class TrackingService : Service() {
                 // トラッキングリセット
                 KmpDependencies.trackerEngine.resetToIdle()
                 
-                android.util.Log.i("TrackingService", "Workout saved and service stopping.")
+                Log.i("TrackingService", "Workout saved and service stopping.")
             } catch (e: Exception) {
-                android.util.Log.e("TrackingService", "Failed to save workout", e)
+                Log.e("TrackingService", "Failed to save workout", e)
             } finally {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -270,7 +271,7 @@ class TrackingService : Service() {
                 startForeground(1, notification)
             }
         } catch (e: Exception) {
-            android.util.Log.e("TrackingService", "Failed to start foreground", e)
+            Log.e("TrackingService", "Failed to start foreground", e)
         }
     }
 
@@ -278,7 +279,7 @@ class TrackingService : Service() {
         wakeLock?.let {
             if (it.isHeld) {
                 it.release()
-                android.util.Log.d("TrackingService", "WakeLock released")
+                Log.d("TrackingService", "WakeLock released")
             }
         }
         super.onDestroy()

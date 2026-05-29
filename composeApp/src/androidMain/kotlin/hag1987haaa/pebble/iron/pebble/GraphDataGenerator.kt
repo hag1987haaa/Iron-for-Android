@@ -1,5 +1,6 @@
 package hag1987haaa.pebble.iron.pebble
 
+import android.util.Log
 import hag1987haaa.pebble.iron.domain.tracker.RunStatistics
 import hag1987haaa.pebble.iron.util.LocationUtils
 import kotlin.math.ceil
@@ -25,7 +26,7 @@ object GraphDataGenerator {
             }
             enforceLengthLimit(rawCsv)
         } catch (e: Exception) {
-            android.util.Log.e("GraphGenerator", "Fatal error in generation", e)
+            Log.e("GraphGenerator", "Fatal error in generation", e)
             "$typeId,1,0" // 最小限の安全なデータを返す
         }
     }

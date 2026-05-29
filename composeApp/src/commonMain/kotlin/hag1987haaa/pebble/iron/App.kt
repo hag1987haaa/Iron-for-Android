@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -139,7 +140,7 @@ fun App(actions: AppActions) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    navController: androidx.navigation.NavHostController,
+    navController: NavHostController,
     actions: AppActions, 
     initialTab: Int = 0, 
     onRunSelected: (Long) -> Unit, 

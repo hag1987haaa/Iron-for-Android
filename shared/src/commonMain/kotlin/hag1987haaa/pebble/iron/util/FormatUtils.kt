@@ -1,45 +1,30 @@
 package hag1987haaa.pebble.iron.util
 
-import kotlin.math.floor
+import kotlin.math.roundToInt
 
 object FormatUtils {
     fun formatDuration(seconds: Long): String {
-        val hours = seconds / 3600
-        val minutes = (seconds % 3600) / 60
-        val secs = seconds % 60
-        return if (hours > 0) {
-            "${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}"
-        } else {
-            "${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}"
-        }
+        val h = seconds / 3600
+        val m = (seconds % 3600) / 60
+        val s = seconds % 60
+        val mm = if (m < 10) "0$m" else "$m"
+        val ss = if (s < 10) "0$s" else "$s"
+        return if (h > 0) "$h:$mm:$ss" else "$mm:$ss"
     }
 
     fun formatDistance(meters: Double): String {
         val km = meters / 1000.0
-        return if (km >= 10.0) {
-            km.format(1)
-        } else {
-            km.format(2)
-        }
+        val integerPart = km.toInt()
+        val fractionalPart = ((km - integerPart) * 100).toInt()
+        val ff = if (fractionalPart < 10) "0$fractionalPart" else "$fractionalPart"
+        return "$integerPart.$ff"
     }
 
     fun formatPace(secondsPerKm: Double): String {
         if (secondsPerKm <= 0 || secondsPerKm.isInfinite()) return "0:00"
-        val minutes = floor(secondsPerKm / 60.0).toInt()
-        val seconds = floor(secondsPerKm % 60.0).toInt()
-        return "${minutes}:${seconds.toString().padStart(2, '0')}"
-    }
-
-    private fun Double.format(digits: Int): String {
-        // Simple multiplatform decimal formatter
-        val factor = 10.0.pow(digits)
-        val rounded = (this * factor).toLong() / factor
-        return rounded.toString()
-    }
-
-    private fun Double.pow(n: Int): Double {
-        var res = 1.0
-        repeat(n) { res *= this }
-        return res
+        val pace = secondsPerKm.roundToInt()
+        val m = pace / 60
+        val s = pace % 60
+        return "$m:${s.toString().padStart(2, '0')}"
     }
 }

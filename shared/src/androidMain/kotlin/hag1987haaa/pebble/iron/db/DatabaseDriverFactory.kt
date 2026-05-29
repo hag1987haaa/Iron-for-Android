@@ -1,6 +1,8 @@
 package hag1987haaa.pebble.iron.db
 
 import android.content.Context
+import android.util.Log
+import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import app.cash.sqldelight.db.SqlDriver
@@ -15,7 +17,7 @@ class DatabaseDriverFactory(private val context: Context) {
         try {
             System.loadLibrary("sqlcipher")
         } catch (t: Throwable) {
-            android.util.Log.e("DatabaseDriverFactory", "Failed to load sqlcipher library", t)
+            Log.e("DatabaseDriverFactory", "Failed to load sqlcipher library", t)
         }
 
         cleanupOldDatabases()
@@ -39,7 +41,7 @@ class DatabaseDriverFactory(private val context: Context) {
                 
                 factory.create(config).readableDatabase.close()
             } catch (e: Exception) {
-                android.util.Log.e("DatabaseDriverFactory", "Database validation failed. Resetting...", e)
+                Log.e("DatabaseDriverFactory", "Database validation failed. Resetting...", e)
                 dbFile.delete()
                 File(dbFile.path + "-journal").delete()
                 File(dbFile.path + "-shm").delete()
@@ -75,7 +77,7 @@ class DatabaseDriverFactory(private val context: Context) {
                 File(dbDir, "$name-journal").delete()
                 File(dbDir, "$name-shm").delete()
                 File(dbDir, "$name-wal").delete()
-                android.util.Log.i("DatabaseDriverFactory", "Old database file deleted: $name")
+                Log.i("DatabaseDriverFactory", "Old database file deleted: $name")
             }
         }
     }
@@ -97,10 +99,10 @@ class DatabaseDriverFactory(private val context: Context) {
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
         } catch (e: Exception) {
-            android.util.Log.e("DatabaseDriverFactory", "EncryptedSharedPreferences corruption detected. Resetting database and prefs...", e)
+            Log.e("DatabaseDriverFactory", "EncryptedSharedPreferences corruption detected. Resetting database and prefs...", e)
             // キーの不整合や破損が起きた場合、暗号化キーを復旧できないため、
             // 整合性を保つためにデータベースファイルもろとも削除して作り直す
-            context.getSharedPreferences(fileName, Context.MODE_PRIVATE).edit().clear().apply()
+            context.getSharedPreferences(fileName, Context.MODE_PRIVATE).edit { clear() }
             context.getDatabasePath(dbName).delete()
             
             EncryptedSharedPreferences.create(

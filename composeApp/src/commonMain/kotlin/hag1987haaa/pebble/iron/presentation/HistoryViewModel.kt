@@ -17,12 +17,6 @@ class HistoryViewModel(private val repository: RunRepository) : ViewModel() {
         return repository.getRunDetails(id)
     }
 
-    fun deleteRun(id: Long) {
-        viewModelScope.launch {
-            repository.deleteRun(id)
-        }
-    }
-
     fun updateRunName(id: Long, name: String) {
         viewModelScope.launch {
             repository.updateRunName(id, name)
