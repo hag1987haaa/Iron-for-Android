@@ -74,9 +74,19 @@ class TrackingService : Service() {
         val action = intent?.action
         Log.d("TrackingService", "onStartCommand: action=$action")
 
-        // Android 12+ 対応: startForegroundService() で呼ばれた場合、
-        // どんなアクションであっても即座に通知を表示してフォアグラウンド状態を確立しなければならない。
-        updateNotification(getString(R.string.notif_content_tracking))
+        // 修正：アクションの内容に基づいて、即座にフォアグラウンド化を試みる
+        if (action != null) {
+            val forceOngoing = action == "PREPARE" || action == "START" || action == "RESUME" || action == "PAUSE"
+            val initialStatusStr = when (action) {
+                "PREPARE" -> getString(R.string.status_preparing)
+                "START" -> getString(R.string.status_active)
+                "PAUSE" -> getString(R.string.status_paused)
+                "RESUME" -> getString(R.string.status_active)
+                "FINISH" -> getString(R.string.status_finished)
+                else -> getString(R.string.notif_content_tracking)
+            }
+            updateNotification(initialStatusStr, forceOngoing)
+        }
         
         if (action == null) {
             return START_STICKY
@@ -278,10 +288,11 @@ class TrackingService : Service() {
         }
     }
 
-    private fun updateNotification(content: String) {
+    private fun updateNotification(content: String, forceOngoing: Boolean = false) {
         val channelId = "tracking_channel"
         val manager = getSystemService(NotificationManager::class.java)
-        manager?.createNotificationChannel(NotificationChannel(channelId, getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_LOW))
+        // 重要度を少し上げて、OSに無視されないようにする
+        manager?.createNotificationChannel(NotificationChannel(channelId, getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_DEFAULT))
 
         val status = RunState.status.value
         val title = when(status) {
@@ -293,12 +304,16 @@ class TrackingService : Service() {
             else -> getString(R.string.app_name)
         }
 
+        val isOngoing = forceOngoing || (status != RunStatus.IDLE && status != RunStatus.RESULT)
+
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle(title)
             .setContentText(content)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setOngoing(status != RunStatus.IDLE && status != RunStatus.RESULT)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(isOngoing)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE) // サービスであることを明示
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE) // すぐに表示
             .setContentIntent(PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE))
             .build()
 
