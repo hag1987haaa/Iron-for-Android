@@ -71,6 +71,7 @@
 
         <service
             android:name=".service.TrackingService"
+            android:label="@string/notif_channel_name"
             android:foregroundServiceType="location|connectedDevice"
             android:exported="false" />
 

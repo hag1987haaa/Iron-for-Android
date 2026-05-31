@@ -9,6 +9,7 @@
     <string name="history_export_button">データ出力</string>
     <string name="history_import_button">データ取込</string>
     <string name="history_backup_title">バックアップと復元</string>
+    <string name="history_export_chooser_title">ワークアウトデータをエクスポート</string>
 
     <string name="detail_discard">破棄</string>
     <string name="detail_save">保存</string>
@@ -33,9 +34,19 @@
     <string name="notif_status_paused">一時停止中 - Iron for pebble</string>
     <string name="notif_status_preparing">GPS 検索中 - Iron for pebble</string>
     <string name="notif_status_ready">開始準備完了 - Iron for pebble</string>
+    <string name="notif_status_result">ワークアウト結果 - Iron for pebble</string>
     <string name="notif_content_tracking">トラッキングを継続中</string>
     <string name="notif_content_executing">実行中: %s</string>
     <string name="notif_content_current_state">現在の状態: %s</string>
+    <string name="notif_channel_name">計測サービス</string>
+
+    <string name="status_idle">待機中</string>
+    <string name="status_preparing">GPS検索中</string>
+    <string name="status_ready">準備完了</string>
+    <string name="status_active">計測中</string>
+    <string name="status_paused">一時停止</string>
+    <string name="status_finished">計測終了</string>
+    <string name="status_result">リザルト表示</string>
 
     <string name="activity_running">ランニング</string>
     <string name="activity_walking">ウォーキング</string>
@@ -123,6 +134,8 @@
     <string name="pebble_provider_detected_text">%s がインストールされています。Pebble との通信準備は整っています。</string>
     <string name="pebble_provider_missing_title">管理アプリが見つかりません</string>
     <string name="pebble_provider_missing_text">Pebble と通信するには、管理アプリ（Cobble 推奨）が必要です。Play ストアからインストールしますか？</string>
+    <string name="pebble_provider_confirm_ok">OK</string>
+    <string name="pebble_provider_confirm_cancel">キャンセル</string>
 
     <string name="detail_sync_hc">Health Connect に同期</string>
     <string name="detail_sync_hc_update">Health Connect のデータを更新</string>

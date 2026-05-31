@@ -1,11 +1,22 @@
 <resources>
     <string name="app_name">Iron</string>
-    <string name="notif_status_active">計測中 - Iron for pebble</string>
-    <string name="notif_status_paused">一時停止中 - Iron for pebble</string>
-    <string name="notif_status_preparing">GPS 検索中 - Iron for pebble</string>
-    <string name="notif_status_ready">開始準備完了 - Iron for pebble</string>
-    <string name="notif_content_tracking">トラッキングを継続中</string>
-    <string name="notif_content_executing">実行中: %s</string>
-    <string name="notif_content_current_state">現在の状態: %s</string>
-    <string name="share_gpx_chooser_title">GPX を共有</string>
+    <string name="notif_status_active">Tracking - Iron for pebble</string>
+    <string name="notif_status_paused">Paused - Iron for pebble</string>
+    <string name="notif_status_preparing">Searching GPS - Iron for pebble</string>
+    <string name="notif_status_ready">Ready - Iron for pebble</string>
+    <string name="notif_status_result">Workout Summary - Iron for pebble</string>
+    <string name="notif_content_tracking">Tracking in progress</string>
+    <string name="notif_content_executing">Running: %s</string>
+    <string name="notif_content_current_state">Current state: %s</string>
+    <string name="notif_channel_name">Tracking Service</string>
+    <string name="share_gpx_chooser_title">Share GPX</string>
+    <string name="history_export_chooser_title">Export Workout Data</string>
+
+    <string name="status_idle">Idle</string>
+    <string name="status_preparing">Searching GPS</string>
+    <string name="status_ready">Ready</string>
+    <string name="status_active">Active</string>
+    <string name="status_paused">Paused</string>
+    <string name="status_finished">Finished</string>
+    <string name="status_result">Result</string>
 </resources>

@@ -17,6 +17,7 @@ class AndroidPebblePermissionDialogProvider : PebblePermissionDialogProvider {
         if (!show) return
 
         val context = LocalContext.current
+        val packageManager = context.packageManager
 
         // 管理アプリのパッケージ名リスト
         val providers = listOf(
@@ -29,7 +30,7 @@ class AndroidPebblePermissionDialogProvider : PebblePermissionDialogProvider {
         val installedProvider = providers.firstOrNull { (pkg, _) ->
             try {
                 @Suppress("DEPRECATION")
-                context.packageManager.getPackageInfo(pkg, 0)
+                packageManager.getPackageInfo(pkg, 0)
                 true
             } catch (_: Exception) {
                 false
@@ -39,19 +40,27 @@ class AndroidPebblePermissionDialogProvider : PebblePermissionDialogProvider {
         AlertDialog(
             onDismissRequest = onDismiss,
             title = {
-                Text(stringResource(Res.string.pebble_permission_title))
+                val titleRes = if (installedProvider != null) {
+                    Res.string.pebble_provider_detected_title
+                } else {
+                    Res.string.pebble_provider_missing_title
+                }
+                Text(stringResource(titleRes))
             },
             text = {
                 if (installedProvider != null) {
-                    Text("${installedProvider.second} がインストールされています。Pebble との通信準備は整っています。")
+                    Text(
+                        stringResource(Res.string.pebble_provider_detected_text)
+                            .replace("%s", installedProvider.second),
+                    )
                 } else {
-                    Text(stringResource(Res.string.pebble_permission_text))
+                    Text(stringResource(Res.string.pebble_provider_missing_text))
                 }
             },
             confirmButton = {
                 if (installedProvider != null) {
                     Button(onClick = onDismiss) {
-                        Text("OK")
+                        Text(stringResource(Res.string.pebble_provider_confirm_ok))
                     }
                 } else {
                     Button(
@@ -79,7 +88,7 @@ class AndroidPebblePermissionDialogProvider : PebblePermissionDialogProvider {
             dismissButton = {
                 if (installedProvider == null) {
                     TextButton(onClick = onDismiss) {
-                        Text(stringResource(Res.string.history_delete_cancel))
+                        Text(stringResource(Res.string.pebble_provider_confirm_cancel))
                     }
                 }
             },

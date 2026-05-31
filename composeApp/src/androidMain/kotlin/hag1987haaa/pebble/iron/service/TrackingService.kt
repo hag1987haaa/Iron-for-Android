@@ -44,7 +44,16 @@ class TrackingService : Service() {
             RunState.status.collect { status ->
                 // 1. 通知の更新
                 if ((status != RunStatus.IDLE) && (status != RunStatus.FINISHED) && (status != RunStatus.RESULT)) {
-                    val statusStr = getString(R.string.notif_content_current_state, status.name)
+                    val statusName = when(status) {
+                        RunStatus.IDLE -> getString(R.string.status_idle)
+                        RunStatus.PREPARING -> getString(R.string.status_preparing)
+                        RunStatus.READY -> getString(R.string.status_ready)
+                        RunStatus.ACTIVE -> getString(R.string.status_active)
+                        RunStatus.PAUSED -> getString(R.string.status_paused)
+                        RunStatus.FINISHED -> getString(R.string.status_finished)
+                        RunStatus.RESULT -> getString(R.string.status_result)
+                    }
+                    val statusStr = getString(R.string.notif_content_current_state, statusName)
                     updateNotification(statusStr)
                 }
 
@@ -237,7 +246,7 @@ class TrackingService : Service() {
     private fun updateNotification(content: String) {
         val channelId = "tracking_channel"
         val manager = getSystemService(NotificationManager::class.java)
-        manager?.createNotificationChannel(NotificationChannel(channelId, "Tracking", NotificationManager.IMPORTANCE_LOW))
+        manager?.createNotificationChannel(NotificationChannel(channelId, getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_LOW))
 
         val status = RunState.status.value
         val title = when(status) {
@@ -245,7 +254,7 @@ class TrackingService : Service() {
             RunStatus.PAUSED -> getString(R.string.notif_status_paused)
             RunStatus.PREPARING -> getString(R.string.notif_status_preparing)
             RunStatus.READY -> getString(R.string.notif_status_ready)
-            RunStatus.RESULT -> "リザルト表示中"
+            RunStatus.RESULT -> getString(R.string.notif_status_result)
             else -> getString(R.string.app_name)
         }
 
