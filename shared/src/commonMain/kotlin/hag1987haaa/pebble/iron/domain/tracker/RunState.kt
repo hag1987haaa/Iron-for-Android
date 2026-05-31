@@ -29,7 +29,4 @@ object RunState {
     fun setStatus(newStatus: RunStatus) {
         _status.value = newStatus
     }
-
-    // 下位互換性のため残す
-    val isServiceRunning: StateFlow<Boolean> = MutableStateFlow(false)
 }

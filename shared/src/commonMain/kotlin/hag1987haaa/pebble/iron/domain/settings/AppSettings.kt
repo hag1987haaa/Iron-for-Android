@@ -5,8 +5,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class AppSettings {
-    var pebbleUuid: String = "0ec71971-1191-4e05-87f5-27a3c749023c"
-    var useSportsApi: Boolean = true
     var isMusicControlEnabled: Boolean = true
     var isTouchControlEnabled: Boolean = false
     

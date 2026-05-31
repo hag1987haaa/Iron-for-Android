@@ -101,7 +101,6 @@ class RunTrackerEngine(
     }
 
     fun prepare() {
-        println("Engine: PREPARE called. Current: ${RunState.status.value}")
         // もし現在リザルト画面（STATE 6）や異常状態にある場合は、確実にクリーンアップ
         if (RunState.status.value == RunStatus.RESULT || RunState.status.value == RunStatus.IDLE) {
             reset()
@@ -124,11 +123,8 @@ class RunTrackerEngine(
     }
 
     fun start() {
-        println("Engine: START called. Current: ${_statistics.value.status}, HasGps: ${_statistics.value.hasGpsFix}")
-        
         // GPS信号がない場合は保留状態にする
         if (!_statistics.value.hasGpsFix) {
-            println("Engine: GPS fix not acquired yet. Setting start to PENDING.")
             isStartPending = true
             // Watch側に「GPS検索中」の状態を維持させる
             pebbleMessenger?.sendState(RunStatus.PREPARING)
@@ -211,8 +207,6 @@ class RunTrackerEngine(
         
         pebbleMessenger?.sendState(RunStatus.RESULT)
         pebbleMessenger?.sendStatistics(_statistics.value)
-        
-        println("Engine: State transitioned to RESULT")
     }
 
     fun resetToIdle() {
@@ -272,7 +266,6 @@ class RunTrackerEngine(
     }
 
     private fun reset() {
-        println("Engine: Performing thorough RESET")
         isStartPending = false
         
         trackingJob?.cancel()
@@ -303,8 +296,6 @@ class RunTrackerEngine(
         totalPausedSteps = 0
         pauseStartSteps = null
         lastIncomingSteps = -1
-        
-        println("Engine: RESET complete. Current state: ${RunState.status.value}")
     }
 
     private fun startTimer() {
@@ -351,14 +342,11 @@ class RunTrackerEngine(
         lastRawLocation = location
 
         if (!_statistics.value.hasGpsFix) {
-            println("Engine: GPS Fix acquired!")
             _statistics.update { it.copy(hasGpsFix = true) }
             
             if (isStartPending) {
-                println("Engine: GPS Fix acquired and start was pending. Starting workout.")
                 start()
             } else if (RunState.status.value == RunStatus.PREPARING) {
-                println("Engine: Transitioning PREPARING -> READY")
                 _statistics.update { it.copy(status = RunStatus.READY) }
                 RunState.setStatus(RunStatus.READY)
                 RunState.updateStats(_statistics.value)
@@ -379,7 +367,6 @@ class RunTrackerEngine(
             val d = LocationUtils.calculateDistance(rawPrev.latitude, rawPrev.longitude, location.latitude, location.longitude)
             val dt = (location.timestamp.toEpochMilliseconds() - rawPrev.timestamp.toEpochMilliseconds()) / 1000.0
             if (dt > 0 && (d / dt) > 40.0) {
-                println("Engine: Outlier detected! Speed: ${d/dt} m/s. Discarding.")
                 return 
             }
         }

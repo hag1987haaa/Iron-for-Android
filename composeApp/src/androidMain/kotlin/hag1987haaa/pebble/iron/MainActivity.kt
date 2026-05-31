@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
 
     private val requestPermissionLauncher = registerForActivityResult<Array<String>, Map<String, Boolean>>(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ -> 
+    ) {
         checkAndRequestHealthPermissionsOnboarding()
     }
 
@@ -123,10 +123,10 @@ class MainActivity : ComponentActivity() {
                 lifecycleScope.launch {
                     try {
                         val manager = AndroidDependencies.healthConnectManager
-                        run.healthConnectId?.let { oldId ->
+                        run.healthConnectId?.let {
                             try {
-                                manager.deleteRunActivity(oldId)
-                                Log.d("MainActivity", "Old HC record deleted: $oldId")
+                                manager.deleteRunActivity(run)
+                                Log.d("MainActivity", "Old HC record deleted for run: ${run.id}")
                             } catch (_: Exception) {}
                         }
 
@@ -150,9 +150,9 @@ class MainActivity : ComponentActivity() {
             override fun deleteRunRecord(id: Long) {
                 lifecycleScope.launch {
                     val run = KmpDependencies.runRepository.getRunDetails(id)
-                    run?.healthConnectId?.let { hcId ->
+                    if (run != null) {
                         try {
-                            AndroidDependencies.healthConnectManager.deleteRunActivity(hcId)
+                            AndroidDependencies.healthConnectManager.deleteRunActivity(run)
                         } catch (_: Exception) {}
                     }
                     KmpDependencies.runRepository.deleteRun(id)

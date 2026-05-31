@@ -18,6 +18,7 @@ import hag1987haaa.pebble.iron.R
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
+import hag1987haaa.pebble.iron.util.HealthUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,15 +44,13 @@ class TrackingService : Service() {
         serviceScope.launch {
             RunState.status.collect { status ->
                 // 1. 通知の更新
-                if ((status != RunStatus.IDLE) && (status != RunStatus.FINISHED) && (status != RunStatus.RESULT)) {
-                    val statusName = when(status) {
-                        RunStatus.IDLE -> getString(R.string.status_idle)
+                if (status != RunStatus.IDLE && status != RunStatus.FINISHED && status != RunStatus.RESULT) {
+                    val statusName = when (status) {
                         RunStatus.PREPARING -> getString(R.string.status_preparing)
                         RunStatus.READY -> getString(R.string.status_ready)
                         RunStatus.ACTIVE -> getString(R.string.status_active)
                         RunStatus.PAUSED -> getString(R.string.status_paused)
-                        RunStatus.FINISHED -> getString(R.string.status_finished)
-                        RunStatus.RESULT -> getString(R.string.status_result)
+                        else -> getString(R.string.app_name)
                     }
                     val statusStr = getString(R.string.notif_content_current_state, statusName)
                     updateNotification(statusStr)
@@ -169,7 +168,7 @@ class TrackingService : Service() {
                 val settings = KmpDependencies.appSettings
                 
                 // 保存直前に最新の設定（体重・アクティビティ種別）でカロリーを再計算
-                val calories = hag1987haaa.pebble.iron.util.HealthUtils.calculateCalories(
+                val calories = HealthUtils.calculateCalories(
                     type = stats.activityType,
                     weightKg = settings.userWeightKg,
                     durationSeconds = stats.totalSeconds,
@@ -231,7 +230,7 @@ class TrackingService : Service() {
                 val settings = KmpDependencies.appSettings
                 
                 // 保存直前に最新の設定（体重・アクティビティ種別）でカロリーを再計算
-                val calories = hag1987haaa.pebble.iron.util.HealthUtils.calculateCalories(
+                val calories = HealthUtils.calculateCalories(
                     type = stats.activityType,
                     weightKg = settings.userWeightKg,
                     durationSeconds = stats.totalSeconds,

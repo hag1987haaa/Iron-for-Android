@@ -3,7 +3,6 @@ package hag1987haaa.pebble.iron.health
 import android.content.Context
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
 import androidx.health.connect.client.records.metadata.Metadata as HealthMetadata
@@ -29,7 +28,7 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getWritePermission(DistanceRecord::class),
         HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class),
         // 運動ルート権限 (Android 14+ で詳細なマップ表示に必須)
-        "android.permission.health.WRITE_EXERCISE_ROUTE"
+        "android.permission.health.WRITE_EXERCISE_ROUTE",
     )
 
     suspend fun hasAllPermissions(): Boolean {
@@ -73,6 +72,7 @@ class HealthConnectManager(private val context: Context) {
             val startTimeMillis = run.startTime.toEpochMilliseconds()
             val metadata = HealthMetadata(clientRecordId = "iron_session_$startTimeMillis")
 
+            @Suppress("RestrictedApi")
             val sessionRecord = ExerciseSessionRecord(
                 startTime = startTime,
                 startZoneOffset = zoneOffset,
@@ -81,8 +81,8 @@ class HealthConnectManager(private val context: Context) {
                 exerciseType = exerciseType,
                 title = run.name ?: "Workout",
                 notes = "Recorded via Iron for pebble",
+                metadata = metadata,
                 exerciseRoute = exerciseRoute,
-                metadata = metadata
             )
 
             // 3. 距離データの作成
@@ -96,12 +96,12 @@ class HealthConnectManager(private val context: Context) {
             )
 
             // 4. 心拍数データの作成
-            val samples = run.route.filter { it.heartRate != null }.map {
+            val samples = run.route.asSequence().filter { it.heartRate != null }.map {
                 HeartRateRecord.Sample(
                     time = it.timestamp.toJavaInstant(),
                     beatsPerMinute = it.heartRate!!.toLong()
                 )
-            }
+            }.toList()
             val heartRateRecord = if (samples.isNotEmpty()) {
                 HeartRateRecord(
                     startTime = startTime,
