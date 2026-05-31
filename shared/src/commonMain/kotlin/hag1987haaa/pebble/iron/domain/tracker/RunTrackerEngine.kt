@@ -282,7 +282,9 @@ class RunTrackerEngine(
         locationTracker.stopTracking()
         
         // 統計情報を完全に初期化 (Status = IDLE)
-        val freshStats = RunStatistics()
+        // 現在選択されている種別を保持する
+        val currentType = _statistics.value.activityType
+        val freshStats = RunStatistics(activityType = currentType)
         _statistics.value = freshStats
         
         // グローバルな状態も即座に同期して初期化
