@@ -6,6 +6,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
+import androidx.health.connect.client.records.metadata.Metadata as HealthMetadata
 import androidx.health.connect.client.units.*
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
@@ -69,6 +70,9 @@ class HealthConnectManager(private val context: Context) {
                 ActivityType.OTHER -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
             }
 
+            val startTimeMillis = run.startTime.toEpochMilliseconds()
+            val metadata = HealthMetadata(clientRecordId = "iron_session_$startTimeMillis")
+
             val sessionRecord = ExerciseSessionRecord(
                 startTime = startTime,
                 startZoneOffset = zoneOffset,
@@ -77,7 +81,8 @@ class HealthConnectManager(private val context: Context) {
                 exerciseType = exerciseType,
                 title = run.name ?: "Workout",
                 notes = "Recorded via Iron for pebble",
-                exerciseRoute = exerciseRoute
+                exerciseRoute = exerciseRoute,
+                metadata = metadata
             )
 
             // 3. 距離データの作成
@@ -86,7 +91,8 @@ class HealthConnectManager(private val context: Context) {
                 startZoneOffset = zoneOffset,
                 endTime = endTime,
                 endZoneOffset = zoneOffset,
-                distance = Length.meters(run.distanceMeters)
+                distance = Length.meters(run.distanceMeters),
+                metadata = HealthMetadata(clientRecordId = "iron_dist_$startTimeMillis")
             )
 
             // 4. 心拍数データの作成
@@ -102,7 +108,8 @@ class HealthConnectManager(private val context: Context) {
                     startZoneOffset = zoneOffset,
                     endTime = endTime,
                     endZoneOffset = zoneOffset,
-                    samples = samples
+                    samples = samples,
+                    metadata = HealthMetadata(clientRecordId = "iron_hr_$startTimeMillis")
                 )
             } else null
 
@@ -113,7 +120,8 @@ class HealthConnectManager(private val context: Context) {
                     startZoneOffset = zoneOffset,
                     endTime = endTime,
                     endZoneOffset = zoneOffset,
-                    energy = Energy.kilocalories(it)
+                    energy = Energy.kilocalories(it),
+                    metadata = HealthMetadata(clientRecordId = "iron_cal_$startTimeMillis")
                 )
             }
 
@@ -124,7 +132,8 @@ class HealthConnectManager(private val context: Context) {
                     startTime = startTime,
                     startZoneOffset = zoneOffset,
                     endTime = endTime,
-                    endZoneOffset = zoneOffset
+                    endZoneOffset = zoneOffset,
+                    metadata = HealthMetadata(clientRecordId = "iron_steps_$startTimeMillis")
                 )
             }
 
@@ -142,13 +151,34 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 
-    suspend fun deleteRunActivity(healthConnectId: String) {
+    suspend fun deleteRunActivity(run: RunActivity) {
         try {
-            healthConnectClient.deleteRecords(
-                ExerciseSessionRecord::class,
-                recordIdsList = listOf(healthConnectId),
-                clientRecordIdsList = emptyList()
+            val startTimeMillis = run.startTime.toEpochMilliseconds()
+            val clientRecordIds = listOf(
+                "iron_session_$startTimeMillis",
+                "iron_dist_$startTimeMillis",
+                "iron_hr_$startTimeMillis",
+                "iron_cal_$startTimeMillis",
+                "iron_steps_$startTimeMillis"
             )
+
+            val recordTypes = listOf(
+                ExerciseSessionRecord::class,
+                DistanceRecord::class,
+                HeartRateRecord::class,
+                ActiveCaloriesBurnedRecord::class,
+                StepsRecord::class
+            )
+            
+            recordTypes.forEach { recordType ->
+                try {
+                    healthConnectClient.deleteRecords(
+                        recordType,
+                        recordIdsList = emptyList(),
+                        clientRecordIdsList = clientRecordIds
+                    )
+                } catch (_: Exception) {}
+            }
         } catch (e: Exception) {
             Log.e("HealthConnect", "Delete failed", e)
         }

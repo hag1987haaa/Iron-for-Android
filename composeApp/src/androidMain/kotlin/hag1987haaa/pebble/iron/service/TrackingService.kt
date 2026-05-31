@@ -157,9 +157,27 @@ class TrackingService : Service() {
     }
 
     private fun saveWorkoutToResult() {
+        // 重複保存の防止
+        if (RunState.status.value == RunStatus.RESULT) {
+            Log.w("TrackingService", "saveWorkoutToResult: Already in RESULT state, skipping.")
+            return
+        }
+
         serviceScope.launch {
             try {
                 val stats = RunState.currentStats.value
+                val settings = KmpDependencies.appSettings
+                
+                // 保存直前に最新の設定（体重・アクティビティ種別）でカロリーを再計算
+                val calories = hag1987haaa.pebble.iron.util.HealthUtils.calculateCalories(
+                    type = stats.activityType,
+                    weightKg = settings.userWeightKg,
+                    durationSeconds = stats.totalSeconds,
+                    distanceMeters = stats.totalDistanceMeters,
+                    elevationGainMeters = stats.totalElevationGain,
+                    avgHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null
+                )
+
                 val run = RunActivity(
                     startTime = stats.startTime ?: Clock.System.now(),
                     name = stats.name,
@@ -167,7 +185,7 @@ class TrackingService : Service() {
                     endTime = Clock.System.now(),
                     distanceMeters = stats.totalDistanceMeters,
                     durationSeconds = stats.totalSeconds,
-                    calories = stats.calories,
+                    calories = calories,
                     steps = stats.steps,
                     avgHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null,
                     maxHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.maxOrNull()?.toDouble() else null,
@@ -201,9 +219,27 @@ class TrackingService : Service() {
     }
 
     private fun saveWorkoutAndStop() {
+        // 重複保存の防止
+        if (RunState.status.value == RunStatus.IDLE) {
+            Log.w("TrackingService", "saveWorkoutAndStop: Already in IDLE state, skipping.")
+            return
+        }
+
         serviceScope.launch {
             try {
                 val stats = RunState.currentStats.value
+                val settings = KmpDependencies.appSettings
+                
+                // 保存直前に最新の設定（体重・アクティビティ種別）でカロリーを再計算
+                val calories = hag1987haaa.pebble.iron.util.HealthUtils.calculateCalories(
+                    type = stats.activityType,
+                    weightKg = settings.userWeightKg,
+                    durationSeconds = stats.totalSeconds,
+                    distanceMeters = stats.totalDistanceMeters,
+                    elevationGainMeters = stats.totalElevationGain,
+                    avgHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null
+                )
+
                 val run = RunActivity(
                     startTime = stats.startTime ?: Clock.System.now(),
                     name = stats.name,
@@ -211,7 +247,7 @@ class TrackingService : Service() {
                     endTime = Clock.System.now(),
                     distanceMeters = stats.totalDistanceMeters,
                     durationSeconds = stats.totalSeconds,
-                    calories = stats.calories,
+                    calories = calories,
                     steps = stats.steps,
                     avgHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null,
                     maxHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.maxOrNull()?.toDouble() else null,

@@ -111,55 +111,9 @@ class MainActivity : ComponentActivity() {
             override fun finishTracking() = sendCommand("FINISH")
             
             override fun saveTracking() {
-                val stats = RunState.currentStats.value
-                lifecycleScope.launch {
-                    try {
-                        val settings = KmpDependencies.appSettings
-                        val avgHr = if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null
-                        val maxHr = if (stats.heartRates.isNotEmpty()) stats.heartRates.maxOrNull()?.toDouble() else null
-
-                        val calories = HealthUtils.calculateCalories(
-                            type = stats.activityType,
-                            weightKg = settings.userWeightKg,
-                            durationSeconds = stats.totalSeconds,
-                            distanceMeters = stats.totalDistanceMeters,
-                            elevationGainMeters = stats.totalElevationGain,
-                            avgHeartRate = avgHr
-                        )
-
-                        val run = RunActivity(
-                            startTime = stats.startTime ?: Clock.System.now(),
-                            name = stats.name,
-                            type = stats.activityType,
-                            endTime = Clock.System.now(),
-                            distanceMeters = stats.totalDistanceMeters,
-                            durationSeconds = stats.totalSeconds,
-                            calories = calories,
-                            steps = stats.steps,
-                            avgHeartRate = avgHr,
-                            maxHeartRate = maxHr,
-                            elevationGain = stats.totalElevationGain,
-                            route = stats.route
-                        )
-
-                        var hcId: String? = null
-                        try {
-                            hcId = AndroidDependencies.healthConnectManager.writeRunActivity(run)
-                            if (hcId != null) {
-                                Log.d("MainActivity", "Health Connect synced ID: $hcId")
-                            }
-                        } catch (_: Exception) {
-                            Log.e("MainActivity", "Health Connect sync failed")
-                        }
-
-                        KmpDependencies.runRepository.saveRun(run.copy(healthConnectId = hcId))
-                        Log.i("MainActivity", "Workout saved successfully.")
-                    } catch (e: Exception) {
-                        Log.e("MainActivity", "FAILED TO SAVE WORKOUT: ${e.message}")
-                    } finally {
-                        sendCommand("SAVE_TO_RESULT")
-                    }
-                }
+                // UI側での保存処理を簡略化。
+                // 実際の保存処理（DB/Health Connect）は TrackingService 側で行うことで二重保存を防止する。
+                sendCommand("SAVE_TO_RESULT")
             }
 
             override fun discardTracking() = sendCommand("STOP")
