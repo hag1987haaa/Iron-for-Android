@@ -22,6 +22,7 @@ class AppSettings {
 
     var userWeightKg: Float = 70.0f
     var hasAskedHealthConnectOnboarding: Boolean = false
+    var appVersion: String = "1.0.0"
 
     // プラットフォーム固有の保存処理用コールバック
     var onSettingsChanged: (() -> Unit)? = null

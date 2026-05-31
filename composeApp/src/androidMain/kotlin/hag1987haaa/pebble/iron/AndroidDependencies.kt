@@ -42,6 +42,14 @@ object AndroidDependencies {
         settings.userWeightKg = prefs.getFloat("user_weight", 70.0f)
         settings.hasAskedHealthConnectOnboarding = prefs.getBoolean("hc_onboarding_asked", false)
         
+        // アプリバージョンの取得
+        try {
+            val packageInfo = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
+            settings.appVersion = packageInfo.versionName ?: "1.0.0"
+        } catch (e: Exception) {
+            Log.e("AndroidDependencies", "Failed to get version name", e)
+        }
+
         // 保存用コールバックの登録
         settings.onSettingsChanged = {
             prefs.edit().apply {

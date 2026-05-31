@@ -296,7 +296,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
             
             ListItem(
                 headlineContent = { Text(stringResource(Res.string.settings_label_version)) },
-                supportingContent = { Text("1.0.0 (Iron)") },
+                supportingContent = { Text("${KmpDependencies.appSettings.appVersion} (Iron)") },
                 leadingContent = { Icon(Icons.Default.Info, contentDescription = null) }
             )
 
