@@ -98,6 +98,8 @@ class RunTrackerEngine(
 
     fun launchWatchApp() {
         pebbleMessenger?.launchWatchApp()
+        // アプリ起動時にタッチ設定を同期
+        pebbleMessenger?.sendTouchConfig(appSettings?.isTouchControlEnabled ?: false)
     }
 
     fun prepare() {
@@ -210,8 +212,9 @@ class RunTrackerEngine(
     }
 
     fun resetToIdle() {
-        println("Engine: resetToIdle called")
         reset()
+        // IDLEに戻った際も設定を同期（ミュージック操作等を可能にするため）
+        pebbleMessenger?.sendTouchConfig(appSettings?.isTouchControlEnabled ?: false)
     }
 
     fun addHeartRate(bpm: Int) {

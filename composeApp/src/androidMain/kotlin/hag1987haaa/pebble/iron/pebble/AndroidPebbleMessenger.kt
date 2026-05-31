@@ -180,8 +180,9 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         val dict = mapOf(
             KEY_TOUCH_ENABLE to PebbleDictionaryItem.Int32(if (enabled) 1 else 0)
         )
-        // 設定は重要なのでコマンドキュー経由で確実に送る
-        commandQueue.trySend(PebbleMessageRequest("TOUCH_CONFIG", dict, retryCount = 3))
+        // 設定は重要なのでコマンドキュー経由で確実に送る。
+        // 未接続時のパケットロストを避けるためリトライを増やす。
+        commandQueue.trySend(PebbleMessageRequest("TOUCH_CONFIG", dict, retryCount = 5))
     }
 
     override fun launchWatchApp() {
