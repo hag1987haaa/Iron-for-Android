@@ -13,5 +13,5 @@ data class LocationPoint(
     val accuracy: Double? = null,
     val heartRate: Int? = null,
     val steps: Int? = null,
-    val timestamp: Instant
+    val timestamp: Instant,
 )
