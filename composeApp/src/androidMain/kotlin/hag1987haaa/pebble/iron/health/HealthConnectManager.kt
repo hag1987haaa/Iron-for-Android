@@ -96,11 +96,14 @@ class HealthConnectManager(private val context: Context) {
             )
 
             // 4. 心拍数データの作成
-            val samples = run.route.asSequence().filter { it.heartRate != null }.map {
-                HeartRateRecord.Sample(
-                    time = it.timestamp.toJavaInstant(),
-                    beatsPerMinute = it.heartRate!!.toLong()
-                )
+            val samples = run.route.asSequence().mapNotNull { point ->
+                val bpm = point.heartRate?.toLong()
+                if (bpm != null && bpm > 0) {
+                    HeartRateRecord.Sample(
+                        time = point.timestamp.toJavaInstant(),
+                        beatsPerMinute = bpm
+                    )
+                } else null
             }.toList()
             val heartRateRecord = if (samples.isNotEmpty()) {
                 HeartRateRecord(
@@ -127,6 +130,7 @@ class HealthConnectManager(private val context: Context) {
 
             // 6. 歩数データの作成
             val stepsRecord = run.steps?.let {
+                if (it <= 0) return@let null
                 StepsRecord(
                     count = it.toLong(),
                     startTime = startTime,
@@ -142,11 +146,13 @@ class HealthConnectManager(private val context: Context) {
             caloriesRecord?.let { records.add(it) }
             stepsRecord?.let { records.add(it) }
             
-            Log.d("HealthConnect", "Inserting ${records.size} records for session: ${run.name}")
+            Log.d("HealthConnect", "Inserting ${records.size} records for session: ${run.name ?: "Workout"}")
             val response = healthConnectClient.insertRecords(records)
-            return response.recordIdsList.firstOrNull()
+            val firstId = response.recordIdsList.firstOrNull()
+            Log.d("HealthConnect", "Insert successful. First Record ID: $firstId")
+            return firstId
         } catch (e: Exception) {
-            Log.e("HealthConnect", "Write failed", e)
+            Log.e("HealthConnect", "Write failed with details: ${e.message}", e)
             return null
         }
     }

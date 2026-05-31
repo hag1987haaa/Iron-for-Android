@@ -225,11 +225,22 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                     if (runId != -1L) {
                                         Button(
                                             onClick = {
-                                                viewModel.updateRunName(runId, editableName)
-                                                viewModel.updateActivityType(runId, selectedType, KmpDependencies.appSettings.userWeightKg)
-                                                isEditingName = false
                                                 viewModel.viewModelScope.launch {
-                                                    runActivity = viewModel.getRunDetails(runId)
+                                                    viewModel.updateRunName(runId, editableName)
+                                                    viewModel.updateActivityType(runId, selectedType, KmpDependencies.appSettings.userWeightKg)
+                                                    isEditingName = false
+                                                    // データを再読み込み
+                                                    val updatedRun = viewModel.getRunDetails(runId)
+                                                    runActivity = updatedRun
+                                                    
+                                                    // 健康管理アプリ(Health Connect)への同期を自動実行
+                                                    updatedRun?.let { runObj ->
+                                                        actions.syncWithHealthConnect(runObj) { success ->
+                                                            if (success) {
+                                                                // 同期成功
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             },
                                             modifier = Modifier.align(Alignment.End).padding(top = 8.dp)

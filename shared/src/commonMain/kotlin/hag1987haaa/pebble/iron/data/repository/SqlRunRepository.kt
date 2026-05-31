@@ -226,19 +226,24 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
     }
 
     override suspend fun updateActivityType(runId: Long, type: ActivityType, userWeight: Float?) = withContext(Dispatchers.IO) {
-        if (userWeight == null) {
-            queries.updateActivityType(type.name, runId)
+        val run = getRunDetails(runId)
+        if (run == null) return@withContext
+
+        val newCalories = if (userWeight != null) {
+            HealthUtils.calculateCalories(
+                type = type,
+                weightKg = userWeight,
+                durationSeconds = run.durationSeconds,
+                distanceMeters = run.distanceMeters,
+                elevationGainMeters = run.elevationGain ?: 0.0,
+                avgHeartRate = run.avgHeartRate,
+            )
         } else {
-            val run = getRunDetails(runId)
-            if (run != null) {
-                val newCalories = HealthUtils.calculateCalories(
-                    type = type,
-                    weightKg = userWeight,
-                    durationSeconds = run.durationSeconds,
-                    distanceMeters = run.distanceMeters,
-                    elevationGainMeters = run.elevationGain ?: 0.0,
-                    avgHeartRate = run.avgHeartRate,
-                )
+            run.calories
+        }
+
+        queries.transaction {
+            if (newCalories != null) {
                 queries.updateActivityTypeAndCalories(type.name, newCalories, runId)
             } else {
                 queries.updateActivityType(type.name, runId)
