@@ -81,6 +81,7 @@ class RunTrackerEngine(
 
     private var trackingJob: Job? = null
     private var timerJob: Job? = null
+    private var timeoutJob: Job? = null
     private var isStartPending = false
 
     // 一時停止（PAUSE）中の計測除外用変数
@@ -94,6 +95,7 @@ class RunTrackerEngine(
         RunState.updateStats(_statistics.value)
         // ウォッチ側に即座に同期
         triggerStatisticsUpdate()
+        resetTimeoutTimer()
     }
 
     fun launchWatchApp() {
@@ -119,6 +121,8 @@ class RunTrackerEngine(
         pebbleMessenger?.sendTouchConfig(appSettings?.isTouchControlEnabled ?: false)
         pebbleMessenger?.sendStatistics(_statistics.value)
         
+        resetTimeoutTimer()
+
         trackingJob = locationTracker.startTracking()
             .onEach { handleNewLocation(it) }
             .launchIn(scope)
@@ -130,10 +134,13 @@ class RunTrackerEngine(
             isStartPending = true
             // Watch側に「GPS検索中」の状態を維持させる
             pebbleMessenger?.sendState(RunStatus.PREPARING)
+            resetTimeoutTimer()
             return
         }
         
         isStartPending = false
+        timeoutJob?.cancel()
+        timeoutJob = null
         // ワークアウト開始時に有効な歩数データがあれば基準値として設定
         if (workoutStartSteps == null && lastIncomingSteps != -1) {
             workoutStartSteps = lastIncomingSteps
@@ -178,6 +185,10 @@ class RunTrackerEngine(
 
     fun finish() {
         timerJob?.cancel(); timerJob = null
+        trackingJob?.cancel(); trackingJob = null
+        locationTracker.stopTracking()
+        timeoutJob?.cancel(); timeoutJob = null
+
         val now = Clock.System.now()
         val localTime = now.toLocalDateTime(TimeZone.currentSystemDefault())
         val dateStr = "${localTime.year}${localTime.monthNumber.toString().padStart(2, '0')}${localTime.dayOfMonth.toString().padStart(2, '0')}"
@@ -243,6 +254,7 @@ class RunTrackerEngine(
                 pebbleMessenger?.sendStatistics(s)
             }
         }
+        resetTimeoutTimer()
     }
 
     fun updateSteps(totalSteps: Int) {
@@ -254,14 +266,17 @@ class RunTrackerEngine(
             _statistics.update { it.copy(steps = displaySteps) }
             RunState.updateStats(_statistics.value)
         }
+        resetTimeoutTimer()
     }
 
     fun triggerStatisticsUpdate() {
         pebbleMessenger?.sendFullSync(_statistics.value)
+        resetTimeoutTimer()
     }
 
     fun rotateGraphType() {
         pebbleMessenger?.rotateGraphType(_statistics.value)
+        resetTimeoutTimer()
     }
 
     fun sendTouchConfig(enabled: Boolean) {
@@ -271,6 +286,8 @@ class RunTrackerEngine(
     private fun reset() {
         isStartPending = false
         
+        timeoutJob?.cancel()
+        timeoutJob = null
         trackingJob?.cancel()
         trackingJob = null
         timerJob?.cancel()
@@ -355,6 +372,7 @@ class RunTrackerEngine(
                 RunState.updateStats(_statistics.value)
                 pebbleMessenger?.sendState(RunStatus.READY)
                 pebbleMessenger?.sendStatistics(_statistics.value)
+                resetTimeoutTimer()
             }
         }
 
@@ -448,5 +466,22 @@ class RunTrackerEngine(
             longitude = lonSum / totalWeight,
             altitude = if (latest.altitude != null) altSum / totalWeight else null
         )
+    }
+
+    private fun resetTimeoutTimer() {
+        // PREPARING または READY 状態のときのみ、5分間の自動停止タイマーを回す
+        val currentStatus = RunState.status.value
+        if (currentStatus != RunStatus.PREPARING && currentStatus != RunStatus.READY) {
+            timeoutJob?.cancel()
+            timeoutJob = null
+            return
+        }
+
+        timeoutJob?.cancel()
+        timeoutJob = scope.launch {
+            delay(5 * 60 * 1000L) // 5分待機
+            // 5分間操作がなければリセット
+            reset()
+        }
     }
 }

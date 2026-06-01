@@ -89,7 +89,9 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
     }
 
     private suspend fun processRequest(request: PebbleMessageRequest) {
-        val targets = PebbleCommandService.lastConnectedWatch?.let { listOf(it) } ?: emptyList()
+        // もし直近で通信したウォッチがいればそれを使うが、
+        // いない場合は現在接続されている全てのウォッチを宛先にする
+        val targets = PebbleCommandService.lastConnectedWatch?.let { listOf(it) }
         
         if (request.retryCount > 0) {
             for (i in 0 until request.retryCount) {
@@ -101,11 +103,20 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         }
     }
 
-    private suspend fun sendAttempt(tag: String, dict: Map<UInt, PebbleDictionaryItem>, targets: List<WatchIdentifier>): Boolean {
+    private suspend fun sendAttempt(tag: String, dict: Map<UInt, PebbleDictionaryItem>, targets: List<WatchIdentifier>?): Boolean {
         return try {
             withTimeout(SEND_TIMEOUT_MS) {
+                // targets が null の場合、PebbleKit2 は接続されている全てのウォッチに送信を試みる
                 val results = getSender().sendDataToPebble(WATCHAPP_UUID, dict, targets)
+                
+                // 宛先が不明でも、この送信によって一つでも成功（または送信試行）すればOKとする
                 val success = results?.all { it.value == TransmissionResult.Success } ?: false
+                
+                // 送信に成功したウォッチがあれば、それを次回の優先宛先として保存
+                if (success && results != null && results.isNotEmpty()) {
+                    PebbleCommandService.lastConnectedWatch = results.keys.first()
+                }
+
                 if (!success) Log.w("PebbleMessenger", "Send failed for $tag")
                 success
             }

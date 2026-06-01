@@ -37,6 +37,8 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.isMusicControlEnabled = enabled
         _isMusicControlEnabled.value = enabled
         settings.save()
+        // 設定変更を即座にウォッチに同期
+        hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.sendTouchConfig(enabled)
     }
 
     fun updateAutomationEnabled(enabled: Boolean) {
