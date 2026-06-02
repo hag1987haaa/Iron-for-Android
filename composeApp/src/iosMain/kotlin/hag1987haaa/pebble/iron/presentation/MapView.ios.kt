@@ -10,14 +10,14 @@ import androidx.compose.ui.graphics.Color
 import hag1987haaa.pebble.iron.domain.model.LocationPoint
 
 @Composable
-actual fun PlatformRouteMapView(
+actual fun PlatformMapView(
     points: List<LocationPoint>,
     modifier: Modifier,
     isPrivacyMode: Boolean,
     isAutoCenter: Boolean,
     selectedIndex: Int?,
     zoomToTrackKey: Int,
-    mapRotation: Float
+    mapRotation: Float,
 ) {
     Box(modifier = modifier.background(Color.LightGray)) {
         Text("Map Placeholder", modifier = Modifier.align(Alignment.Center))

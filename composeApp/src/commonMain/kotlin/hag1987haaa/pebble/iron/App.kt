@@ -291,15 +291,22 @@ fun RunScreen(actions: AppActions) {
 
                     // 著作権表示 (OSM)
                     val uriHandler = LocalUriHandler.current
-                    Text(
-                        text = "© OpenStreetMap contributors",
+                    Surface(
                         modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(4.dp)
+                            .align(Alignment.TopCenter)
+                            .padding(top = 4.dp)
                             .graphicsLayer(alpha = 0.6f)
                             .clickable { uriHandler.openUri("https://www.openstreetmap.org/copyright") },
-                        style = MaterialTheme.typography.labelSmall
-                    )
+                        color = Color.Black.copy(alpha = 0.2f),
+                        shape = MaterialTheme.shapes.extraSmall
+                    ) {
+                        Text(
+                            text = "© OpenStreetMap contributors",
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White
+                        )
+                    }
                 }
             }
 
@@ -410,7 +417,11 @@ fun RunScreen(actions: AppActions) {
 
                 // A. 上部：統計情報オーバーレイ
                 Surface(
-                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(16.dp).padding(top = 16.dp),
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .statusBarsPadding(),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                     shape = MaterialTheme.shapes.medium,
                     shadowElevation = 8.dp
@@ -435,7 +446,10 @@ fun RunScreen(actions: AppActions) {
                 // B. 左上：縮小ボタン
                 FilledIconButton(
                     onClick = { isMapFullScreen = false },
-                    modifier = Modifier.align(Alignment.TopStart).padding(16.dp).padding(top = 16.dp),
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(16.dp)
+                        .statusBarsPadding(),
                     colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Exit Fullscreen")

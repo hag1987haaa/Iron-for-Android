@@ -12,18 +12,18 @@ fun RouteMapView(
     isAutoCenter: Boolean = true,
     selectedIndex: Int? = null,
     zoomToTrackKey: Int = 0,
-    mapRotation: Float = 0f
+    mapRotation: Float = 0f,
 ) {
-    MapViewBackend(points, modifier, isPrivacyMode, isAutoCenter, selectedIndex, zoomToTrackKey, mapRotation)
+    PlatformMapView(points, modifier, isPrivacyMode, isAutoCenter, selectedIndex, zoomToTrackKey, mapRotation)
 }
 
 @Composable
-expect fun MapViewBackend(
+expect fun PlatformMapView(
     points: List<LocationPoint>, 
     modifier: Modifier,
     isPrivacyMode: Boolean,
     isAutoCenter: Boolean,
     selectedIndex: Int?,
     zoomToTrackKey: Int,
-    mapRotation: Float
+    mapRotation: Float,
 )

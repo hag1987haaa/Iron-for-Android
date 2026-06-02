@@ -72,10 +72,10 @@ object TcxExporter {
                 val currentSteps = pt.steps ?: 0
                 val currentTime = pt.timestamp
                 
-                if (prevTime != null) {
-                    val timeDiffSec = (currentTime.toEpochMilliseconds() - prevTime!!.toEpochMilliseconds()) / 1000.0
+                prevTime?.let { pTime ->
+                    val timeDiffSec = (currentTime.toEpochMilliseconds() - pTime.toEpochMilliseconds()) / 1000.0
                     if (timeDiffSec > 0) {
-                        val stepsDiff = currentSteps - prevSteps
+                        val stepsDiff = (currentSteps - prevSteps).coerceAtLeast(0)
                         // 分速（SPM）に変換
                         val spm = (stepsDiff / (timeDiffSec / 60.0)).toInt().coerceIn(0, 250)
                         if (spm > 0) {

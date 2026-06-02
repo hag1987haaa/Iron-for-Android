@@ -22,14 +22,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 
 @Composable
-actual fun MapViewBackend(
+actual fun PlatformMapView(
     points: List<LocationPoint>,
     modifier: Modifier,
     isPrivacyMode: Boolean,
     isAutoCenter: Boolean,
     selectedIndex: Int?,
     zoomToTrackKey: Int,
-    mapRotation: Float
+    mapRotation: Float,
 ) {
     val context = LocalContext.current
     val mapView = remember {
@@ -134,7 +134,8 @@ actual fun MapViewBackend(
                             icon = createPointIcon(view.context, Color.BLUE)
                         } else {
                             // 現在地アイコン（矢印状）
-                            icon = createDirectionIcon(view.context, bearing)
+                            icon = createDirectionIcon(view.context)
+                            rotation = bearing
                         }
                     })
 
@@ -174,20 +175,17 @@ actual fun MapViewBackend(
     )
 }
 
-private fun createDirectionIcon(context: Context, bearing: Float): BitmapDrawable {
+private fun createDirectionIcon(context: Context): BitmapDrawable {
     val size = 80
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     
-    // 矢印の描画
+    // 矢印の描画（デフォルトで真上＝北を向く）
     val paint = Paint().apply {
         color = Color.parseColor("#2196F3")
         isAntiAlias = true
         style = Paint.Style.FILL
     }
-    
-    canvas.save()
-    canvas.rotate(bearing, size / 2f, size / 2f)
     
     val path = android.graphics.Path().apply {
         moveTo(size / 2f, 10f)
@@ -197,7 +195,6 @@ private fun createDirectionIcon(context: Context, bearing: Float): BitmapDrawabl
         close()
     }
     canvas.drawPath(path, paint)
-    canvas.restore()
     
     return BitmapDrawable(context.resources, bitmap)
 }
