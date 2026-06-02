@@ -16,7 +16,7 @@ interface AppActions {
     fun syncWithHealthConnect(run: RunActivity, onComplete: (Boolean) -> Unit) // 手動で Health Connect へ同期
     fun deleteRunRecord(id: Long) // 履歴から削除 (Health Connect連動)
     fun requestHealthPermissions() // Health Connect 権限リクエスト
-    fun shareGpx(run: RunActivity) // GPXファイルを共有
+    fun shareRunData(run: RunActivity, format: String) // ファイルを共有 (format: "gpx" or "tcx")
     fun exportData() // 全データをエクスポート
     fun importData() // バックアップからインポート
 }

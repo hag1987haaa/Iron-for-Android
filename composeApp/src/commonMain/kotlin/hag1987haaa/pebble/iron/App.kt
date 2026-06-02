@@ -1,16 +1,12 @@
 package hag1987haaa.pebble.iron
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -243,131 +239,268 @@ fun RunScreen(actions: AppActions) {
     val isPrivacyMode by privacyModeFlow.collectAsState()
 
     var expanded by remember { mutableStateOf(false) }
+    
+    // マップ全画面モードの状態
+    var isMapFullScreen by rememberSaveable { mutableStateOf(false) }
+    // マップの設定状態
+    var isAutoCenter by rememberSaveable { mutableStateOf(true) }
+    var isHeadingUp by rememberSaveable { mutableStateOf(false) }
+    var zoomToTrackKey by remember { mutableStateOf(0) }
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // 1. 地図を上部に固定 (高さ300dp)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp)
-        ) {
-            RouteMapView(
-                points = stats.route,
-                modifier = Modifier.fillMaxSize(),
-                isPrivacyMode = isPrivacyMode
-            )
-            // マップの著作権表示 (OSM等のオープン技術利用の明記)
-            val uriHandler = LocalUriHandler.current
-            Text(
-                text = "© OpenStreetMap contributors",
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(4.dp)
-                    .graphicsLayer(alpha = 0.6f)
-                    .clickable { uriHandler.openUri("https://www.openstreetmap.org/copyright") },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+    val currentBearing = stats.route.lastOrNull()?.bearing?.toFloat() ?: 0f
+    val mapRotation = if (isHeadingUp) currentBearing else 0f
 
-        // 2. メッセージと統計情報を下部のカラムに配置
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            // 1. 地図エリア
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (isMapFullScreen) 0.dp else 300.dp)
+            ) {
+                if (!isMapFullScreen) {
+                    RouteMapView(
+                        points = stats.route,
+                        modifier = Modifier.fillMaxSize(),
+                        isPrivacyMode = isPrivacyMode,
+                        isAutoCenter = isAutoCenter,
+                        zoomToTrackKey = zoomToTrackKey,
+                        mapRotation = mapRotation
+                    )
+                    
+                    // 拡大アイコンを右上に表示
+                    FilledIconButton(
+                        onClick = { isMapFullScreen = true },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .size(40.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.4f),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AspectRatio,
+                            contentDescription = "Expand Map"
+                        )
+                    }
 
-            // ステータスメッセージを地図の下に配置して視認性を確保
-            if (status != RunStatus.IDLE) {
-                val gpsStatusColor = if (stats.hasGpsFix) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                Text(
-                    text = if (stats.hasGpsFix) stringResource(Res.string.run_gps_fixed) else stringResource(Res.string.run_gps_searching), 
-                    color = gpsStatusColor, 
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            } else {
-                Text(
-                    text = stringResource(Res.string.run_ready_to_start),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.outline
-                )
+                    // 著作権表示 (OSM)
+                    val uriHandler = LocalUriHandler.current
+                    Text(
+                        text = "© OpenStreetMap contributors",
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(4.dp)
+                            .graphicsLayer(alpha = 0.6f)
+                            .clickable { uriHandler.openUri("https://www.openstreetmap.org/copyright") },
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // 2. メッセージと統計情報を下部のカラムに配置
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Top
+            ) {
+                // ステータスメッセージ
+                if (status != RunStatus.IDLE) {
+                    val gpsStatusColor = if (stats.hasGpsFix) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    Text(
+                        text = if (stats.hasGpsFix) stringResource(Res.string.run_gps_fixed) else stringResource(Res.string.run_gps_searching), 
+                        color = gpsStatusColor, 
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                } else {
+                    Text(
+                        text = stringResource(Res.string.run_ready_to_start),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
 
-            if (status == RunStatus.IDLE) {
-                // ワークアウト種別選択 (Dropdown)
-                Box {
-                    OutlinedButton(onClick = { expanded = true }) {
-                        val typeLabel = stringResource(Res.string.detail_label_type).replace("%s", stats.activityType.getDisplayName())
-                        Text(typeLabel)
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (status == RunStatus.IDLE) {
+                    // ワークアウト種別選択 (Dropdown)
+                    Box {
+                        OutlinedButton(onClick = { expanded = true }) {
+                            val typeLabel = stringResource(Res.string.detail_label_type).replace("%s", stats.activityType.getDisplayName())
+                            Text(typeLabel)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            ActivityType.entries.forEach { type ->
+                                DropdownMenuItem(
+                                    text = { Text(type.getDisplayName()) },
+                                    onClick = {
+                                        actions.setActivityType(type)
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
                     }
-                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        ActivityType.entries.forEach { type ->
-                            DropdownMenuItem(
-                                text = { Text(type.getDisplayName()) },
-                                onClick = {
-                                    actions.setActivityType(type)
-                                    expanded = false
-                                }
-                            )
+                } else {
+                    Text(
+                        text = stats.activityType.getDisplayName(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(text = stats.formattedTime, fontSize = 64.sp, fontWeight = FontWeight.Bold)
+                Text(text = stringResource(Res.string.run_label_time), style = MaterialTheme.typography.labelLarge)
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = stats.formattedDistance, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                        Text(text = stringResource(Res.string.run_label_km), style = MaterialTheme.typography.labelMedium)
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = stats.formattedPace, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                        Text(text = stringResource(Res.string.run_label_pace), style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+                
+                // 操作ボタン
+                when (status) {
+                    RunStatus.IDLE -> Button(onClick = { actions.prepareTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_start_gps)) }
+                    RunStatus.PREPARING -> Button(onClick = { actions.discardTracking() }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_cancel)) }
+                    RunStatus.READY -> Button(onClick = { actions.startTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_start_workout)) }
+                    RunStatus.ACTIVE -> Button(onClick = { actions.pauseTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_pause)) }
+                    RunStatus.PAUSED -> Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().height(64.dp)) {
+                        Button(onClick = { actions.resumeTracking() }, modifier = Modifier.weight(1f).fillMaxHeight()) { Text(stringResource(Res.string.run_btn_resume)) }
+                        Button(onClick = { actions.finishTracking() }, modifier = Modifier.weight(1f).fillMaxHeight(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(Res.string.run_btn_finish)) }
+                    }
+                    RunStatus.FINISHED -> {
+                        Text(stringResource(Res.string.run_status_processing))
+                    }
+                    RunStatus.RESULT -> {
+                        Button(onClick = { actions.resetTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_reset)) }
+                    }
+                }
+            }
+        }
+
+        // --- 3. マップ全画面オーバーレイ ---
+        if (isMapFullScreen) {
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                RouteMapView(
+                    points = stats.route,
+                    modifier = Modifier.fillMaxSize(),
+                    isPrivacyMode = isPrivacyMode,
+                    isAutoCenter = isAutoCenter,
+                    zoomToTrackKey = zoomToTrackKey,
+                    mapRotation = mapRotation
+                )
+
+                // A. 上部：統計情報オーバーレイ
+                Surface(
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(16.dp).padding(top = 16.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                    shape = MaterialTheme.shapes.medium,
+                    shadowElevation = 8.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = stats.formattedTime, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text(text = stringResource(Res.string.run_label_time), style = MaterialTheme.typography.labelSmall)
+                        }
+                        VerticalDivider(modifier = Modifier.height(30.dp).padding(horizontal = 16.dp))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = stats.formattedDistance, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text(text = stringResource(Res.string.run_label_km), style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
-            } else {
-                Text(
-                    text = stats.activityType.getDisplayName(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(text = stats.formattedTime, fontSize = 64.sp, fontWeight = FontWeight.Bold)
-            Text(text = stringResource(Res.string.run_label_time), style = MaterialTheme.typography.labelLarge)
+                // B. 左上：縮小ボタン
+                FilledIconButton(
+                    onClick = { isMapFullScreen = false },
+                    modifier = Modifier.align(Alignment.TopStart).padding(16.dp).padding(top = 16.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Exit Fullscreen")
+                }
 
-            Spacer(modifier = Modifier.height(24.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = stats.formattedDistance, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                    Text(text = stringResource(Res.string.run_label_km), style = MaterialTheme.typography.labelMedium)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = stats.formattedPace, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                    Text(text = stringResource(Res.string.run_label_pace), style = MaterialTheme.typography.labelMedium)
-                }
-            }
+                // C. 右側：マップコントロール
+                Column(
+                    modifier = Modifier.align(Alignment.CenterEnd).padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // 全景表示ボタン
+                    SmallFloatingActionButton(
+                        onClick = { zoomToTrackKey++ },
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                    ) { Icon(Icons.Default.Refresh, contentDescription = "Fit Track") }
 
-            Spacer(modifier = Modifier.weight(1f))
-            
-            when (status) {
-                RunStatus.IDLE -> Button(onClick = { actions.prepareTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_start_gps)) }
-                RunStatus.PREPARING -> Button(onClick = { actions.discardTracking() }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_cancel)) }
-                RunStatus.READY -> Button(onClick = { actions.startTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_start_workout)) }
-                RunStatus.ACTIVE -> Button(onClick = { actions.pauseTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_pause)) }
-                RunStatus.PAUSED -> Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().height(64.dp)) {
-                    Button(onClick = { actions.resumeTracking() }, modifier = Modifier.weight(1f).fillMaxHeight()) { Text(stringResource(Res.string.run_btn_resume)) }
-                    Button(onClick = { actions.finishTracking() }, modifier = Modifier.weight(1f).fillMaxHeight(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(Res.string.run_btn_finish)) }
-                }
-                RunStatus.FINISHED -> {
-                    Text(stringResource(Res.string.run_status_processing))
-                }
-                RunStatus.RESULT -> {
-                    // 保存完了後は「リセット」ボタンを表示。
-                    // 押すとデータがクリアされ IDLE 状態（GPSサーチ開始待ち）に戻る。
-                    Button(
-                        onClick = { actions.resetTracking() }, 
-                        modifier = Modifier.fillMaxWidth().height(64.dp)
+                    // オートセンター切り替え
+                    SmallFloatingActionButton(
+                        onClick = { isAutoCenter = !isAutoCenter },
+                        containerColor = if (isAutoCenter) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                        contentColor = if (isAutoCenter) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    ) { Icon(Icons.Default.MyLocation, contentDescription = "Toggle Auto-Center") }
+
+                    // 方向制御（ノースアップ / ノーズアップ）
+                    SmallFloatingActionButton(
+                        onClick = { isHeadingUp = !isHeadingUp },
+                        containerColor = if (isHeadingUp) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                        contentColor = if (isHeadingUp) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurface,
                     ) { 
-                        Text(stringResource(Res.string.run_btn_reset))
+                        Icon(
+                            imageVector = if (isHeadingUp) Icons.Default.Navigation else Icons.Default.Explore, 
+                            contentDescription = "Orientation Mode",
+                            modifier = Modifier.graphicsLayer(rotationZ = if (isHeadingUp) 0f else -currentBearing)
+                        ) 
+                    }
+                }
+
+                // D. 下部：操作ボタンオーバーレイ (計測中のみ)
+                if (status == RunStatus.ACTIVE || status == RunStatus.PAUSED) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp).padding(bottom = 32.dp),
+                        color = Color.Transparent
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.height(64.dp)) {
+                            if (status == RunStatus.ACTIVE) {
+                                Button(
+                                    onClick = { actions.pauseTracking() },
+                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                                ) { Icon(Icons.Default.Pause, null); Spacer(Modifier.width(8.dp)); Text(stringResource(Res.string.run_btn_pause)) }
+                            } else {
+                                Button(
+                                    onClick = { actions.resumeTracking() },
+                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                                ) { Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(8.dp)); Text(stringResource(Res.string.run_btn_resume)) }
+                                
+                                Button(
+                                    onClick = { actions.finishTracking() },
+                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                                ) { Icon(Icons.Default.Stop, null); Spacer(Modifier.width(8.dp)); Text(stringResource(Res.string.run_btn_finish)) }
+                            }
+                        }
                     }
                 }
             }

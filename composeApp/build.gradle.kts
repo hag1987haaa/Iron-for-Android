@@ -51,8 +51,8 @@ android {
         applicationId = "hag1987haaa.pebble.iron"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.0.7"
+        versionCode = 9
+        versionName = "1.0.8"
         
         // ネイティブライブラリ（SQLCipher等）のデバッグシンボルをAABに含める設定
         ndk {

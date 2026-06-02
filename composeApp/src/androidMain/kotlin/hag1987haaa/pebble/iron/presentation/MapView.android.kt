@@ -22,31 +22,50 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 
 @Composable
-actual fun PlatformRouteMapView(
+actual fun MapViewBackend(
     points: List<LocationPoint>,
     modifier: Modifier,
-    isPrivacyMode: Boolean
+    isPrivacyMode: Boolean,
+    isAutoCenter: Boolean,
+    selectedIndex: Int?,
+    zoomToTrackKey: Int,
+    mapRotation: Float
 ) {
     val context = LocalContext.current
     val mapView = remember {
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
-            setBuiltInZoomControls(true)
+            setBuiltInZoomControls(false)
             setHasTransientState(true)
-            // 初回の強制叩き起こし
+            minZoomLevel = 3.0
+            maxZoomLevel = 20.0
             onResume()
         }
     }
 
-    // プライバシーモードの切り替えを監視
+    // 地図の回転を同期
+    LaunchedEffect(mapRotation) {
+        mapView.mapOrientation = -mapRotation // osmdroidは時計回りの負値を期待する場合があるため調整
+    }
+
+    // ズーム要求の監視
+    LaunchedEffect(zoomToTrackKey) {
+        if (points.isNotEmpty()) {
+            try {
+                val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
+                val boundingBox = BoundingBox.fromGeoPoints(geoPoints)
+                mapView.zoomToBoundingBox(boundingBox, true, 120)
+            } catch (_: Exception) {}
+        }
+    }
+
+    // プライバシーモードの切り替え
     LaunchedEffect(isPrivacyMode) {
         if (isPrivacyMode) {
-            // 背景を塗りつぶし、地図タイルを非表示にする
-            mapView.setBackgroundColor(Color.LTGRAY) // または任意の無地
+            mapView.setBackgroundColor(Color.LTGRAY)
             mapView.overlayManager.tilesOverlay.isEnabled = false
         } else {
-            // 通常の地図表示に戻す
             mapView.setBackgroundColor(Color.TRANSPARENT)
             mapView.overlayManager.tilesOverlay.isEnabled = true
         }
@@ -73,37 +92,62 @@ actual fun PlatformRouteMapView(
         factory = { mapView },
         modifier = modifier,
         update = { view ->
-            // updateが呼ばれた際も念のためonResumeを確認
-            if (!view.isLayoutRequested) {
-                view.onResume()
-            }
+            if (!view.isLayoutRequested) { view.onResume() }
+
+            view.overlays.clear()
 
             if (points.isNotEmpty()) {
                 val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
 
+                // 1. ルート線
                 val line = Polyline().apply {
                     setPoints(geoPoints)
                     color = Color.RED
                     width = 8f
                 }
-
-                view.overlays.clear()
                 view.overlays.add(line)
 
+                // 2. スタートマーカー
                 view.overlays.add(Marker(view).apply {
                     position = geoPoints.first()
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                     title = "Start"
                 })
 
-                if (geoPoints.size > 1) {
+                if (geoPoints.isNotEmpty()) {
+                    val lastIdx = selectedIndex ?: (geoPoints.size - 1)
+                    val targetPoint = geoPoints[lastIdx]
+                    val bearing = points[lastIdx].bearing?.toFloat() ?: 0f
+
+                    // 初回GPS捕捉時、またはズームが低すぎる場合に自動拡大
+                    if (view.zoomLevelDouble < 10.0 && selectedIndex == null) {
+                        view.controller.setZoom(16.5)
+                        view.controller.setCenter(targetPoint)
+                    }
+
                     view.overlays.add(Marker(view).apply {
-                        position = geoPoints.last()
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                        title = "Finish"
+                        position = targetPoint
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                        title = if (selectedIndex != null) "Selected" else "Current"
+                        
+                        if (selectedIndex != null) {
+                            icon = createPointIcon(view.context, Color.BLUE)
+                        } else {
+                            // 現在地アイコン（矢印状）
+                            icon = createDirectionIcon(view.context, bearing)
+                        }
                     })
+
+                    // オートセンター（追従）
+                    if (isAutoCenter && selectedIndex == null) {
+                        view.controller.animateTo(targetPoint)
+                    } else if (selectedIndex != null) {
+                        // シーク中は選択地点を瞬時に表示
+                        view.controller.setCenter(targetPoint)
+                    }
                 }
 
+                // 3. 1kmごとのラップマーカー
                 var accumulatedDistance = 0.0
                 var lastPoint: GeoPoint? = null
                 var nextLapDistance = 1000.0
@@ -113,33 +157,63 @@ actual fun PlatformRouteMapView(
                         accumulatedDistance += lastPoint!!.distanceToAsDouble(point)
                         if (accumulatedDistance >= nextLapDistance) {
                             val lapNumber = (nextLapDistance / 1000).toInt()
-                            val lapMarker = Marker(view).apply {
+                            view.overlays.add(Marker(view).apply {
                                 position = point
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                                 icon = createNumberIcon(view.context, lapNumber)
                                 title = "$lapNumber km"
-                            }
-                            view.overlays.add(lapMarker)
+                            })
                             nextLapDistance += 1000.0
                         }
                     }
                     lastPoint = point
                 }
-
-                try {
-                    val boundingBox = BoundingBox.fromGeoPoints(geoPoints)
-                    view.post {
-                        view.zoomToBoundingBox(boundingBox, true, 120)
-                    }
-                } catch (e: Exception) {}
-
-                view.invalidate()
-            } else {
-                view.controller.setZoom(4.0)
-                view.controller.setCenter(GeoPoint(35.681236, 139.767125))
             }
+            view.invalidate()
         }
     )
+}
+
+private fun createDirectionIcon(context: Context, bearing: Float): BitmapDrawable {
+    val size = 80
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    
+    // 矢印の描画
+    val paint = Paint().apply {
+        color = Color.parseColor("#2196F3")
+        isAntiAlias = true
+        style = Paint.Style.FILL
+    }
+    
+    canvas.save()
+    canvas.rotate(bearing, size / 2f, size / 2f)
+    
+    val path = android.graphics.Path().apply {
+        moveTo(size / 2f, 10f)
+        lineTo(size * 0.8f, size - 10f)
+        lineTo(size / 2f, size * 0.7f)
+        lineTo(size * 0.2f, size - 10f)
+        close()
+    }
+    canvas.drawPath(path, paint)
+    canvas.restore()
+    
+    return BitmapDrawable(context.resources, bitmap)
+}
+
+private fun createPointIcon(context: Context, color: Int): BitmapDrawable {
+    val size = 40
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val paint = Paint().apply {
+        this.color = color
+        isAntiAlias = true
+    }
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+    paint.color = Color.WHITE
+    canvas.drawCircle(size / 2f, size / 2f, size / 4f, paint)
+    return BitmapDrawable(context.resources, bitmap)
 }
 
 private fun createNumberIcon(context: Context, number: Int): BitmapDrawable {

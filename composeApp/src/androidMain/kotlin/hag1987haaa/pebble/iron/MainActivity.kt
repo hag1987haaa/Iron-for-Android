@@ -206,18 +206,24 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            override fun shareGpx(run: RunActivity) {
+            override fun shareRunData(run: RunActivity, format: String) {
                 lifecycleScope.launch {
                     try {
-                        val gpxContent = GpxExporter.export(run)
+                        val content = if (format == "tcx") {
+                            hag1987haaa.pebble.iron.util.TcxExporter.export(run)
+                        } else {
+                            hag1987haaa.pebble.iron.util.GpxExporter.export(run)
+                        }
+
                         val localTime = run.startTime.toLocalDateTime(TimeZone.currentSystemDefault())
                         val dateStr = "${localTime.year}${localTime.monthNumber.toString().padStart(2, '0')}${localTime.dayOfMonth.toString().padStart(2, '0')}"
                         val timeStr = "${localTime.hour.toString().padStart(2, '0')}${localTime.minute.toString().padStart(2, '0')}${localTime.second.toString().padStart(2, '0')}"
                         val rawName = run.name ?: run.type.name
-                        val fileName = "${rawName.replace(" ", "_")}_${dateStr}_${timeStr}.gpx"
+                        val extension = if (format == "tcx") "tcx" else "gpx"
+                        val fileName = "${rawName.replace(" ", "_")}_${dateStr}_${timeStr}.$extension"
                         
                         val cacheFile = File(cacheDir, fileName)
-                        cacheFile.writeText(gpxContent)
+                        cacheFile.writeText(content)
                         
                         val uri = FileProvider.getUriForFile(
                             this@MainActivity,
@@ -225,14 +231,15 @@ class MainActivity : ComponentActivity() {
                             cacheFile
                         )
                         
+                        val mimeType = if (format == "tcx") "application/vnd.garmin.tcx+xml" else "application/gpx+xml"
                         val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "application/gpx+xml"
+                            type = mimeType
                             putExtra(Intent.EXTRA_STREAM, uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        startActivity(Intent.createChooser(intent, getString(R.string.share_gpx_chooser_title)))
+                        startActivity(Intent.createChooser(intent, "Share Workout File"))
                     } catch (_: Exception) {
-                        Log.e("MainActivity", "GPX export failed")
+                        Log.e("MainActivity", "File export failed")
                     }
                 }
             }
@@ -432,7 +439,7 @@ fun AppAndroidPreview() {
         override fun syncWithHealthConnect(run: RunActivity, onComplete: (Boolean) -> Unit) {}
         override fun deleteRunRecord(id: Long) {}
         override fun requestHealthPermissions() {}
-        override fun shareGpx(run: RunActivity) {}
+        override fun shareRunData(run: RunActivity, format: String) {}
         override fun exportData() {}
         override fun importData() {}
     }

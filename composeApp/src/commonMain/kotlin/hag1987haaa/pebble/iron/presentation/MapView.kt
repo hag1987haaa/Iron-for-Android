@@ -8,14 +8,22 @@ import hag1987haaa.pebble.iron.domain.model.LocationPoint
 fun RouteMapView(
     points: List<LocationPoint>, 
     modifier: Modifier,
-    isPrivacyMode: Boolean = false
+    isPrivacyMode: Boolean = false,
+    isAutoCenter: Boolean = true,
+    selectedIndex: Int? = null,
+    zoomToTrackKey: Int = 0,
+    mapRotation: Float = 0f
 ) {
-    PlatformRouteMapView(points, modifier, isPrivacyMode)
+    MapViewBackend(points, modifier, isPrivacyMode, isAutoCenter, selectedIndex, zoomToTrackKey, mapRotation)
 }
 
 @Composable
-expect fun PlatformRouteMapView(
+expect fun MapViewBackend(
     points: List<LocationPoint>, 
     modifier: Modifier,
-    isPrivacyMode: Boolean
+    isPrivacyMode: Boolean,
+    isAutoCenter: Boolean,
+    selectedIndex: Int?,
+    zoomToTrackKey: Int,
+    mapRotation: Float
 )
