@@ -29,6 +29,7 @@ import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
 import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.presentation.components.SimpleLineChart
+import hag1987haaa.pebble.iron.presentation.components.SimpleBarChart
 import hag1987haaa.pebble.iron.util.getDisplayName
 import kotlinx.datetime.Clock
 import kotlinx.coroutines.launch
@@ -372,11 +373,32 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                 data = displayRoute.map { it.speed?.toFloat()?.let { s -> s * 3.6f } ?: 0f }.downsample(100),
                                 color = Color(0xFF2196F3)
                             )
-                            SimpleLineChart(
-                                title = stringResource(Res.string.detail_chart_heart_rate) + if (isDistanceBased) " (bpm vs km)" else " (bpm vs time)",
-                                data = displayRoute.mapNotNull { it.heartRate?.toFloat() }.downsample(100),
-                                color = Color(0xFFE91E63)
+                            
+                            val calorieIntervalData = displayRoute.mapIndexed { index, point ->
+                                if (index == 0) 0f
+                                else {
+                                    val prevPoint = displayRoute[index - 1]
+                                    val duration = (point.timestamp.epochSeconds - prevPoint.timestamp.epochSeconds).coerceAtLeast(1)
+                                    val dist = hag1987haaa.pebble.iron.util.LocationUtils.calculateDistance(
+                                        prevPoint.latitude, prevPoint.longitude,
+                                        point.latitude, point.longitude
+                                    )
+                                    hag1987haaa.pebble.iron.util.HealthUtils.calculateCalories(
+                                        type = run.type,
+                                        weightKg = KmpDependencies.appSettings.userWeightKg,
+                                        durationSeconds = duration,
+                                        distanceMeters = dist,
+                                        avgHeartRate = point.heartRate?.toDouble()
+                                    ).toFloat()
+                                }
+                            }.downsample(100)
+
+                            SimpleBarChart(
+                                title = stringResource(Res.string.detail_chart_calories) + if (isDistanceBased) " (kcal vs km)" else " (kcal vs time)",
+                                data = calorieIntervalData,
+                                color = Color(0xFFFF5722)
                             )
+
                             SimpleLineChart(
                                 title = stringResource(Res.string.detail_chart_altitude) + if (isDistanceBased) " (m vs km)" else " (m vs time)",
                                 data = displayRoute.map { it.altitude?.toFloat() ?: 0f }.downsample(100),
@@ -386,6 +408,11 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                 title = stringResource(Res.string.detail_chart_steps) + if (isDistanceBased) " (steps vs km)" else " (steps vs time)",
                                 data = displayRoute.map { it.steps?.toFloat() ?: 0f }.downsample(100),
                                 color = Color(0xFFFF9800)
+                            )
+                            SimpleLineChart(
+                                title = stringResource(Res.string.detail_chart_heart_rate) + if (isDistanceBased) " (bpm vs km)" else " (bpm vs time)",
+                                data = displayRoute.mapNotNull { it.heartRate?.toFloat() }.downsample(100),
+                                color = Color(0xFFE91E63)
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             actionButtons()

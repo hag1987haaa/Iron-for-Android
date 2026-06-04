@@ -90,6 +90,10 @@ class RunTrackerEngine(
     private var pauseStartSteps: Int? = null
     private var lastIncomingSteps: Int = -1
 
+    // 通知用の前回記録
+    private var lastNotifiedDistanceKm: Int = 0
+    private var lastNotifiedTimeMinutes: Int = 0
+
     fun setActivityType(type: ActivityType) {
         _statistics.update { it.copy(activityType = type) }
         RunState.updateStats(_statistics.value)
@@ -312,6 +316,9 @@ class RunTrackerEngine(
         rawLocationWindow.clear()
         fullRoute.clear()
         
+        lastNotifiedDistanceKm = 0
+        lastNotifiedTimeMinutes = 0
+        
         workoutStartSteps = null
         totalPausedSteps = 0
         pauseStartSteps = null
@@ -320,6 +327,7 @@ class RunTrackerEngine(
 
     private fun startTimer() {
         if (timerJob != null) return
+        println("RunTrackerEngine: startTimer called")
         timerJob = scope.launch(Dispatchers.Default) {
             var counter = 0
             while (true) {
@@ -327,6 +335,21 @@ class RunTrackerEngine(
                 counter++
                 _statistics.update { stats ->
                     val nextSeconds = stats.totalSeconds + 1
+                    
+                    // 時間ベースの通知判定
+                    val timeInterval = appSettings?.notificationTimeSeconds ?: 0
+                    if (timeInterval > 0) {
+                        val currentMinutes = (nextSeconds / timeInterval).toInt()
+                        if (currentMinutes > lastNotifiedTimeMinutes) {
+                            lastNotifiedTimeMinutes = currentMinutes
+                            println("RunTrackerEngine: TIME NOTIFICATION TRIGGERED ($currentMinutes units)")
+                            if (appSettings?.isAutoLaunchOnTimeNotificationEnabled == true) {
+                                pebbleMessenger?.launchWatchApp()
+                            }
+                            pebbleMessenger?.sendNotification(1) // 時間通知 (1)
+                        }
+                    }
+
                     // リアルタイムカロリー計算 (心拍数と傾斜を考慮した詳細版)
                     val weight = appSettings?.userWeightKg ?: 70.0f
                     val currentCalories = HealthUtils.calculateCalories(
@@ -425,6 +448,20 @@ class RunTrackerEngine(
             heartRates = if (location.heartRate != null) it.heartRates + location.heartRate else it.heartRates,
             route = fullRoute.toList() // 最新の全ルートを反映
         ).also { s ->
+            // 距離ベースの通知判定
+            val distInterval = appSettings?.notificationDistanceMeters ?: 0
+            if (distInterval > 0) {
+                val currentKmIdx = (s.totalDistanceMeters / distInterval).toInt()
+                if (currentKmIdx > lastNotifiedDistanceKm) {
+                    lastNotifiedDistanceKm = currentKmIdx
+                    println("RunTrackerEngine: DISTANCE NOTIFICATION TRIGGERED ($currentKmIdx units)")
+                    if (appSettings?.isAutoLaunchOnDistanceNotificationEnabled == true) {
+                        pebbleMessenger?.launchWatchApp()
+                    }
+                    pebbleMessenger?.sendNotification(0) // 距離通知 (0)
+                }
+            }
+
             pebbleMessenger?.sendStatistics(s)
             RunState.updateStats(s)
         } }

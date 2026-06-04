@@ -26,6 +26,7 @@
     <string name="detail_chart_altitude">Altitude (m)</string>
     <string name="detail_chart_heart_rate">Heart Rate (bpm)</string>
     <string name="detail_chart_speed">Speed (km/h)</string>
+    <string name="detail_chart_calories">Calories Burned (kcal)</string>
     <string name="detail_chart_steps">Cumulative Steps</string>
 
     <string name="permission_rationale">Please select a provider app to allow communication with Pebble.</string>
@@ -62,9 +63,17 @@
     <string name="settings_pebble_app_desc">Choose the app (Coreapp, Cobble, etc.) used for communication</string>
     <string name="settings_button_configure">Configure</string>
     <string name="settings_section_profile">User Profile</string>
+    <string name="settings_section_exercise">Exercise Settings</string>
     <string name="settings_label_weight">Weight (kg)</string>
     <string name="settings_label_weight_desc">Used for calculating calories burned during workouts</string>
     <string name="settings_section_data">Data Integration</string>
+    <string name="settings_section_notification">Watch Notifications</string>
+    <string name="settings_notif_distance_label">Distance Auto-Lap</string>
+    <string name="settings_notif_distance_autolaunch">Auto-launch Iron on Distance Lap</string>
+    <string name="settings_notif_time_label">Time Interval</string>
+    <string name="settings_notif_time_autolaunch">Auto-launch Iron on Time Interval</string>
+    <string name="settings_notif_desc">Vibration patterns: Distance (Long), Time (Short x2)\nAuto-launch ensures data sync (steps, etc.) by bringing Iron to the foreground.</string>
+    <string name="settings_notif_off">Off</string>
     <string name="settings_hc_title">Health Connect Settings</string>
     <string name="settings_hc_desc">Sync your workout records (distance, route, heart rate, steps, calories) with other health apps. You can choose which data to sync in the following system settings.</string>
     <string name="settings_hc_button_manage">Manage Permissions</string>
@@ -81,6 +90,8 @@
     <string name="settings_label_version">Version</string>
     <string name="settings_label_license">Open Source Licenses</string>
     <string name="settings_section_privacy">Privacy</string>
+    <string name="settings_section_graphs">Watch Graph Display</string>
+    <string name="settings_graphs_desc">Select and order the graphs displayed on your Pebble.</string>
     <string name="settings_privacy_map_title">Privacy Map Mode</string>
     <string name="settings_privacy_map_desc">Hide map background, show only GPS track</string>
     <string name="settings_section_music">Remote Control</string>
@@ -89,7 +100,7 @@
     <string name="settings_touch_title">Touch Gesture Control</string>
     <string name="settings_touch_desc">Enable music control via touch gestures (Pebble Time 2/Round)</string>
 
-    <string name="settings_section_automation">Automation Triggers</string>
+    <string name="settings_section_automation">Remote &amp; Automation</string>
     <string name="settings_auto_title">Enable External Integration (Intent)</string>
     <string name="settings_auto_desc">Sends Pebble operations and app state changes as "Intent signals". Use automation apps to build your own custom actions.</string>
     <string name="settings_auto_state_info">State Change Event: \nhag1987haaa.pebble.iron.ACTION_STATE_CHANGED</string>

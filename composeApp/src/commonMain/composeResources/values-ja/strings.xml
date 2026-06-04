@@ -26,6 +26,7 @@
     <string name="detail_chart_altitude">高度 (m)</string>
     <string name="detail_chart_heart_rate">心拍数 (bpm)</string>
     <string name="detail_chart_speed">速度 (km/h)</string>
+    <string name="detail_chart_calories">消費カロリー (kcal)</string>
     <string name="detail_chart_steps">累積歩数</string>
 
     <string name="permission_rationale">Pebble との通信を許可するために、管理アプリを選択してください。</string>
@@ -62,9 +63,17 @@
     <string name="settings_pebble_app_desc">通信に使用するアプリ（Coreapp/Cobble等）を指定します</string>
     <string name="settings_button_configure">設定</string>
     <string name="settings_section_profile">ユーザープロファイル</string>
+    <string name="settings_section_exercise">エクササイズ設定</string>
     <string name="settings_label_weight">体重 (kg)</string>
     <string name="settings_label_weight_desc">ワークアウト中の消費カロリー計算に使用されます</string>
     <string name="settings_section_data">データ連携</string>
+    <string name="settings_section_notification">ウォッチ通知（バイブレーション）</string>
+    <string name="settings_notif_distance_label">距離オートラップ</string>
+    <string name="settings_notif_distance_autolaunch">距離ラップ時に Iron を自動起動</string>
+    <string name="settings_notif_time_label">時間インターバル</string>
+    <string name="settings_notif_time_autolaunch">時間通知時に Iron を自動起動</string>
+    <string name="settings_notif_desc">振動パターン：距離（長い振動）、時間（短い振動2回）\n自動起動を有効にすると、通知のタイミングでウォッチアプリを前面に表示し、歩数などの同期を確実にします。</string>
+    <string name="settings_notif_off">オフ</string>
     <string name="settings_hc_title">Health Connect 連携の設定</string>
     <string name="settings_hc_desc">ワークアウト記録（距離、ルート、心拍数、歩数、カロリー）を他の健康管理アプリと同期します。同期する項目は、次の画面のシステム設定で個別に選択できます。</string>
     <string name="settings_hc_button_manage">権限を管理・設定する</string>
@@ -81,6 +90,8 @@
     <string name="settings_label_version">バージョン</string>
     <string name="settings_label_license">オープンソースライセンス</string>
     <string name="settings_section_privacy">プライバシー</string>
+    <string name="settings_section_graphs">ウォッチのグラフ表示</string>
+    <string name="settings_graphs_desc">Pebble に表示するグラフの種類と順番を設定します。</string>
     <string name="settings_privacy_map_title">プライバシーマップ</string>
     <string name="settings_privacy_map_desc">地図背景を隠し、GPS軌跡のみを表示します</string>
     <string name="settings_section_music">リモートコントロール</string>
@@ -89,7 +100,7 @@
     <string name="settings_touch_title">タッチジェスチャー操作</string>
     <string name="settings_touch_desc">画面のタッチで音楽を操作します（対応機種のみ）</string>
 
-    <string name="settings_section_automation">自動化アプリ連携トリガー</string>
+    <string name="settings_section_automation">リモート・自動化連携</string>
     <string name="settings_auto_title">外部連携（インテント）を有効にする</string>
     <string name="settings_auto_desc">Pebble の操作やアプリの状態変化を「インテント信号」として送信します。自動化アプリでこれを受信することで、独自の動作を組み込むことが可能です。</string>
     <string name="settings_auto_state_info">状態変化イベント：\nhag1987haaa.pebble.iron.ACTION_STATE_CHANGED</string>

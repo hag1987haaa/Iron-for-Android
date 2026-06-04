@@ -1,7 +1,9 @@
 package hag1987haaa.pebble.iron.pebble
 
 import android.util.Log
+import hag1987haaa.pebble.iron.KmpDependencies
 import hag1987haaa.pebble.iron.domain.tracker.RunStatistics
+import hag1987haaa.pebble.iron.util.HealthUtils
 import hag1987haaa.pebble.iron.util.LocationUtils
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -21,7 +23,7 @@ object GraphDataGenerator {
         return try {
             val rawCsv = when (typeId) {
                 0 -> generateDistanceBasedGraphData(stats)
-                1, 2, 3, 4 -> generateTimeBasedGraphData(stats, typeId)
+                1, 2, 3, 4, 5 -> generateTimeBasedGraphData(stats, typeId)
                 else -> "0,1,0"
             }
             enforceLengthLimit(rawCsv)
@@ -82,6 +84,18 @@ object GraphDataGenerator {
                 4 -> { // HR: 心拍数(BPM)
                     valDiff = (p2.heartRate ?: p1.heartRate ?: 0).toDouble()
                     isSumType = false
+                }
+                5 -> { // KCAL: 消費カロリー (kcal)
+                    val duration = (p2.timestamp.epochSeconds - p1.timestamp.epochSeconds).coerceAtLeast(1)
+                    val dist = LocationUtils.calculateDistance(p1.latitude, p1.longitude, p2.latitude, p2.longitude)
+                    valDiff = HealthUtils.calculateCalories(
+                        type = stats.activityType,
+                        weightKg = KmpDependencies.appSettings.userWeightKg,
+                        durationSeconds = duration,
+                        distanceMeters = dist,
+                        avgHeartRate = p2.heartRate?.toDouble()
+                    )
+                    isSumType = true
                 }
                 else -> return "$typeId,$scaleMinutes,0"
             }

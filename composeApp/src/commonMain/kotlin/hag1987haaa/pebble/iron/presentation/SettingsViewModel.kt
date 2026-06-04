@@ -30,6 +30,21 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _userWeight = MutableStateFlow(settings.userWeightKg)
     val userWeight: StateFlow<Float> = _userWeight.asStateFlow()
 
+    private val _enabledGraphTypes = MutableStateFlow(settings.enabledGraphTypes)
+    val enabledGraphTypes: StateFlow<List<Int>> = _enabledGraphTypes.asStateFlow()
+
+    private val _notifDistance = MutableStateFlow(settings.notificationDistanceMeters)
+    val notifDistance: StateFlow<Int> = _notifDistance.asStateFlow()
+
+    private val _notifTime = MutableStateFlow(settings.notificationTimeSeconds)
+    val notifTime: StateFlow<Int> = _notifTime.asStateFlow()
+
+    private val _isAutoLaunchDistEnabled = MutableStateFlow(settings.isAutoLaunchOnDistanceNotificationEnabled)
+    val isAutoLaunchDistEnabled: StateFlow<Boolean> = _isAutoLaunchDistEnabled.asStateFlow()
+
+    private val _isAutoLaunchTimeEnabled = MutableStateFlow(settings.isAutoLaunchOnTimeNotificationEnabled)
+    val isAutoLaunchTimeEnabled: StateFlow<Boolean> = _isAutoLaunchTimeEnabled.asStateFlow()
+
     val isPrivacyMapModeEnabled: StateFlow<Boolean> = settings.isPrivacyMapModeEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), settings.isPrivacyMapModeEnabled)
 
@@ -73,6 +88,36 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     fun updateUserWeight(weight: Float) {
         settings.userWeightKg = weight
         _userWeight.value = weight
+        settings.save()
+    }
+
+    fun updateGraphSettings(newTypes: List<Int>) {
+        settings.enabledGraphTypes = newTypes
+        _enabledGraphTypes.value = newTypes
+        settings.save()
+    }
+
+    fun updateNotifDistance(meters: Int) {
+        settings.notificationDistanceMeters = meters
+        _notifDistance.value = meters
+        settings.save()
+    }
+
+    fun updateNotifTime(seconds: Int) {
+        settings.notificationTimeSeconds = seconds
+        _notifTime.value = seconds
+        settings.save()
+    }
+
+    fun updateAutoLaunchDistEnabled(enabled: Boolean) {
+        settings.isAutoLaunchOnDistanceNotificationEnabled = enabled
+        _isAutoLaunchDistEnabled.value = enabled
+        settings.save()
+    }
+
+    fun updateAutoLaunchTimeEnabled(enabled: Boolean) {
+        settings.isAutoLaunchOnTimeNotificationEnabled = enabled
+        _isAutoLaunchTimeEnabled.value = enabled
         settings.save()
     }
 }

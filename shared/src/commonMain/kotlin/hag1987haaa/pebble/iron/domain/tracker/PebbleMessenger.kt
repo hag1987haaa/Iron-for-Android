@@ -31,5 +31,11 @@ interface PebbleMessenger {
      */
     fun sendTouchConfig(enabled: Boolean)
 
+    /**
+     * 通知（バイブレーション）コマンドを送信する
+     * @param type 0: 距離ベース(長), 1: 時間ベース(短x2)
+     */
+    fun sendNotification(type: Int)
+
     fun launchWatchApp()
 }

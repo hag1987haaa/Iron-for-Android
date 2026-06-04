@@ -24,6 +24,25 @@ class AppSettings {
     var hasAskedHealthConnectOnboarding: Boolean = false
     var appVersion: String = "1.0.0"
 
+    /**
+     * ウォッチ側に表示するグラフの順序と有効無効の設定
+     * 0: Pace/Speed (Dist based)
+     * 1: Distance
+     * 2: Steps
+     * 3: Altitude
+     * 4: Heart Rate
+     * 5: Calories
+     */
+    var enabledGraphTypes: List<Int> = listOf(0, 1, 2, 3, 4, 5)
+
+    /**
+     * 自動通知設定 (0 は無効)
+     */
+    var notificationDistanceMeters: Int = 1000 // デフォルト1km
+    var notificationTimeSeconds: Int = 0 // デフォルト無効
+    var isAutoLaunchOnDistanceNotificationEnabled: Boolean = false // 距離通知時にIronを強制起動
+    var isAutoLaunchOnTimeNotificationEnabled: Boolean = false // 時間通知時にIronを強制起動
+
     // プラットフォーム固有の保存処理用コールバック
     var onSettingsChanged: (() -> Unit)? = null
 

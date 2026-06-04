@@ -89,6 +89,7 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
     }
 
     private suspend fun processRequest(request: PebbleMessageRequest) {
+        Log.i("PebbleMessenger", "Processing request: ${request.tag}")
         // もし直近で通信したウォッチがいればそれを使うが、
         // いない場合は現在接続されている全てのウォッチを宛先にする
         val targets = PebbleCommandService.lastConnectedWatch?.let { listOf(it) }
@@ -129,7 +130,11 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
     }
 
     override fun sendStatistics(stats: RunStatistics) {
-        // IDLE状態でも種別変更などの重要な同期があるため、最低限の情報を送るように緩和
+        // 10秒おきにログを出力して生存確認
+        if (stats.totalSeconds > 0 && stats.totalSeconds % 10 == 0L) {
+            val settings = hag1987haaa.pebble.iron.KmpDependencies.appSettings
+            Log.i("PebbleMessenger", "sendStatistics: time=${stats.totalSeconds}s dist=${stats.totalDistanceMeters}m status=${stats.status} notifTime=${settings.notificationTimeSeconds}")
+        }
         val pebbleState = mapToPebbleState(stats.status)
         val dict = mapOf(
             KEY_CMD to PebbleDictionaryItem.Int32(1), 
@@ -169,9 +174,21 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         sendGraphData(stats)
     }
 
+    private var currentGraphListIndex = 0 
+    override fun rotateGraphType(stats: RunStatistics) {
+        val enabledGraphs = hag1987haaa.pebble.iron.KmpDependencies.appSettings.enabledGraphTypes
+        if (enabledGraphs.isEmpty()) return
+
+        currentGraphListIndex = (currentGraphListIndex + 1) % enabledGraphs.size
+        sendGraphData(stats)
+    }
+
     override fun sendGraphData(stats: RunStatistics) {
         scope.launch {
-            val typeToSend = currentGraphType
+            val enabledGraphs = hag1987haaa.pebble.iron.KmpDependencies.appSettings.enabledGraphTypes
+            if (enabledGraphs.isEmpty()) return@launch
+            
+            val typeToSend = enabledGraphs[currentGraphListIndex % enabledGraphs.size]
             // 送信スレッドの外（ここ）で重いCSV生成処理を終わらせる
             val unifiedGraph = GraphDataGenerator.generateUnifiedGraph(stats, typeToSend)
             val dict = mapOf(KEY_GRAPH_DATA to PebbleDictionaryItem.Text(unifiedGraph))
@@ -179,12 +196,6 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
             // グラフ送信はデータ量が多いが、ボタン操作に伴うものは確実に送る
             commandQueue.trySend(PebbleMessageRequest("GRAPH", dict))
         }
-    }
-
-    private var currentGraphType = 0 
-    override fun rotateGraphType(stats: RunStatistics) {
-        currentGraphType = (currentGraphType + 1) % 5
-        sendGraphData(stats)
     }
 
     override fun sendTouchConfig(enabled: Boolean) {
@@ -196,7 +207,18 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         commandQueue.trySend(PebbleMessageRequest("TOUCH_CONFIG", dict, retryCount = 5))
     }
 
+    override fun sendNotification(type: Int) {
+        val cmdId = if (type == 0) 10 else 11
+        Log.i("PebbleMessenger", "sendNotification called: type=$type (CMD=$cmdId)")
+        val dict = mapOf(
+            KEY_CMD to PebbleDictionaryItem.Int32(cmdId)
+        )
+        // 通知は重要なので、リトライを 3 回に設定して確実に届ける
+        commandQueue.trySend(PebbleMessageRequest("NOTIFICATION", dict, retryCount = 3))
+    }
+
     override fun launchWatchApp() {
+        Log.i("PebbleMessenger", "launchWatchApp requested")
         scope.launch {
             val targets = PebbleCommandService.lastConnectedWatch?.let { listOf(it) } ?: emptyList()
             try { getSender().startAppOnTheWatch(WATCHAPP_UUID, targets) } catch (e: Exception) {}
