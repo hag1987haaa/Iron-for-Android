@@ -3,6 +3,7 @@ package hag1987haaa.pebble.iron.pebble
 import android.util.Log
 import android.content.Intent
 import android.media.AudioManager
+import android.os.PowerManager
 import android.view.KeyEvent
 import io.rebble.pebblekit2.client.BasePebbleListenerService
 import io.rebble.pebblekit2.common.model.PebbleDictionaryItem
@@ -11,6 +12,7 @@ import io.rebble.pebblekit2.common.model.ReceiveResult
 import hag1987haaa.pebble.iron.AndroidDependencies
 import hag1987haaa.pebble.iron.KmpDependencies
 import hag1987haaa.pebble.iron.domain.model.ActivityType
+import hag1987haaa.pebble.iron.domain.settings.LongPressMode
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
 import java.util.UUID
 
@@ -149,29 +151,80 @@ class PebbleCommandService : BasePebbleListenerService() {
                     engine.triggerStatisticsUpdate()
                 }
                 50, 51, 52 -> {
-                    // 自動化アプリ向けインテントの送出
+                    // ボタン長押しアクションの処理
                     val settings = KmpDependencies.appSettings
-                    if (settings.isAutomationEnabled) {
-                        val isEnabled = when(cmd) {
-                            50 -> settings.isCommand50Enabled
-                            51 -> settings.isCommand51Enabled
-                            52 -> settings.isCommand52Enabled
-                            else -> false
+                    if (settings.isLongPressEnabled) {
+                        val mode = when (cmd) {
+                            50 -> settings.upLongPressMode
+                            51 -> settings.selectLongPressMode
+                            52 -> settings.downLongPressMode
+                            else -> LongPressMode.MUSIC
                         }
-                        
-                        if (isEnabled) {
-                            val action = when(cmd) {
-                                50 -> "hag1987haaa.pebble.iron.ACTION_LONGPRESS_UP"
-                                51 -> "hag1987haaa.pebble.iron.ACTION_LONGPRESS_SELECT"
-                                52 -> "hag1987haaa.pebble.iron.ACTION_LONGPRESS_DOWN"
-                                else -> ""
+
+                        when (mode) {
+                            LongPressMode.MUSIC -> {
+                                // ① ミュージックコントロール
+                                val mediaCmd = when (cmd) {
+                                    50 -> 3 // Up Long -> Previous
+                                    51 -> 1 // Select Long -> Play/Pause
+                                    52 -> 2 // Down Long -> Next
+                                    else -> -1
+                                }
+                                if (mediaCmd != -1) {
+                                    Log.i("PebbleCommand", "Long Press Media: $mediaCmd")
+                                    sendMediaKey(mediaCmd)
+                                }
                             }
-                            Log.i("PebbleCommand", "Automation: Broadcasting intent $action")
-                            val intent = Intent(action).apply {
-                                setPackage(null) // システム全体に放送
-                                addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+                            LongPressMode.ASSISTANT -> {
+                                // ② アシスタントを呼び出す (Google Assistant / Gemini)
+                                Log.i("PebbleCommand", "Long Press Assistant: Triggering Voice Command via Trampoline")
+                                try {
+                                    // 画面を強制的に点灯させてバックグラウンド制限を回避しやすくする
+                                    val pm = getSystemService(POWER_SERVICE) as PowerManager
+                                    val wakeLock = pm.newWakeLock(
+                                        PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                                        "Iron:AssistantWakeup"
+                                    )
+                                    wakeLock.acquire(3000) // 3秒間点灯
+
+                                    // 直接アシスタントを呼ぶのではなく、Ironの中継画面を立ち上げる
+                                    val trampolineIntent = Intent(this, AssistantTrampolineActivity::class.java).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                                    }
+                                    startActivity(trampolineIntent)
+                                } catch (e: Exception) {
+                                    Log.e("PebbleCommand", "Failed to launch assistant", e)
+                                }
                             }
-                            sendBroadcast(intent)
+                            LongPressMode.INTENT -> {
+                                // ③ カスタムIntentの送信
+                                if (settings.isAutomationEnabled) {
+                                    val isEnabled = when(cmd) {
+                                        50 -> settings.isCommand50Enabled
+                                        51 -> settings.isCommand51Enabled
+                                        52 -> settings.isCommand52Enabled
+                                        else -> false
+                                    }
+                                    
+                                    if (isEnabled) {
+                                        val action = when(cmd) {
+                                            50 -> "hag1987haaa.pebble.iron.ACTION_LONGPRESS_UP"
+                                            51 -> "hag1987haaa.pebble.iron.ACTION_LONGPRESS_SELECT"
+                                            52 -> "hag1987haaa.pebble.iron.ACTION_LONGPRESS_DOWN"
+                                            else -> ""
+                                        }
+                                        Log.i("PebbleCommand", "Automation: Broadcasting intent $action")
+                                        val intent = Intent(action).apply {
+                                            setPackage(null) // システム全体に放送
+                                            addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+                                        }
+                                        sendBroadcast(intent)
+                                    }
+                                }
+                            }
+                            LongPressMode.NONE -> {
+                                Log.d("PebbleCommand", "Long Press ignored (Mode: NONE)")
+                            }
                         }
                     }
                 }

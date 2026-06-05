@@ -19,6 +19,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hag1987haaa.pebble.iron.*
+import hag1987haaa.pebble.iron.domain.settings.LongPressMode
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,6 +27,10 @@ import org.jetbrains.compose.resources.stringResource
 fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(KmpDependencies.appSettings) }
     val isMusicEnabled by viewModel.isMusicControlEnabled.collectAsState()
+    val isLongPressEnabled by viewModel.isLongPressEnabled.collectAsState()
+    val upLongPressMode by viewModel.upLongPressMode.collectAsState()
+    val selectLongPressMode by viewModel.selectLongPressMode.collectAsState()
+    val downLongPressMode by viewModel.downLongPressMode.collectAsState()
     val isAutoEnabled by viewModel.isAutomationEnabled.collectAsState()
     val isCmd50Enabled by viewModel.isCommand50Enabled.collectAsState()
     val isCmd51Enabled by viewModel.isCommand51Enabled.collectAsState()
@@ -41,6 +46,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
     val scrollState = rememberScrollState()
 
     var isExerciseExpanded by remember { mutableStateOf(false) }
+    var isAutomationExpanded by remember { mutableStateOf(false) }
 
     // Android ターゲットのみ Pebble 権限ダイアログを表示
     LocalPebblePermissionDialog.current.Show(
@@ -80,6 +86,12 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
 
             // 1. エクササイズ設定 (折り畳み)
+            Text(
+                text = stringResource(Res.string.settings_section_exercise),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             Surface(
                 onClick = { isExerciseExpanded = !isExerciseExpanded },
                 tonalElevation = 1.dp,
@@ -93,8 +105,8 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                     Icon(Icons.Default.DirectionsRun, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
-                        text = stringResource(Res.string.settings_section_exercise),
-                        style = MaterialTheme.typography.titleMedium,
+                        text = stringResource(Res.string.settings_exercise_surface_title),
+                        style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.weight(1f)
                     )
                     Icon(
@@ -133,7 +145,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                                     }
                                 }
                             }
-                            // 距離通知時の強制起動
+                            // 距離通知時の自動起動
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                 Text(stringResource(Res.string.settings_notif_distance_autolaunch), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                                 Switch(checked = isAutoLaunchDistEnabled, onCheckedChange = { viewModel.updateAutoLaunchDistEnabled(it) }, modifier = Modifier.scale(0.7f))
@@ -159,7 +171,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                                     }
                                 }
                             }
-                            // 時間通知時の強制起動
+                            // 時間通知時の自動起動
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                 Text(stringResource(Res.string.settings_notif_time_autolaunch), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                                 Switch(checked = isAutoLaunchTimeEnabled, onCheckedChange = { viewModel.updateAutoLaunchTimeEnabled(it) }, modifier = Modifier.scale(0.7f))
@@ -233,48 +245,193 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 3. リモート・自動化連携トリガー
-            Text(text = stringResource(Res.string.settings_section_automation), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            // 3. リモート・自動化連携
+            val assistantOptions = listOf(upLongPressMode, selectLongPressMode, downLongPressMode)
+            // ボタン設定がボイスアシスタント かつ 長押し機能自体が有効な場合のみ警告を表示
+            val hasActiveAssistant = isLongPressEnabled && assistantOptions.any { it == LongPressMode.ASSISTANT }
+
+            Text(
+                text = stringResource(Res.string.settings_section_automation),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
             Spacer(modifier = Modifier.height(8.dp))
-            Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-                Column {
-                    // 音楽コントロール
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.MusicNote, contentDescription = null, tint = if (isMusicEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(stringResource(Res.string.settings_music_title), style = MaterialTheme.typography.bodyLarge)
-                            Text(stringResource(Res.string.settings_music_desc), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
-                        }
-                        Switch(checked = isMusicEnabled, onCheckedChange = { viewModel.updateMusicControlEnabled(it) })
+            Surface(
+                onClick = { isAutomationExpanded = !isAutomationExpanded },
+                tonalElevation = 1.dp,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Link, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = stringResource(Res.string.settings_automation_surface_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (hasActiveAssistant) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = "Permission Required",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 8.dp).size(24.dp)
+                        )
                     }
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
-                    // インテント
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Settings, contentDescription = null, tint = if (isAutoEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(stringResource(Res.string.settings_auto_title), style = MaterialTheme.typography.bodyLarge)
-                            Text(stringResource(Res.string.settings_auto_desc), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
-                        }
-                        Switch(checked = isAutoEnabled, onCheckedChange = { viewModel.updateAutomationEnabled(it) })
-                    }
-                    if (isAutoEnabled) {
-                        @Suppress("DEPRECATION")
-                        val clipboardManager = LocalClipboardManager.current
+                    Icon(
+                        imageVector = if (isAutomationExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null
+                    )
+                }
+            }
+
+            Column(modifier = Modifier.animateContentSize()) {
+                if (isAutomationExpanded) {
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // カテゴリA：タッチスクリーン操作
+                    Text(text = stringResource(Res.string.settings_category_touchscreen), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp))
+                    Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Intent Actions (Tap to Copy):", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { clipboardManager.setText(AnnotatedString("hag1987haaa.pebble.iron.ACTION_STATE_CHANGED")) }) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(stringResource(Res.string.settings_auto_state_info), style = MaterialTheme.typography.bodySmall)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.TouchApp, contentDescription = null, tint = if (isMusicEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(Res.string.settings_touch_title), style = MaterialTheme.typography.bodyLarge)
+                                    Text(stringResource(Res.string.settings_touch_desc), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+                                }
+                                Switch(checked = isMusicEnabled, onCheckedChange = { viewModel.updateMusicControlEnabled(it) })
                             }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            AutomationToggle(stringResource(Res.string.settings_auto_btn_50), "ACTION_LONGPRESS_UP", isCmd50Enabled) { viewModel.updateCommand50Enabled(it) }
-                            AutomationToggle(stringResource(Res.string.settings_auto_btn_51), "ACTION_LONGPRESS_SELECT", isCmd51Enabled) { viewModel.updateCommand51Enabled(it) }
-                            AutomationToggle(stringResource(Res.string.settings_auto_btn_52), "ACTION_LONGPRESS_DOWN", isCmd52Enabled) { viewModel.updateCommand52Enabled(it) }
-                            Text(text = stringResource(Res.string.settings_auto_footer_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(stringResource(Res.string.settings_touch_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // カテゴリB：ボタン操作（長押し）
+                    Text(text = stringResource(Res.string.settings_category_longpress), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp))
+                    Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            // マスタートグル
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.AdsClick, contentDescription = null, tint = if (isLongPressEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(Res.string.settings_longpress_enable), style = MaterialTheme.typography.bodyLarge)
+                                    Text(stringResource(Res.string.settings_longpress_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                }
+                                Switch(checked = isLongPressEnabled, onCheckedChange = { viewModel.updateLongPressEnabled(it) })
+                            }
+                            
+                            if (isLongPressEnabled) {
+                                // アシスタント設定がある場合に注釈を表示 (見落とし防止のため最上部へ)
+                                if (hasActiveAssistant) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                                        shape = MaterialTheme.shapes.small,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(8.dp)) {
+                                            Text(
+                                                text = stringResource(Res.string.settings_longpress_assistant_overlay_note),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                            TextButton(
+                                                onClick = { actions.requestOverlayPermission() },
+                                                contentPadding = PaddingValues(0.dp)
+                                            ) {
+                                                Text(stringResource(Res.string.settings_longpress_assistant_overlay_button), style = MaterialTheme.typography.labelLarge)
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = stringResource(Res.string.settings_longpress_assistant_note),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
+                                
+                                // 各ボタンの設定
+                                LongPressButtonSetting(
+                                    label = stringResource(Res.string.settings_longpress_up),
+                                    currentMode = upLongPressMode,
+                                    musicLabel = stringResource(Res.string.settings_longpress_mode_music_prev),
+                                    assistantLabel = stringResource(Res.string.settings_longpress_mode_assistant),
+                                    intentLabel = stringResource(Res.string.settings_longpress_mode_intent),
+                                    noneLabel = stringResource(Res.string.settings_longpress_mode_none),
+                                    onModeChanged = { viewModel.updateUpLongPressMode(it) }
+                                )
+
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.3.dp)
+
+                                LongPressButtonSetting(
+                                    label = stringResource(Res.string.settings_longpress_select),
+                                    currentMode = selectLongPressMode,
+                                    musicLabel = stringResource(Res.string.settings_longpress_mode_music_play),
+                                    assistantLabel = stringResource(Res.string.settings_longpress_mode_assistant),
+                                    intentLabel = stringResource(Res.string.settings_longpress_mode_intent),
+                                    noneLabel = stringResource(Res.string.settings_longpress_mode_none),
+                                    onModeChanged = { viewModel.updateSelectLongPressMode(it) }
+                                )
+
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.3.dp)
+
+                                LongPressButtonSetting(
+                                    label = stringResource(Res.string.settings_longpress_down),
+                                    currentMode = downLongPressMode,
+                                    musicLabel = stringResource(Res.string.settings_longpress_mode_music_next),
+                                    assistantLabel = stringResource(Res.string.settings_longpress_mode_assistant),
+                                    intentLabel = stringResource(Res.string.settings_longpress_mode_intent),
+                                    noneLabel = stringResource(Res.string.settings_longpress_mode_none),
+                                    onModeChanged = { viewModel.updateDownLongPressMode(it) }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // カテゴリC：外部連携
+                    Text(text = stringResource(Res.string.settings_category_external), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp))
+                    Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Terminal, contentDescription = null, tint = if (isAutoEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(Res.string.settings_auto_title), style = MaterialTheme.typography.bodyLarge)
+                                    Text(stringResource(Res.string.settings_auto_desc), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+                                }
+                                Switch(checked = isAutoEnabled, onCheckedChange = { viewModel.updateAutomationEnabled(it) })
+                            }
+                            
+                            if (isAutoEnabled) {
+                                @Suppress("DEPRECATION")
+                                val clipboardManager = LocalClipboardManager.current
+                                Column(modifier = Modifier.padding(top = 16.dp)) {
+                                    Text("Intent Actions (Tap to Copy):", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { clipboardManager.setText(AnnotatedString("hag1987haaa.pebble.iron.ACTION_STATE_CHANGED")) }) {
+                                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(stringResource(Res.string.settings_auto_state_info), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    AutomationToggle(stringResource(Res.string.settings_auto_btn_50), "ACTION_LONGPRESS_UP", isCmd50Enabled) { viewModel.updateCommand50Enabled(it) }
+                                    AutomationToggle(stringResource(Res.string.settings_auto_btn_51), "ACTION_LONGPRESS_SELECT", isCmd51Enabled) { viewModel.updateCommand51Enabled(it) }
+                                    AutomationToggle(stringResource(Res.string.settings_auto_btn_52), "ACTION_LONGPRESS_DOWN", isCmd52Enabled) { viewModel.updateCommand52Enabled(it) }
+                                    Text(text = stringResource(Res.string.settings_auto_footer_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                }
+                            }
                         }
                     }
                 }
@@ -335,6 +492,45 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                 modifier = Modifier.clickable { onShowLicenses() }
             )
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun LongPressButtonSetting(
+    label: String,
+    currentMode: LongPressMode,
+    musicLabel: String,
+    assistantLabel: String,
+    intentLabel: String,
+    noneLabel: String,
+    onModeChanged: (LongPressMode) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(text = label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+        
+        // 1. ミュージック
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onModeChanged(LongPressMode.MUSIC) }) {
+            RadioButton(selected = currentMode == LongPressMode.MUSIC, onClick = { onModeChanged(LongPressMode.MUSIC) })
+            Text(text = musicLabel, style = MaterialTheme.typography.bodyMedium)
+        }
+        
+        // 2. アシスタント
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onModeChanged(LongPressMode.ASSISTANT) }) {
+            RadioButton(selected = currentMode == LongPressMode.ASSISTANT, onClick = { onModeChanged(LongPressMode.ASSISTANT) })
+            Text(text = assistantLabel, style = MaterialTheme.typography.bodyMedium)
+        }
+        
+        // 3. インテント
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onModeChanged(LongPressMode.INTENT) }) {
+            RadioButton(selected = currentMode == LongPressMode.INTENT, onClick = { onModeChanged(LongPressMode.INTENT) })
+            Text(text = intentLabel, style = MaterialTheme.typography.bodyMedium)
+        }
+        
+        // 4. 無効
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onModeChanged(LongPressMode.NONE) }) {
+            RadioButton(selected = currentMode == LongPressMode.NONE, onClick = { onModeChanged(LongPressMode.NONE) })
+            Text(text = noneLabel, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

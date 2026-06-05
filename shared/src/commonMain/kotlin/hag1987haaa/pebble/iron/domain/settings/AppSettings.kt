@@ -8,7 +8,13 @@ class AppSettings {
     var isMusicControlEnabled: Boolean = true
     var isTouchControlEnabled: Boolean = false
     
-    // 自動化・外部アプリ連携設定
+    // ボタン長押しアクション設定
+    var isLongPressEnabled: Boolean = false
+    var upLongPressMode: LongPressMode = LongPressMode.MUSIC
+    var selectLongPressMode: LongPressMode = LongPressMode.MUSIC
+    var downLongPressMode: LongPressMode = LongPressMode.MUSIC
+
+    // 自動化・外部アプリ連携設定 (INTENTモード時に使用)
     var isAutomationEnabled: Boolean = false
     var isCommand50Enabled: Boolean = true
     var isCommand51Enabled: Boolean = true

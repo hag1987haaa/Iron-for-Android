@@ -38,8 +38,19 @@ actual fun PlatformMapView(
             setMultiTouchControls(true)
             setBuiltInZoomControls(false)
             setHasTransientState(true)
+            
+            // 世界地図が複数並ぶのを防ぐ
+            setHorizontalMapRepetitionEnabled(false)
+            setVerticalMapRepetitionEnabled(false)
+            setScrollableAreaLimitLatitude(MapView.getTileSystem().maxLatitude, MapView.getTileSystem().minLatitude, 0)
+
             minZoomLevel = 3.0
             maxZoomLevel = 20.0
+            
+            // 日本を中心にしつつ、左右に見切れる領域（未描画エリア）が出ない程度のズーム（4.0）に設定
+            controller.setZoom(4.0)
+            controller.setCenter(GeoPoint(36.2048, 138.2529))
+
             onResume()
         }
     }

@@ -64,6 +64,7 @@
     <string name="settings_button_configure">設定</string>
     <string name="settings_section_profile">ユーザープロファイル</string>
     <string name="settings_section_exercise">エクササイズ設定</string>
+    <string name="settings_exercise_surface_title">通知・グラフ・統計設定</string>
     <string name="settings_label_weight">体重 (kg)</string>
     <string name="settings_label_weight_desc">ワークアウト中の消費カロリー計算に使用されます</string>
     <string name="settings_section_data">データ連携</string>
@@ -97,10 +98,30 @@
     <string name="settings_section_music">リモートコントロール</string>
     <string name="settings_music_title">音楽コントロール</string>
     <string name="settings_music_desc">Pebble からスマホの音楽を操作します。\n操作：画面ダブルタップ(再生停止)、上下スワイプ(音量)、左右スワイプ(曲送り)\n※スマートフォン側で音楽アプリを前もって起動しておいてください。また、Pebble ウォッチ側で pebbleOS のタッチ操作を有効化してください。</string>
-    <string name="settings_touch_title">タッチジェスチャー操作</string>
-    <string name="settings_touch_desc">画面のタッチで音楽を操作します（対応機種のみ）</string>
+    <string name="settings_category_touchscreen">タッチスクリーン操作</string>
+    <string name="settings_touch_title">ミュージックコントロール</string>
+    <string name="settings_touch_desc">画面ダブルタップ：再生/停止\nスワイプ：音量（上下）、曲送り（左右）\n\n※トラブル対応：初回インストール時にON/OFFが効かない場合は、一度Pebble側でボタン操作を行ってから再度お試しください。</string>
+    <string name="settings_touch_note">※この機能はタッチスクリーン対応モデル（Pebble Time 2 / Round 2）でのみ有効です</string>
+
+    <string name="settings_category_longpress">ボタン操作（長押し）</string>
+    <string name="settings_category_external">外部連携</string>
+    <string name="settings_longpress_enable">ボタンの長押しアクションを有効にする</string>
+    <string name="settings_longpress_desc">※長押し操作は、2秒間長押しした後の「リリース（指を離した瞬間）」に実行されます。</string>
+    <string name="settings_longpress_up">Upボタン</string>
+    <string name="settings_longpress_select">Selectボタン</string>
+    <string name="settings_longpress_down">Downボタン</string>
+    <string name="settings_longpress_mode_music_prev">ミュージックコントロール（前の曲）</string>
+    <string name="settings_longpress_mode_music_play">ミュージックコントロール（再生/一時停止）</string>
+    <string name="settings_longpress_mode_music_next">ミュージックコントロール（次の曲）</string>
+    <string name="settings_longpress_mode_assistant">ボイスアシスタント</string>
+    <string name="settings_longpress_mode_intent">カスタムインテントの送信による外部連携機能</string>
+    <string name="settings_longpress_mode_none">無効</string>
+    <string name="settings_longpress_assistant_note">※画面オフ時に呼び出すには、AndroidのGoogleアシスタント設定で「ロック画面での応答」を有効にする必要があります。</string>
+    <string name="settings_longpress_assistant_overlay_note">バックグラウンドでのアプリ起動はAndroidにより制限される場合があります。確実にアシスタントを開くには、次の画面のリストから「Iron」を選択し、「他のアプリの上に重ねて表示」権限を許可してください。</string>
+    <string name="settings_longpress_assistant_overlay_button">権限を許可する</string>
 
     <string name="settings_section_automation">リモート・自動化連携</string>
+    <string name="settings_automation_surface_title">タッチ・ボタン・インテント連携</string>
     <string name="settings_auto_title">外部連携（インテント）を有効にする</string>
     <string name="settings_auto_desc">Pebble の操作やアプリの状態変化を「インテント信号」として送信します。自動化アプリでこれを受信することで、独自の動作を組み込むことが可能です。</string>
     <string name="settings_auto_state_info">状態変化イベント：\nhag1987haaa.pebble.iron.ACTION_STATE_CHANGED</string>
@@ -134,6 +155,9 @@
 
     <string name="location_disclosure_title">位置情報の利用について</string>
     <string name="location_disclosure_text">このアプリは、ワークアウトのルートを記録するために、アプリが閉じているときや使用されていないときでも位置情報を収集します。\n\n収集されたデータは走行距離やペースの計算、および地図への表示のみに使用され、外部への共有や広告への利用は一切行いません。</string>
+    <string name="location_background_rationale_title">バックグラウンド位置情報の許可</string>
+    <string name="location_background_rationale_text">スマホがロックされた状態でも、Pebbleウォッチからの操作だけでスムーズにGPS検索・ワークアウトを開始するために、位置情報の権限を「常に許可」に設定する必要があります。\n\nこの後の設定画面で、位置情報 ➔「常に許可」を選択してください。</string>
+    <string name="location_background_button">設定を開く</string>
     <string name="battery_optimization_title">バッテリー最適化の解除</string>
     <string name="battery_optimization_text">ワークアウトの計測を安定させるために、システムの「バッテリー最適化」を解除することをお勧めします。これにより、長時間計測してもアプリが強制終了されにくくなります。</string>
     <string name="battery_optimization_button">設定画面を開く</string>

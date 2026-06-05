@@ -34,6 +34,16 @@ object AndroidDependencies {
         val prefs = appContext.getSharedPreferences("iron_settings", Context.MODE_PRIVATE)
         settings.isMusicControlEnabled = prefs.getBoolean("music_enabled", true)
         settings.isTouchControlEnabled = prefs.getBoolean("touch_enabled", false)
+        settings.isLongPressEnabled = prefs.getBoolean("longpress_enabled", false)
+        settings.upLongPressMode = hag1987haaa.pebble.iron.domain.settings.LongPressMode.valueOf(
+            prefs.getString("longpress_up_mode", hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name) ?: hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name
+        )
+        settings.selectLongPressMode = hag1987haaa.pebble.iron.domain.settings.LongPressMode.valueOf(
+            prefs.getString("longpress_select_mode", hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name) ?: hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name
+        )
+        settings.downLongPressMode = hag1987haaa.pebble.iron.domain.settings.LongPressMode.valueOf(
+            prefs.getString("longpress_down_mode", hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name) ?: hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name
+        )
         settings.isAutomationEnabled = prefs.getBoolean("auto_enabled", false)
         settings.isCommand50Enabled = prefs.getBoolean("cmd50_enabled", true)
         settings.isCommand51Enabled = prefs.getBoolean("cmd51_enabled", true)
@@ -42,6 +52,14 @@ object AndroidDependencies {
         settings.userWeightKg = prefs.getFloat("user_weight", 70.0f)
         settings.hasAskedHealthConnectOnboarding = prefs.getBoolean("hc_onboarding_asked", false)
         
+        // グラフ・通知設定の読み込み
+        val graphTypesStr = prefs.getString("graph_types", "0,1,2,3,4,5") ?: "0,1,2,3,4,5"
+        settings.enabledGraphTypes = graphTypesStr.split(",").filter { it.isNotEmpty() }.map { it.toInt() }
+        settings.notificationDistanceMeters = prefs.getInt("notif_dist", 1000)
+        settings.notificationTimeSeconds = prefs.getInt("notif_time", 0)
+        settings.isAutoLaunchOnDistanceNotificationEnabled = prefs.getBoolean("auto_launch_dist", false)
+        settings.isAutoLaunchOnTimeNotificationEnabled = prefs.getBoolean("auto_launch_time", false)
+
         // アプリバージョンの取得
         try {
             val packageInfo = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
@@ -55,6 +73,10 @@ object AndroidDependencies {
             prefs.edit().apply {
                 putBoolean("music_enabled", settings.isMusicControlEnabled)
                 putBoolean("touch_enabled", settings.isTouchControlEnabled)
+                putBoolean("longpress_enabled", settings.isLongPressEnabled)
+                putString("longpress_up_mode", settings.upLongPressMode.name)
+                putString("longpress_select_mode", settings.selectLongPressMode.name)
+                putString("longpress_down_mode", settings.downLongPressMode.name)
                 putBoolean("auto_enabled", settings.isAutomationEnabled)
                 putBoolean("cmd50_enabled", settings.isCommand50Enabled)
                 putBoolean("cmd51_enabled", settings.isCommand51Enabled)
@@ -62,6 +84,14 @@ object AndroidDependencies {
                 putBoolean("privacy_map_enabled", settings.isPrivacyMapModeEnabled)
                 putFloat("user_weight", settings.userWeightKg)
                 putBoolean("hc_onboarding_asked", settings.hasAskedHealthConnectOnboarding)
+                
+                // グラフ・通知設定の保存
+                putString("graph_types", settings.enabledGraphTypes.joinToString(","))
+                putInt("notif_dist", settings.notificationDistanceMeters)
+                putInt("notif_time", settings.notificationTimeSeconds)
+                putBoolean("auto_launch_dist", settings.isAutoLaunchOnDistanceNotificationEnabled)
+                putBoolean("auto_launch_time", settings.isAutoLaunchOnTimeNotificationEnabled)
+
                 apply()
             }
             Log.d("AndroidDependencies", "Settings saved to SharedPreferences")

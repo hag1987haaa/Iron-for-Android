@@ -19,4 +19,5 @@ interface AppActions {
     fun shareRunData(run: RunActivity, format: String) // ファイルを共有 (format: "gpx" or "tcx")
     fun exportData() // 全データをエクスポート
     fun importData() // バックアップからインポート
+    fun requestOverlayPermission() // 「他のアプリの上に重ねて表示」権限
 }

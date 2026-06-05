@@ -64,6 +64,7 @@
     <string name="settings_button_configure">Configure</string>
     <string name="settings_section_profile">User Profile</string>
     <string name="settings_section_exercise">Exercise Settings</string>
+    <string name="settings_exercise_surface_title">Notifications, Graphs &amp; Stats</string>
     <string name="settings_label_weight">Weight (kg)</string>
     <string name="settings_label_weight_desc">Used for calculating calories burned during workouts</string>
     <string name="settings_section_data">Data Integration</string>
@@ -97,10 +98,30 @@
     <string name="settings_section_music">Remote Control</string>
     <string name="settings_music_title">Music Control</string>
     <string name="settings_music_desc">Control phone music from your Pebble.\nOps: Double tap(Play/Pause), Up/Down swipe(Volume), Left/Right swipe(Track skip)\n* Please open your music app on the phone first. Also, enable pebbleOS touch operation on your Pebble watch.</string>
-    <string name="settings_touch_title">Touch Gesture Control</string>
-    <string name="settings_touch_desc">Enable music control via touch gestures (Pebble Time 2/Round)</string>
+    <string name="settings_category_touchscreen">Touchscreen Operation</string>
+    <string name="settings_touch_title">Music Control</string>
+    <string name="settings_touch_desc">Double tap: Play/Pause\nSwipe: Volume (Up/Down), Skip (Left/Right)\n\n* Troubleshooting: If the toggle doesn\'t work upon first install, perform any button action on Pebble first, then try toggling again.</string>
+    <string name="settings_touch_note">Note: Only available on touch-compatible models (Pebble Time 2 / Round 2)</string>
+
+    <string name="settings_category_longpress">Button Operation (Long Press)</string>
+    <string name="settings_category_external">External Integration</string>
+    <string name="settings_longpress_enable">Enable Long Press Actions</string>
+    <string name="settings_longpress_desc">* Actions are triggered upon release after a 2-second long press.</string>
+    <string name="settings_longpress_up">Up Button</string>
+    <string name="settings_longpress_select">Select Button</string>
+    <string name="settings_longpress_down">Down Button</string>
+    <string name="settings_longpress_mode_music_prev">Music Control (Previous)</string>
+    <string name="settings_longpress_mode_music_play">Music Control (Play/Pause)</string>
+    <string name="settings_longpress_mode_music_next">Music Control (Next)</string>
+    <string name="settings_longpress_mode_assistant">Voice Assistant</string>
+    <string name="settings_longpress_mode_intent">External Integration (Custom Intent)</string>
+    <string name="settings_longpress_mode_none">Disabled</string>
+    <string name="settings_longpress_assistant_note">* To use while screen is off, enable \"Assistant on Lock Screen\" in Android Google Assistant settings.</string>
+    <string name="settings_longpress_assistant_overlay_note">Background activity starts are often blocked by Android. Please select \"Iron\" and grant \"Display over other apps\" to ensure the assistant opens reliably.</string>
+    <string name="settings_longpress_assistant_overlay_button">Grant Permission</string>
 
     <string name="settings_section_automation">Remote &amp; Automation</string>
+    <string name="settings_automation_surface_title">Touch, Buttons &amp; Intents</string>
     <string name="settings_auto_title">Enable External Integration (Intent)</string>
     <string name="settings_auto_desc">Sends Pebble operations and app state changes as "Intent signals". Use automation apps to build your own custom actions.</string>
     <string name="settings_auto_state_info">State Change Event: \nhag1987haaa.pebble.iron.ACTION_STATE_CHANGED</string>
@@ -134,6 +155,9 @@
 
     <string name="location_disclosure_title">Location Usage Disclosure</string>
     <string name="location_disclosure_text">This app collects location data to record your workout route even when the app is closed or not in use.\n\nCollected data is used only for calculating distance, pace, and displaying your route on the map. We never share your data with third parties or use it for advertising.</string>
+    <string name="location_background_rationale_title">"Background Location (Always Allow)"</string>
+    <string name="location_background_rationale_text">To start GPS search and workouts smoothly from your Pebble watch even when the phone is locked, you need to set location permission to \"Always allow\".\n\nPlease select \"Always allow\" in the next settings screen.</string>
+    <string name="location_background_button">Open Settings</string>
     <string name="battery_optimization_title">Disable Battery Optimization</string>
     <string name="battery_optimization_text">To ensure stable workout tracking, we recommend disabling system \"Battery Optimization\". This prevents the app from being terminated during long recording sessions.</string>
     <string name="battery_optimization_button">Open Settings</string>

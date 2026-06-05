@@ -51,12 +51,14 @@ import androidx.health.connect.client.PermissionController
 class MainActivity : ComponentActivity() {
 
     private var showLocationDisclosure by mutableStateOf(false)
+    private var showBackgroundLocationRationale by mutableStateOf(false)
     private var showBatteryOptimizationDialog by mutableStateOf(false)
 
     private val requestPermissionLauncher = registerForActivityResult<Array<String>, Map<String, Boolean>>(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        checkAndRequestHealthPermissionsOnboarding()
+        // 権限リクエスト後に、次のステップへ進む
+        startPermissionChain()
     }
 
     private val healthPermissionLauncher = registerForActivityResult(
@@ -274,6 +276,16 @@ class MainActivity : ComponentActivity() {
             override fun importData() {
                 importLauncher.launch("application/json")
             }
+
+            override fun requestOverlayPermission() {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    )
+                    startActivity(intent)
+                }
+            }
         }
 
         setContent {
@@ -296,9 +308,9 @@ class MainActivity : ComponentActivity() {
                                 if (missing.isNotEmpty()) {
                                     requestPermissionLauncher.launch(missing.toTypedArray())
                                 } else {
-                                    checkAndRequestHealthPermissionsOnboarding()
+                                    // 位置情報が既にあった場合は次のステップへ
+                                    startPermissionChain()
                                 }
-                                checkBatteryOptimization()
                             }) {
                                 Text("OK")
                             }
@@ -306,9 +318,40 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                if (showBackgroundLocationRationale) {
+                    AlertDialog(
+                        onDismissRequest = { 
+                            showBackgroundLocationRationale = false
+                            checkBatteryOptimizationStep()
+                        },
+                        title = { Text(stringResource(Res.string.location_background_rationale_title)) },
+                        text = { Text(stringResource(Res.string.location_background_rationale_text)) },
+                        confirmButton = {
+                            Button(onClick = {
+                                showBackgroundLocationRationale = false
+                                openAppDetailSettings()
+                                // 設定画面から戻った時にチェックされるようにする（onResume等でのチェックは別途検討）
+                            }) {
+                                Text(stringResource(Res.string.location_background_button))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { 
+                                showBackgroundLocationRationale = false
+                                checkBatteryOptimizationStep() 
+                            }) {
+                                Text(stringResource(Res.string.history_delete_cancel))
+                            }
+                        }
+                    )
+                }
+
                 if (showBatteryOptimizationDialog) {
                     AlertDialog(
-                        onDismissRequest = { showBatteryOptimizationDialog = false },
+                        onDismissRequest = { 
+                            showBatteryOptimizationDialog = false
+                            checkHealthConnectStep()
+                        },
                         title = { Text(stringResource(Res.string.battery_optimization_title)) },
                         text = { Text(stringResource(Res.string.battery_optimization_text)) },
                         confirmButton = {
@@ -320,7 +363,10 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         dismissButton = {
-                            TextButton(onClick = { showBatteryOptimizationDialog = false }) {
+                            TextButton(onClick = { 
+                                showBatteryOptimizationDialog = false
+                                checkHealthConnectStep()
+                            }) {
                                 Text(stringResource(Res.string.history_delete_cancel))
                             }
                         }
@@ -329,9 +375,17 @@ class MainActivity : ComponentActivity() {
             }
         }
         
-        // アプリ起動時の初期権限チェック
-        checkAndRequestPermissions()
-        checkBatteryOptimization()
+        // アプリ起動時の初期権限チェック（シーケンス開始）
+        startPermissionChain()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 設定画面から戻ってきた時などに、権限チェックを再開する
+        // ただし、既にダイアログが表示されている場合は二重に実行しない
+        if (!showLocationDisclosure && !showBackgroundLocationRationale && !showBatteryOptimizationDialog) {
+            startPermissionChain()
+        }
     }
 
     private fun getRequiredPermissions(): List<String> {
@@ -353,7 +407,7 @@ class MainActivity : ComponentActivity() {
         return permissions
     }
 
-    private fun checkAndRequestPermissions() {
+    private fun startPermissionChain() {
         val missingPermissions = getRequiredPermissions().filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
@@ -366,12 +420,42 @@ class MainActivity : ComponentActivity() {
                 requestPermissionLauncher.launch(missingPermissions.toTypedArray())
             }
         } else {
-            // 全権限がある場合はヘルスコネクトのオンボーディングを確認
-            checkAndRequestHealthPermissionsOnboarding()
+            // 前景権限が揃ったら次へ
+            checkBackgroundLocationStep()
         }
     }
 
-    private fun checkAndRequestHealthPermissionsOnboarding() {
+    private fun checkBackgroundLocationStep() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                showBackgroundLocationRationale = true
+            } else {
+                showBackgroundLocationRationale = false
+                checkBatteryOptimizationStep()
+            }
+        } else {
+            checkBatteryOptimizationStep()
+        }
+    }
+
+    private fun openAppDetailSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", packageName, null)
+        }
+        startActivity(intent)
+    }
+
+    private fun checkBatteryOptimizationStep() {
+        val powerManager = getSystemService(PowerManager::class.java)
+        if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
+            showBatteryOptimizationDialog = true
+        } else {
+            showBatteryOptimizationDialog = false
+            checkHealthConnectStep()
+        }
+    }
+
+    private fun checkHealthConnectStep() {
         val settings = KmpDependencies.appSettings
         if (settings.hasAskedHealthConnectOnboarding) return
 
@@ -387,15 +471,6 @@ class MainActivity : ComponentActivity() {
                 settings.save()
             } catch (e: Exception) {
                 Log.e("MainActivity", "Health onboarding failed: ${e.message}")
-            }
-        }
-    }
-
-    private fun checkBatteryOptimization() {
-        val powerManager = getSystemService(PowerManager::class.java)
-        if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
-            if (!showLocationDisclosure) {
-                showBatteryOptimizationDialog = true
             }
         }
     }
@@ -442,6 +517,7 @@ fun AppAndroidPreview() {
         override fun shareRunData(run: RunActivity, format: String) {}
         override fun exportData() {}
         override fun importData() {}
+        override fun requestOverlayPermission() {}
     }
     App(actions)
 }

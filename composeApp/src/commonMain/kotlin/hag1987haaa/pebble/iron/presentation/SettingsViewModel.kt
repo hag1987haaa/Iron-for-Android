@@ -3,17 +3,29 @@ package hag1987haaa.pebble.iron.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import hag1987haaa.pebble.iron.domain.settings.AppSettings
+import hag1987haaa.pebble.iron.domain.settings.LongPressMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
 
     private val _isMusicControlEnabled = MutableStateFlow(settings.isMusicControlEnabled)
     val isMusicControlEnabled: StateFlow<Boolean> = _isMusicControlEnabled.asStateFlow()
+
+    private val _isLongPressEnabled = MutableStateFlow(settings.isLongPressEnabled)
+    val isLongPressEnabled: StateFlow<Boolean> = _isLongPressEnabled.asStateFlow()
+
+    private val _upLongPressMode = MutableStateFlow(settings.upLongPressMode)
+    val upLongPressMode: StateFlow<LongPressMode> = _upLongPressMode.asStateFlow()
+
+    private val _selectLongPressMode = MutableStateFlow(settings.selectLongPressMode)
+    val selectLongPressMode: StateFlow<LongPressMode> = _selectLongPressMode.asStateFlow()
+
+    private val _downLongPressMode = MutableStateFlow(settings.downLongPressMode)
+    val downLongPressMode: StateFlow<LongPressMode> = _downLongPressMode.asStateFlow()
 
     private val _isAutomationEnabled = MutableStateFlow(settings.isAutomationEnabled)
     val isAutomationEnabled: StateFlow<Boolean> = _isAutomationEnabled.asStateFlow()
@@ -54,6 +66,30 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.save()
         // 設定変更を即座にウォッチに同期
         hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.sendTouchConfig(enabled)
+    }
+
+    fun updateLongPressEnabled(enabled: Boolean) {
+        settings.isLongPressEnabled = enabled
+        _isLongPressEnabled.value = enabled
+        settings.save()
+    }
+
+    fun updateUpLongPressMode(mode: LongPressMode) {
+        settings.upLongPressMode = mode
+        _upLongPressMode.value = mode
+        settings.save()
+    }
+
+    fun updateSelectLongPressMode(mode: LongPressMode) {
+        settings.selectLongPressMode = mode
+        _selectLongPressMode.value = mode
+        settings.save()
+    }
+
+    fun updateDownLongPressMode(mode: LongPressMode) {
+        settings.downLongPressMode = mode
+        _downLongPressMode.value = mode
+        settings.save()
     }
 
     fun updateAutomationEnabled(enabled: Boolean) {
