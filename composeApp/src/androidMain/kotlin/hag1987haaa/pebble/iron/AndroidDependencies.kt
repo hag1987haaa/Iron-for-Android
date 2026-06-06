@@ -32,7 +32,7 @@ object AndroidDependencies {
         
         // --- 設定の読み込み (SharedPreferences) ---
         val prefs = appContext.getSharedPreferences("iron_settings", Context.MODE_PRIVATE)
-        settings.isMusicControlEnabled = prefs.getBoolean("music_enabled", true)
+        settings.isMusicControlEnabled = prefs.getBoolean("music_enabled", false)
         settings.isTouchControlEnabled = prefs.getBoolean("touch_enabled", false)
         settings.isLongPressEnabled = prefs.getBoolean("longpress_enabled", false)
         settings.upLongPressMode = hag1987haaa.pebble.iron.domain.settings.LongPressMode.valueOf(
@@ -59,6 +59,11 @@ object AndroidDependencies {
         settings.notificationTimeSeconds = prefs.getInt("notif_time", 0)
         settings.isAutoLaunchOnDistanceNotificationEnabled = prefs.getBoolean("auto_launch_dist", false)
         settings.isAutoLaunchOnTimeNotificationEnabled = prefs.getBoolean("auto_launch_time", false)
+        
+        // Mid Data 設定の読み込み
+        val midTypesStr = prefs.getString("mid_types", "0,4,1,5,6") ?: "0,4,1,5,6"
+        settings.enabledMidTypes = midTypesStr.split(",").filter { it.isNotEmpty() }.map { it.toInt() }
+        settings.isMetric = prefs.getBoolean("is_metric", true)
 
         // アプリバージョンの取得
         try {
@@ -91,6 +96,10 @@ object AndroidDependencies {
                 putInt("notif_time", settings.notificationTimeSeconds)
                 putBoolean("auto_launch_dist", settings.isAutoLaunchOnDistanceNotificationEnabled)
                 putBoolean("auto_launch_time", settings.isAutoLaunchOnTimeNotificationEnabled)
+                
+                // Mid Data 設定の保存
+                putString("mid_types", settings.enabledMidTypes.joinToString(","))
+                putBoolean("is_metric", settings.isMetric)
 
                 apply()
             }

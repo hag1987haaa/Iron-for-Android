@@ -38,6 +38,8 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
     val isPrivacyMapEnabled by viewModel.isPrivacyMapModeEnabled.collectAsState()
     val userWeight by viewModel.userWeight.collectAsState()
     val enabledGraphs by viewModel.enabledGraphTypes.collectAsState()
+    val enabledMidItems by viewModel.enabledMidTypes.collectAsState()
+    val isMetric by viewModel.isMetric.collectAsState()
     val notifDistance by viewModel.notifDistance.collectAsState()
     val notifTime by viewModel.notifTime.collectAsState()
     val isAutoLaunchDistEnabled by viewModel.isAutoLaunchDistEnabled.collectAsState()
@@ -71,17 +73,45 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = userWeight.toString(),
-                onValueChange = { 
-                    it.toFloatOrNull()?.let { weight -> viewModel.updateUserWeight(weight) }
-                },
-                label = { Text(stringResource(Res.string.settings_label_weight)) },
-                supportingText = { Text(stringResource(Res.string.settings_label_weight_desc)) },
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                suffix = { Text("kg") }
-            )
+            Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    val displayWeight = if (isMetric) userWeight else (userWeight * 2.20462f)
+                    val weightUnit = if (isMetric) "kg" else "lb"
+                    
+                    OutlinedTextField(
+                        value = ( (displayWeight * 10).toInt() / 10.0 ).toString(), // 小数点1位までに整形
+                        onValueChange = { 
+                            it.toFloatOrNull()?.let { input -> 
+                                val weightInKg = if (isMetric) input else (input / 2.20462f)
+                                viewModel.updateUserWeight(weightInKg)
+                            }
+                        },
+                        label = { Text(stringResource(Res.string.settings_label_weight)) },
+                        supportingText = { Text(stringResource(Res.string.settings_label_weight_desc)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        suffix = { Text(weightUnit) }
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // 単位設定
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Straighten, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(Res.string.settings_unit_title), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                if (isMetric) stringResource(Res.string.settings_unit_metric) 
+                                else stringResource(Res.string.settings_unit_imperial),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                        Switch(checked = isMetric, onCheckedChange = { viewModel.updateMetric(it) })
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -146,7 +176,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                                 }
                             }
                             // 距離通知時の自動起動
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(stringResource(Res.string.settings_notif_distance_autolaunch), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                                 Switch(checked = isAutoLaunchDistEnabled, onCheckedChange = { viewModel.updateAutoLaunchDistEnabled(it) }, modifier = Modifier.scale(0.7f))
                             }
@@ -172,7 +202,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                                 }
                             }
                             // 時間通知時の自動起動
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(stringResource(Res.string.settings_notif_time_autolaunch), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                                 Switch(checked = isAutoLaunchTimeEnabled, onCheckedChange = { viewModel.updateAutoLaunchTimeEnabled(it) }, modifier = Modifier.scale(0.7f))
                             }
@@ -216,6 +246,57 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                         IconButton(onClick = {
                                             val newList = enabledGraphs.toMutableList(); newList.add(typeId); viewModel.updateGraphSettings(newList)
+                                        }) { Icon(Icons.Default.AddCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+                                        Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // ★ 中段表示項目の設定
+                    Text(text = stringResource(Res.string.settings_section_mid_data), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 8.dp))
+                    Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text(text = stringResource(Res.string.settings_mid_data_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(horizontal = 4.dp))
+                            val allItems = listOf(
+                                0 to stringResource(Res.string.detail_chart_speed),
+                                1 to stringResource(Res.string.detail_stat_distance),
+                                2 to stringResource(Res.string.detail_stat_steps),
+                                3 to stringResource(Res.string.detail_chart_altitude),
+                                4 to stringResource(Res.string.detail_chart_heart_rate),
+                                5 to stringResource(Res.string.detail_stat_calories),
+                                7 to "Avg Pace",
+                                8 to "Current Speed",
+                                9 to "Clock",
+                                10 to stringResource(Res.string.detail_stat_elevation),
+                                11 to "Cadence",
+                                99 to "Detail Mode (4-in-1)"
+                            )
+                            enabledMidItems.forEachIndexed { index, typeId ->
+                                val name = allItems.find { it.first == typeId }?.second ?: "Unknown"
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = {
+                                        val newList = enabledMidItems.toMutableList(); newList.removeAt(index); viewModel.updateMidDataSettings(newList)
+                                    }) { Icon(Icons.Default.RemoveCircle, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
+                                    Text(text = name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                    IconButton(onClick = {
+                                        if (index > 0) { val newList = enabledMidItems.toMutableList(); val t = newList[index]; newList[index] = newList[index-1]; newList[index-1] = t; viewModel.updateMidDataSettings(newList) }
+                                    }, enabled = index > 0) { Icon(Icons.Default.ArrowUpward, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                                    IconButton(onClick = {
+                                        if (index < enabledMidItems.size - 1) { val newList = enabledMidItems.toMutableList(); val t = newList[index]; newList[index] = newList[index+1]; newList[index+1] = t; viewModel.updateMidDataSettings(newList) }
+                                    }, enabled = index < enabledMidItems.size - 1) { Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                                }
+                            }
+                            val disabledItems = allItems.filter { it.first !in enabledMidItems }
+                            if (disabledItems.isNotEmpty()) {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                disabledItems.forEach { (typeId, name) ->
+                                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = {
+                                            val newList = enabledMidItems.toMutableList(); newList.add(typeId); viewModel.updateMidDataSettings(newList)
                                         }) { Icon(Icons.Default.AddCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
                                         Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
                                     }

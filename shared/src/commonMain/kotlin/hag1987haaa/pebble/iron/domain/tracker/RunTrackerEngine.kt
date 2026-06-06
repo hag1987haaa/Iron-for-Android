@@ -61,6 +61,15 @@ data class RunStatistics(
         val ss = if (s < 10) "0$s" else "$s"
         return "$m:$ss"
     }
+
+    val formattedAvgPace: String? get() = formattedPace // 簡易的に現在の平均ペースを返す
+
+    val formattedSpeed: String? get() {
+        if (totalSeconds <= 0) return "0.0"
+        val km = totalDistanceMeters / 1000.0
+        val speed = km / (totalSeconds / 3600.0)
+        return ( (speed * 10).toInt() / 10.0 ).toString()
+    }
 }
 
 class RunTrackerEngine(
@@ -104,8 +113,6 @@ class RunTrackerEngine(
 
     fun launchWatchApp() {
         pebbleMessenger?.launchWatchApp()
-        // アプリ起動時にタッチ設定を同期
-        pebbleMessenger?.sendTouchConfig(appSettings?.isTouchControlEnabled ?: false)
     }
 
     fun prepare() {
@@ -122,7 +129,6 @@ class RunTrackerEngine(
         
         pebbleMessenger?.launchWatchApp()
         pebbleMessenger?.sendState(RunStatus.PREPARING)
-        pebbleMessenger?.sendTouchConfig(appSettings?.isTouchControlEnabled ?: false)
         pebbleMessenger?.sendStatistics(_statistics.value)
         
         resetTimeoutTimer()
@@ -228,8 +234,6 @@ class RunTrackerEngine(
 
     fun resetToIdle() {
         reset()
-        // IDLEに戻った際も設定を同期（ミュージック操作等を可能にするため）
-        pebbleMessenger?.sendTouchConfig(appSettings?.isTouchControlEnabled ?: false)
     }
 
     fun addHeartRate(bpm: Int) {

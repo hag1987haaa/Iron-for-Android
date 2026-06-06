@@ -100,13 +100,13 @@
     <string name="settings_music_desc">Pebble からスマホの音楽を操作します。\n操作：画面ダブルタップ(再生停止)、上下スワイプ(音量)、左右スワイプ(曲送り)\n※スマートフォン側で音楽アプリを前もって起動しておいてください。また、Pebble ウォッチ側で pebbleOS のタッチ操作を有効化してください。</string>
     <string name="settings_category_touchscreen">タッチスクリーン操作</string>
     <string name="settings_touch_title">ミュージックコントロール</string>
-    <string name="settings_touch_desc">画面ダブルタップ：再生/停止\nスワイプ：音量（上下）、曲送り（左右）\n\n※トラブル対応：初回インストール時にON/OFFが効かない場合は、一度Pebble側でボタン操作を行ってから再度お試しください。</string>
+    <string name="settings_touch_desc">画面ダブルタップ：再生/停止\nスワイプ：音量（上下）、曲送り（左右）\n\n※この機能は、ウォッチ側のPebbleOS設定でタッチ操作が有効な場合に動作します。スマホ側のこのスイッチをオフにすることで、ウォッチからのミュージック操作を一時的に遮断できます。</string>
     <string name="settings_touch_note">※この機能はタッチスクリーン対応モデル（Pebble Time 2 / Round 2）でのみ有効です</string>
 
     <string name="settings_category_longpress">ボタン操作（長押し）</string>
     <string name="settings_category_external">外部連携</string>
     <string name="settings_longpress_enable">ボタンの長押しアクションを有効にする</string>
-    <string name="settings_longpress_desc">※長押し操作は、2秒間長押しした後の「リリース（指を離した瞬間）」に実行されます。</string>
+    <string name="settings_longpress_desc">※長押し操作は「0.8秒以上押し続けて指を離した瞬間」に実行されます（2秒以上押し続けるとキャンセル）。</string>
     <string name="settings_longpress_up">Upボタン</string>
     <string name="settings_longpress_select">Selectボタン</string>
     <string name="settings_longpress_down">Downボタン</string>
@@ -129,7 +129,7 @@
     <string name="settings_auto_btn_51">SELECT長押し連携：ACTION_LONGPRESS_SELECT</string>
     <string name="settings_auto_btn_52">DOWN長押し連携：ACTION_LONGPRESS_DOWN</string>
     <string name="settings_auto_copy_toast">クリップボードにコピーしました</string>
-    <string name="settings_auto_footer_note">※各ボタンの連携は2秒以上長押しして指を離した際に送信されます。\n※状態変化（state_name）には IDLE, PREPARING, READY, ACTIVE, PAUSED, FINISHED, RESULT が含まれます。</string>
+    <string name="settings_auto_footer_note">※各ボタンの連携は0.8秒以上長押しして指を離した際に送信されます（2秒以上でキャンセル）。\n※状態変化（state_name）には IDLE, PREPARING, READY, ACTIVE, PAUSED, FINISHED, RESULT が含まれます。</string>
 
     <string name="share_gpx_chooser_title">GPX を共有</string>
 
@@ -176,4 +176,9 @@
     <string name="detail_sync_hc_update">Health Connect のデータを更新</string>
     <string name="detail_sync_hc_success">Health Connect に同期しました！</string>
     <string name="detail_sync_hc_already">すでに Health Connect に同期済みです</string>
+    <string name="settings_unit_title">単位系</string>
+    <string name="settings_unit_metric">メートル法 (km, kg)</string>
+    <string name="settings_unit_imperial">ヤード・ポンド法 (mile, lb)</string>
+    <string name="settings_section_mid_data">中段の特大表示項目</string>
+    <string name="settings_mid_data_desc">ACTIVE（計測中）に表示する項目を設定します。Pebble側でSELECTボタンを押すと、この順番で切り替わります。</string>
 </resources>

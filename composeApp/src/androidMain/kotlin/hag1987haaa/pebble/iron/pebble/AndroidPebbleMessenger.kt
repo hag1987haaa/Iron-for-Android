@@ -12,6 +12,7 @@ import kotlinx.coroutines.channels.Channel
 import hag1987haaa.pebble.iron.domain.tracker.RunStatistics
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
 import hag1987haaa.pebble.iron.domain.tracker.PebbleMessenger
+import kotlinx.datetime.toLocalDateTime
 import java.util.UUID
 
 class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
@@ -24,6 +25,8 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
     // 統計データ（最新1件のみ保持。volatileでスレッドセーフにアクセス）
     @Volatile
     private var nextStatsRequest: PebbleMessageRequest? = null
+    @Volatile
+    private var nextMidDataRequest: PebbleMessageRequest? = null
 
     private var cachedSender: DefaultPebbleSender? = null
 
@@ -38,7 +41,8 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         private const val KEY_GRAPH_DATA = 10009u
         private const val KEY_HR = 10007u
         private const val KEY_TOUCH_ENABLE = 10011u
-        private const val KEY_TYPE = 10012u // ★ ワークアウト種別キー
+        private const val KEY_TYPE = 10012u 
+        private const val KEY_MID_DATA = 10013u // ★ 中段カスタムデータ
         
         private const val PEBBLE_STATE_IDLE = 0
         private const val PEBBLE_STATE_GPS_SEARCHING = 1
@@ -70,7 +74,17 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
                         nextStatsRequest = null // 消費
                         processRequest(stats)
                         delay(100)
-                    } else {
+                    }
+
+                    // 3. 中段データ
+                    val mid = nextMidDataRequest
+                    if (mid != null) {
+                        nextMidDataRequest = null
+                        processRequest(mid)
+                        delay(100)
+                    }
+
+                    if (stats == null && mid == null) {
                         // 送信キューが空なら待機
                         delay(50)
                     }
@@ -147,6 +161,84 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         )
         // 常に最新1件のみを保持
         nextStatsRequest = PebbleMessageRequest("STATS", dict)
+        
+        // ★ 中段データの送信もトリガー
+        sendMidData(stats)
+    }
+
+    private fun sendMidData(stats: RunStatistics) {
+        val settings = hag1987haaa.pebble.iron.KmpDependencies.appSettings
+        val pages = mutableListOf<String>()
+
+        settings.enabledMidTypes.forEach { typeId ->
+            val pageStr = when (typeId) {
+                0 -> { // Instant Pace
+                    val unit = if (settings.isMetric) "/km" else "/mile"
+                    "PACE,${stats.formattedPace},$unit,0"
+                }
+                1 -> { // Distance
+                    val unit = if (settings.isMetric) "km" else "mile"
+                    "DIST,${stats.formattedDistance},$unit,0"
+                }
+                2 -> { // Steps
+                    "STEPS,${stats.steps},steps,0"
+                }
+                3 -> { // Altitude
+                    val unit = if (settings.isMetric) "m" else "ft"
+                    val alt = stats.route.lastOrNull()?.altitude?.toInt() ?: 0
+                    "ALT,$alt,$unit,0"
+                }
+                4 -> { // Heart Rate
+                    val hr = if (stats.heartRates.isNotEmpty()) stats.heartRates.last().toString() else "--"
+                    "HEART,$hr,bpm,0"
+                }
+                5 -> { // Calories
+                    "CAL,${stats.calories.toInt()},kcal,0"
+                }
+                7 -> { // Avg Pace
+                    val unit = if (settings.isMetric) "/km" else "/mile"
+                    "AVG PACE,${stats.formattedAvgPace ?: "--:--"},$unit,0"
+                }
+                8 -> { // Speed
+                    val unit = if (settings.isMetric) "km/h" else "mph"
+                    "SPEED,${stats.formattedSpeed ?: "0.0"},$unit,0"
+                }
+                9 -> { // Clock
+                    val now = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+                    val timeStr = "${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}"
+                    "CLOCK,$timeStr,,0"
+                }
+                10 -> { // Gain (Elevation)
+                    val unit = if (settings.isMetric) "m" else "ft"
+                    "GAIN,${stats.totalElevationGain.toInt()},$unit,0"
+                }
+                11 -> { // Cadence (SPM)
+                    // 簡易的に最新の歩数変化から計算するか、平均を出す
+                    "CADENCE,${calculateCurrentCadence(stats)},spm,0"
+                }
+                99 -> { // Detail Mode (High Density)
+                    // 空タイトルをフラグにする
+                    ",DETAIL,,0"
+                }
+                else -> null
+            }
+            pageStr?.let { pages.add(it) }
+        }
+
+        if (pages.isEmpty()) return
+
+        val midDataString = pages.joinToString("|")
+        val dict = mapOf(KEY_MID_DATA to PebbleDictionaryItem.Text(midDataString))
+        nextMidDataRequest = PebbleMessageRequest("MID_DATA", dict)
+    }
+
+    private fun calculateCurrentCadence(stats: RunStatistics): Int {
+        if (stats.route.size < 2) return 0
+        val last = stats.route.last()
+        val prev = stats.route[stats.route.size - 2]
+        val stepDiff = (last.steps ?: 0) - (prev.steps ?: 0)
+        val timeDiffSec = (last.timestamp.epochSeconds - prev.timestamp.epochSeconds).coerceAtLeast(1)
+        return (stepDiff.toDouble() / timeDiffSec.toDouble() * 60.0).toInt().coerceIn(0, 250)
     }
 
     override fun sendState(status: RunStatus) {

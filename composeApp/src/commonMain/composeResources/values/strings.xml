@@ -100,13 +100,13 @@
     <string name="settings_music_desc">Control phone music from your Pebble.\nOps: Double tap(Play/Pause), Up/Down swipe(Volume), Left/Right swipe(Track skip)\n* Please open your music app on the phone first. Also, enable pebbleOS touch operation on your Pebble watch.</string>
     <string name="settings_category_touchscreen">Touchscreen Operation</string>
     <string name="settings_touch_title">Music Control</string>
-    <string name="settings_touch_desc">Double tap: Play/Pause\nSwipe: Volume (Up/Down), Skip (Left/Right)\n\n* Troubleshooting: If the toggle doesn\'t work upon first install, perform any button action on Pebble first, then try toggling again.</string>
+    <string name="settings_touch_desc">Double tap: Play/Pause\nSwipe: Volume (Up/Down), Skip (Left/Right)\n\n* This feature works when touch operation is enabled in your watch\'s PebbleOS settings. You can use this switch on your phone to temporarily block music commands from the watch.</string>
     <string name="settings_touch_note">Note: Only available on touch-compatible models (Pebble Time 2 / Round 2)</string>
 
     <string name="settings_category_longpress">Button Operation (Long Press)</string>
     <string name="settings_category_external">External Integration</string>
     <string name="settings_longpress_enable">Enable Long Press Actions</string>
-    <string name="settings_longpress_desc">* Actions are triggered upon release after a 2-second long press.</string>
+    <string name="settings_longpress_desc">* Triggered upon release after pressing for 0.8+ seconds (Cancelled if held for 2+ seconds).</string>
     <string name="settings_longpress_up">Up Button</string>
     <string name="settings_longpress_select">Select Button</string>
     <string name="settings_longpress_down">Down Button</string>
@@ -129,7 +129,7 @@
     <string name="settings_auto_btn_51">SELECT Long Action: ACTION_LONGPRESS_SELECT</string>
     <string name="settings_auto_btn_52">DOWN Long Action: ACTION_LONGPRESS_DOWN</string>
     <string name="settings_auto_copy_toast">Copied to clipboard</string>
-    <string name="settings_auto_footer_note">* Actions are triggered after long pressing for 2+ seconds and releasing.\n* State changes (state_name) include: IDLE, PREPARING, READY, ACTIVE, PAUSED, FINISHED, RESULT.</string>
+    <string name="settings_auto_footer_note">* Actions are triggered after long pressing for 0.8+ seconds and releasing (Cancelled after 2+ seconds).\n* State changes (state_name) include: IDLE, PREPARING, READY, ACTIVE, PAUSED, FINISHED, RESULT.</string>
 
     <string name="share_gpx_chooser_title">Share GPX</string>
 
@@ -176,4 +176,9 @@
     <string name="detail_sync_hc_update">Update Health Connect data</string>
     <string name="detail_sync_hc_success">Synced to Health Connect!</string>
     <string name="detail_sync_hc_already">Already synced to Health Connect</string>
+    <string name="settings_unit_title">Unit System</string>
+    <string name="settings_unit_metric">Metric (km, kg)</string>
+    <string name="settings_unit_imperial">Imperial (mile, lb)</string>
+    <string name="settings_section_mid_data">Mid Data Display Items</string>
+    <string name="settings_mid_data_desc">Configure items to display in ACTIVE mode. Press SELECT on Pebble to cycle through these items.</string>
 </resources>

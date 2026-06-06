@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class AppSettings {
-    var isMusicControlEnabled: Boolean = true
+    var isMusicControlEnabled: Boolean = false
     var isTouchControlEnabled: Boolean = false
     
     // ボタン長押しアクション設定
@@ -26,6 +26,12 @@ class AppSettings {
         get() = _isPrivacyMapModeEnabled.value
         set(value) { _isPrivacyMapModeEnabled.value = value }
 
+    /**
+     * 中段表示（Mid Data）の設定
+     * 0: Pace, 1: Distance, 2: Steps, 3: Altitude, 4: HR, 5: Calories, 6: Time, 7: Avg Pace, 8: Speed
+     */
+    var enabledMidTypes: List<Int> = listOf(0, 4, 1, 5, 6)
+    var isMetric: Boolean = true
     var userWeightKg: Float = 70.0f
     var hasAskedHealthConnectOnboarding: Boolean = false
     var appVersion: String = "1.0.0"

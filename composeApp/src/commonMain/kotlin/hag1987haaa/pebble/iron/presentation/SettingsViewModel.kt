@@ -45,6 +45,12 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _enabledGraphTypes = MutableStateFlow(settings.enabledGraphTypes)
     val enabledGraphTypes: StateFlow<List<Int>> = _enabledGraphTypes.asStateFlow()
 
+    private val _enabledMidTypes = MutableStateFlow(settings.enabledMidTypes)
+    val enabledMidTypes: StateFlow<List<Int>> = _enabledMidTypes.asStateFlow()
+
+    private val _isMetric = MutableStateFlow(settings.isMetric)
+    val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
+
     private val _notifDistance = MutableStateFlow(settings.notificationDistanceMeters)
     val notifDistance: StateFlow<Int> = _notifDistance.asStateFlow()
 
@@ -64,8 +70,6 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.isMusicControlEnabled = enabled
         _isMusicControlEnabled.value = enabled
         settings.save()
-        // 設定変更を即座にウォッチに同期
-        hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.sendTouchConfig(enabled)
     }
 
     fun updateLongPressEnabled(enabled: Boolean) {
@@ -130,6 +134,18 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     fun updateGraphSettings(newTypes: List<Int>) {
         settings.enabledGraphTypes = newTypes
         _enabledGraphTypes.value = newTypes
+        settings.save()
+    }
+
+    fun updateMidDataSettings(newTypes: List<Int>) {
+        settings.enabledMidTypes = newTypes
+        _enabledMidTypes.value = newTypes
+        settings.save()
+    }
+
+    fun updateMetric(isMetric: Boolean) {
+        settings.isMetric = isMetric
+        _isMetric.value = isMetric
         settings.save()
     }
 
