@@ -350,7 +350,6 @@ class MainActivity : ComponentActivity() {
                     AlertDialog(
                         onDismissRequest = { 
                             showBatteryOptimizationDialog = false
-                            checkHealthConnectStep()
                         },
                         title = { Text(stringResource(Res.string.battery_optimization_title)) },
                         text = { Text(stringResource(Res.string.battery_optimization_text)) },
@@ -365,7 +364,6 @@ class MainActivity : ComponentActivity() {
                         dismissButton = {
                             TextButton(onClick = { 
                                 showBatteryOptimizationDialog = false
-                                checkHealthConnectStep()
                             }) {
                                 Text(stringResource(Res.string.history_delete_cancel))
                             }
@@ -451,27 +449,6 @@ class MainActivity : ComponentActivity() {
             showBatteryOptimizationDialog = true
         } else {
             showBatteryOptimizationDialog = false
-            checkHealthConnectStep()
-        }
-    }
-
-    private fun checkHealthConnectStep() {
-        val settings = KmpDependencies.appSettings
-        if (settings.hasAskedHealthConnectOnboarding) return
-
-        val manager = AndroidDependencies.healthConnectManager
-        if (!manager.isSdkAvailable()) return
-
-        lifecycleScope.launch {
-            try {
-                if (!manager.hasAllPermissions()) {
-                    healthPermissionLauncher.launch(manager.permissions)
-                }
-                settings.hasAskedHealthConnectOnboarding = true
-                settings.save()
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Health onboarding failed: ${e.message}")
-            }
         }
     }
 

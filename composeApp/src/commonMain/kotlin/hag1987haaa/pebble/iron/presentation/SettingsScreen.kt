@@ -150,7 +150,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                 if (isExerciseExpanded) {
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    // ウォッチ通知
+                    // 1-1. ウォッチ通知
                     Text(text = stringResource(Res.string.settings_section_notification), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 8.dp))
                     Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Column(modifier = Modifier.padding(12.dp)) {
@@ -211,69 +211,24 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // ウォッチグラフ
-                    Text(text = stringResource(Res.string.settings_section_graphs), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 8.dp))
-                    Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            Text(text = stringResource(Res.string.settings_graphs_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(horizontal = 4.dp))
-                            val allGraphs = listOf(
-                                0 to stringResource(Res.string.detail_chart_speed),
-                                1 to stringResource(Res.string.detail_stat_distance),
-                                2 to stringResource(Res.string.detail_stat_steps),
-                                3 to stringResource(Res.string.detail_chart_altitude),
-                                4 to stringResource(Res.string.detail_chart_heart_rate),
-                                5 to stringResource(Res.string.detail_stat_calories)
-                            )
-                            enabledGraphs.forEachIndexed { index, typeId ->
-                                val name = allGraphs.find { it.first == typeId }?.second ?: "Unknown"
-                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(onClick = {
-                                        val newList = enabledGraphs.toMutableList(); newList.removeAt(index); viewModel.updateGraphSettings(newList)
-                                    }) { Icon(Icons.Default.RemoveCircle, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
-                                    Text(text = name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                                    IconButton(onClick = {
-                                        if (index > 0) { val newList = enabledGraphs.toMutableList(); val t = newList[index]; newList[index] = newList[index-1]; newList[index-1] = t; viewModel.updateGraphSettings(newList) }
-                                    }, enabled = index > 0) { Icon(Icons.Default.ArrowUpward, contentDescription = null, modifier = Modifier.size(20.dp)) }
-                                    IconButton(onClick = {
-                                        if (index < enabledGraphs.size - 1) { val newList = enabledGraphs.toMutableList(); val t = newList[index]; newList[index] = newList[index+1]; newList[index+1] = t; viewModel.updateGraphSettings(newList) }
-                                    }, enabled = index < enabledGraphs.size - 1) { Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(20.dp)) }
-                                }
-                            }
-                            val disabledGraphs = allGraphs.filter { it.first !in enabledGraphs }
-                            if (disabledGraphs.isNotEmpty()) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                                disabledGraphs.forEach { (typeId, name) ->
-                                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                        IconButton(onClick = {
-                                            val newList = enabledGraphs.toMutableList(); newList.add(typeId); viewModel.updateGraphSettings(newList)
-                                        }) { Icon(Icons.Default.AddCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
-                                        Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // ★ 中段表示項目の設定
+                    // 1-2. 中段表示項目の設定
                     Text(text = stringResource(Res.string.settings_section_mid_data), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 8.dp))
                     Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Column(modifier = Modifier.padding(8.dp)) {
                             Text(text = stringResource(Res.string.settings_mid_data_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(horizontal = 4.dp))
                             val allItems = listOf(
-                                0 to stringResource(Res.string.detail_chart_speed),
-                                1 to stringResource(Res.string.detail_stat_distance),
-                                2 to stringResource(Res.string.detail_stat_steps),
-                                3 to stringResource(Res.string.detail_chart_altitude),
-                                4 to stringResource(Res.string.detail_chart_heart_rate),
-                                5 to stringResource(Res.string.detail_stat_calories),
-                                7 to "Avg Pace",
-                                8 to "Current Speed",
-                                9 to "Clock",
-                                10 to stringResource(Res.string.detail_stat_elevation),
-                                11 to "Cadence",
-                                99 to "Detail Mode (4-in-1)"
+                                0 to stringResource(Res.string.settings_mid_item_pace),
+                                1 to stringResource(Res.string.settings_mid_item_dist),
+                                2 to stringResource(Res.string.settings_mid_item_steps),
+                                3 to stringResource(Res.string.settings_mid_item_alt),
+                                4 to stringResource(Res.string.settings_mid_item_hr),
+                                5 to stringResource(Res.string.settings_mid_item_cal),
+                                7 to stringResource(Res.string.settings_mid_item_avg_pace),
+                                8 to stringResource(Res.string.settings_mid_item_speed),
+                                9 to stringResource(Res.string.settings_mid_item_clock),
+                                10 to stringResource(Res.string.settings_mid_item_gain),
+                                11 to stringResource(Res.string.settings_mid_item_cadence),
+                                99 to stringResource(Res.string.settings_mid_item_detail)
                             )
                             enabledMidItems.forEachIndexed { index, typeId ->
                                 val name = allItems.find { it.first == typeId }?.second ?: "Unknown"
@@ -304,6 +259,51 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 1-3. ウォッチグラフの設定
+                    Text(text = stringResource(Res.string.settings_section_graphs), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 8.dp))
+                    Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text(text = stringResource(Res.string.settings_graphs_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(horizontal = 4.dp))
+                            val allGraphs = listOf(
+                                0 to stringResource(Res.string.settings_mid_item_speed),
+                                1 to stringResource(Res.string.settings_mid_item_dist),
+                                2 to stringResource(Res.string.settings_mid_item_steps),
+                                3 to stringResource(Res.string.settings_mid_item_alt),
+                                4 to stringResource(Res.string.settings_mid_item_hr),
+                                5 to stringResource(Res.string.settings_mid_item_cal)
+                            )
+                            enabledGraphs.forEachIndexed { index, typeId ->
+                                val name = allGraphs.find { it.first == typeId }?.second ?: "Unknown"
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = {
+                                        val newList = enabledGraphs.toMutableList(); newList.removeAt(index); viewModel.updateGraphSettings(newList)
+                                    }) { Icon(Icons.Default.RemoveCircle, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
+                                    Text(text = name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                    IconButton(onClick = {
+                                        if (index > 0) { val newList = enabledGraphs.toMutableList(); val t = newList[index]; newList[index] = newList[index-1]; newList[index-1] = t; viewModel.updateGraphSettings(newList) }
+                                    }, enabled = index > 0) { Icon(Icons.Default.ArrowUpward, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                                    IconButton(onClick = {
+                                        if (index < enabledGraphs.size - 1) { val newList = enabledGraphs.toMutableList(); val t = newList[index]; newList[index] = newList[index+1]; newList[index+1] = t; viewModel.updateGraphSettings(newList) }
+                                    }, enabled = index < enabledGraphs.size - 1) { Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                                }
+                            }
+                            val disabledGraphs = allGraphs.filter { it.first !in enabledGraphs }
+                            if (disabledGraphs.isNotEmpty()) {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                disabledGraphs.forEach { (typeId, name) ->
+                                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = {
+                                            val newList = enabledGraphs.toMutableList(); newList.add(typeId); viewModel.updateGraphSettings(newList)
+                                        }) { Icon(Icons.Default.AddCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+                                        Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -327,10 +327,6 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
 
             // 3. リモート・自動化連携
-            val assistantOptions = listOf(upLongPressMode, selectLongPressMode, downLongPressMode)
-            // ボタン設定がボイスアシスタント かつ 長押し機能自体が有効な場合のみ警告を表示
-            val hasActiveAssistant = isLongPressEnabled && assistantOptions.any { it == LongPressMode.ASSISTANT }
-
             Text(
                 text = stringResource(Res.string.settings_section_automation),
                 style = MaterialTheme.typography.titleMedium,
@@ -354,14 +350,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.weight(1f)
                     )
-                    if (hasActiveAssistant) {
-                        Icon(
-                            Icons.Default.Warning,
-                            contentDescription = "Permission Required",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(horizontal = 8.dp).size(24.dp)
-                        )
-                    }
+                    // ⚠️ アイコンはユーザーのリクエストにより削除
                     Icon(
                         imageVector = if (isAutomationExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = null
@@ -394,6 +383,9 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // カテゴリB：ボタン操作（長押し）
+                    val assistantOptions = listOf(upLongPressMode, selectLongPressMode, downLongPressMode)
+                    val hasActiveAssistant = isLongPressEnabled && assistantOptions.any { it == LongPressMode.ASSISTANT }
+
                     Text(text = stringResource(Res.string.settings_category_longpress), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp))
                     Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -449,7 +441,10 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                                     assistantLabel = stringResource(Res.string.settings_longpress_mode_assistant),
                                     intentLabel = stringResource(Res.string.settings_longpress_mode_intent),
                                     noneLabel = stringResource(Res.string.settings_longpress_mode_none),
-                                    onModeChanged = { viewModel.updateUpLongPressMode(it) }
+                                    onModeChanged = { viewModel.updateUpLongPressMode(it) },
+                                    intentAction = "ACTION_LONGPRESS_UP",
+                                    isIntentEnabled = isCmd50Enabled,
+                                    onIntentEnabledChanged = { viewModel.updateCommand50Enabled(it) }
                                 )
 
                                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.3.dp)
@@ -461,7 +456,10 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                                     assistantLabel = stringResource(Res.string.settings_longpress_mode_assistant),
                                     intentLabel = stringResource(Res.string.settings_longpress_mode_intent),
                                     noneLabel = stringResource(Res.string.settings_longpress_mode_none),
-                                    onModeChanged = { viewModel.updateSelectLongPressMode(it) }
+                                    onModeChanged = { viewModel.updateSelectLongPressMode(it) },
+                                    intentAction = "ACTION_LONGPRESS_SELECT",
+                                    isIntentEnabled = isCmd51Enabled,
+                                    onIntentEnabledChanged = { viewModel.updateCommand51Enabled(it) }
                                 )
 
                                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.3.dp)
@@ -473,7 +471,10 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                                     assistantLabel = stringResource(Res.string.settings_longpress_mode_assistant),
                                     intentLabel = stringResource(Res.string.settings_longpress_mode_intent),
                                     noneLabel = stringResource(Res.string.settings_longpress_mode_none),
-                                    onModeChanged = { viewModel.updateDownLongPressMode(it) }
+                                    onModeChanged = { viewModel.updateDownLongPressMode(it) },
+                                    intentAction = "ACTION_LONGPRESS_DOWN",
+                                    isIntentEnabled = isCmd52Enabled,
+                                    onIntentEnabledChanged = { viewModel.updateCommand52Enabled(it) }
                                 )
                             }
                         }
@@ -496,7 +497,6 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                             }
                             
                             if (isAutoEnabled) {
-                                @Suppress("DEPRECATION")
                                 val clipboardManager = LocalClipboardManager.current
                                 Column(modifier = Modifier.padding(top = 16.dp)) {
                                     Text("Intent Actions (Tap to Copy):", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -507,9 +507,6 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                                         Text(stringResource(Res.string.settings_auto_state_info), style = MaterialTheme.typography.bodySmall)
                                     }
                                     Spacer(modifier = Modifier.height(12.dp))
-                                    AutomationToggle(stringResource(Res.string.settings_auto_btn_50), "ACTION_LONGPRESS_UP", isCmd50Enabled) { viewModel.updateCommand50Enabled(it) }
-                                    AutomationToggle(stringResource(Res.string.settings_auto_btn_51), "ACTION_LONGPRESS_SELECT", isCmd51Enabled) { viewModel.updateCommand51Enabled(it) }
-                                    AutomationToggle(stringResource(Res.string.settings_auto_btn_52), "ACTION_LONGPRESS_DOWN", isCmd52Enabled) { viewModel.updateCommand52Enabled(it) }
                                     Text(text = stringResource(Res.string.settings_auto_footer_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                                 }
                             }
@@ -585,7 +582,10 @@ private fun LongPressButtonSetting(
     assistantLabel: String,
     intentLabel: String,
     noneLabel: String,
-    onModeChanged: (LongPressMode) -> Unit
+    onModeChanged: (LongPressMode) -> Unit,
+    intentAction: String,
+    isIntentEnabled: Boolean,
+    onIntentEnabledChanged: (Boolean) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(text = label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
@@ -606,6 +606,33 @@ private fun LongPressButtonSetting(
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onModeChanged(LongPressMode.INTENT) }) {
             RadioButton(selected = currentMode == LongPressMode.INTENT, onClick = { onModeChanged(LongPressMode.INTENT) })
             Text(text = intentLabel, style = MaterialTheme.typography.bodyMedium)
+        }
+
+        // インテント選択時のみ表示される設定
+        if (currentMode == LongPressMode.INTENT) {
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.padding(start = 32.dp, top = 4.dp, bottom = 8.dp).fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = "有効化", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Switch(checked = isIntentEnabled, onCheckedChange = onIntentEnabledChanged, modifier = Modifier.scale(0.7f))
+                    }
+                    if (isIntentEnabled) {
+                        val clipboardManager = LocalClipboardManager.current
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { clipboardManager.setText(AnnotatedString("hag1987haaa.pebble.iron.$intentAction")) }
+                        ) {
+                            Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(4.dp))
+                            Text(text = intentAction, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
         }
         
         // 4. 無効

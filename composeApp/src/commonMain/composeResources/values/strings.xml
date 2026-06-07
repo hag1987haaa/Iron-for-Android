@@ -179,6 +179,18 @@
     <string name="settings_unit_title">Unit System</string>
     <string name="settings_unit_metric">Metric (km, kg)</string>
     <string name="settings_unit_imperial">Imperial (mile, lb)</string>
-    <string name="settings_section_mid_data">Mid Data Display Items</string>
+    <string name="settings_section_mid_data">Middle Display Items</string>
     <string name="settings_mid_data_desc">Configure items to display in ACTIVE mode. Press SELECT on Pebble to cycle through these items.</string>
+    <string name="settings_mid_item_pace">Current Pace</string>
+    <string name="settings_mid_item_dist">Total Distance</string>
+    <string name="settings_mid_item_steps">Total Steps</string>
+    <string name="settings_mid_item_alt">Current Altitude</string>
+    <string name="settings_mid_item_hr">Heart Rate</string>
+    <string name="settings_mid_item_cal">Calories Burned</string>
+    <string name="settings_mid_item_avg_pace">Average Pace (Overall)</string>
+    <string name="settings_mid_item_speed">Current Speed</string>
+    <string name="settings_mid_item_clock">Current Clock</string>
+    <string name="settings_mid_item_gain">Elevation Gain</string>
+    <string name="settings_mid_item_cadence">Cadence (SPM)</string>
+    <string name="settings_mid_item_detail">Cockpit Mode (4-in-1)</string>
 </resources>

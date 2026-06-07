@@ -179,6 +179,18 @@
     <string name="settings_unit_title">単位系</string>
     <string name="settings_unit_metric">メートル法 (km, kg)</string>
     <string name="settings_unit_imperial">ヤード・ポンド法 (mile, lb)</string>
-    <string name="settings_section_mid_data">中段の特大表示項目</string>
+    <string name="settings_section_mid_data">中段の表示項目</string>
     <string name="settings_mid_data_desc">ACTIVE（計測中）に表示する項目を設定します。Pebble側でSELECTボタンを押すと、この順番で切り替わります。</string>
+    <string name="settings_mid_item_pace">瞬間ペース</string>
+    <string name="settings_mid_item_dist">走行距離</string>
+    <string name="settings_mid_item_steps">累積歩数</string>
+    <string name="settings_mid_item_alt">現在高度</string>
+    <string name="settings_mid_item_hr">心拍数</string>
+    <string name="settings_mid_item_cal">消費カロリー</string>
+    <string name="settings_mid_item_avg_pace">平均ペース (全体)</string>
+    <string name="settings_mid_item_speed">現在速度</string>
+    <string name="settings_mid_item_clock">現在時刻</string>
+    <string name="settings_mid_item_gain">獲得標高 (累積上昇)</string>
+    <string name="settings_mid_item_cadence">ケイデンス (SPM)</string>
+    <string name="settings_mid_item_detail">コックピットモード (4項目表示)</string>
 </resources>

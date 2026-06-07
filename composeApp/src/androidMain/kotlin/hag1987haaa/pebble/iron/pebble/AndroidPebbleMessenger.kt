@@ -144,17 +144,17 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
     }
 
     override fun sendStatistics(stats: RunStatistics) {
+        val settings = hag1987haaa.pebble.iron.KmpDependencies.appSettings
         // 10秒おきにログを出力して生存確認
         if (stats.totalSeconds > 0 && stats.totalSeconds % 10 == 0L) {
-            val settings = hag1987haaa.pebble.iron.KmpDependencies.appSettings
-            Log.i("PebbleMessenger", "sendStatistics: time=${stats.totalSeconds}s dist=${stats.totalDistanceMeters}m status=${stats.status} notifTime=${settings.notificationTimeSeconds}")
+            Log.i("PebbleMessenger", "sendStatistics: time=${stats.totalSeconds}s dist=${stats.totalDistanceMeters}m status=${stats.status}")
         }
         val pebbleState = mapToPebbleState(stats.status)
         val dict = mapOf(
             KEY_CMD to PebbleDictionaryItem.Int32(1), 
             KEY_TIME to PebbleDictionaryItem.Text(stats.formattedTime),
-            KEY_DISTANCE to PebbleDictionaryItem.Text(stats.formattedDistance),
-            KEY_PACE to PebbleDictionaryItem.Text(stats.formattedPace),
+            KEY_DISTANCE to PebbleDictionaryItem.Text(formatDistance(stats.totalDistanceMeters, settings.isMetric)),
+            KEY_PACE to PebbleDictionaryItem.Text(formatPace(stats.totalDistanceMeters, stats.totalSeconds, settings.isMetric)),
             KEY_STATE to PebbleDictionaryItem.Int32(pebbleState),
             KEY_HR to PebbleDictionaryItem.Text(if (stats.heartRates.isNotEmpty()) stats.heartRates.last().toString() else "--"),
             KEY_TYPE to PebbleDictionaryItem.Int32(stats.activityType.ordinal)
@@ -172,20 +172,21 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
 
         settings.enabledMidTypes.forEach { typeId ->
             val pageStr = when (typeId) {
-                0 -> { // Instant Pace
-                    val unit = if (settings.isMetric) "/km" else "/mile"
-                    "PACE,${stats.formattedPace},$unit,0"
+                0 -> { // Pace
+                    val unit = if (settings.isMetric) "/km" else "/mi"
+                    "PACE,${formatPace(stats.totalDistanceMeters, stats.totalSeconds, settings.isMetric)},$unit,0"
                 }
                 1 -> { // Distance
-                    val unit = if (settings.isMetric) "km" else "mile"
-                    "DIST,${stats.formattedDistance},$unit,0"
+                    val unit = if (settings.isMetric) "km" else "mi"
+                    "DIST,${formatDistance(stats.totalDistanceMeters, settings.isMetric)},$unit,0"
                 }
                 2 -> { // Steps
                     "STEPS,${stats.steps},steps,0"
                 }
                 3 -> { // Altitude
                     val unit = if (settings.isMetric) "m" else "ft"
-                    val alt = stats.route.lastOrNull()?.altitude?.toInt() ?: 0
+                    val altMeters = stats.route.lastOrNull()?.altitude ?: 0.0
+                    val alt = if (settings.isMetric) altMeters.toInt() else (altMeters * 3.28084).toInt()
                     "ALT,$alt,$unit,0"
                 }
                 4 -> { // Heart Rate
@@ -196,12 +197,12 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
                     "CAL,${stats.calories.toInt()},kcal,0"
                 }
                 7 -> { // Avg Pace
-                    val unit = if (settings.isMetric) "/km" else "/mile"
-                    "AVG PACE,${stats.formattedAvgPace ?: "--:--"},$unit,0"
+                    val unit = if (settings.isMetric) "/km" else "/mi"
+                    "AVG PACE,${formatPace(stats.totalDistanceMeters, stats.totalSeconds, settings.isMetric)},$unit,0"
                 }
                 8 -> { // Speed
                     val unit = if (settings.isMetric) "km/h" else "mph"
-                    "SPEED,${stats.formattedSpeed ?: "0.0"},$unit,0"
+                    "SPEED,${formatSpeed(stats.totalDistanceMeters, stats.totalSeconds, settings.isMetric)},$unit,0"
                 }
                 9 -> { // Clock
                     val now = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
@@ -210,14 +211,14 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
                 }
                 10 -> { // Gain (Elevation)
                     val unit = if (settings.isMetric) "m" else "ft"
-                    "GAIN,${stats.totalElevationGain.toInt()},$unit,0"
+                    val gainMeters = stats.totalElevationGain
+                    val gain = if (settings.isMetric) gainMeters.toInt() else (gainMeters * 3.28084).toInt()
+                    "GAIN,$gain,$unit,0"
                 }
                 11 -> { // Cadence (SPM)
-                    // 簡易的に最新の歩数変化から計算するか、平均を出す
                     "CADENCE,${calculateCurrentCadence(stats)},spm,0"
                 }
                 99 -> { // Detail Mode (High Density)
-                    // 空タイトルをフラグにする
                     ",DETAIL,,0"
                 }
                 else -> null
@@ -232,12 +233,51 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         nextMidDataRequest = PebbleMessageRequest("MID_DATA", dict)
     }
 
+    // --- 単位変換ヘルパー ---
+
+    private fun formatDistance(meters: Double, isMetric: Boolean): String {
+        val value = if (isMetric) meters / 1000.0 else meters / 1609.344
+        val integerPart = value.toInt()
+        val fractionalPart = ((value - integerPart) * 100).toInt().coerceIn(0, 99)
+        val ff = if (fractionalPart < 10) "0$fractionalPart" else "$fractionalPart"
+        return "$integerPart.$ff"
+    }
+
+    private fun formatPace(meters: Double, seconds: Long, isMetric: Boolean): String {
+        if (meters <= 0 || seconds <= 0) return "--:--"
+        val distance = if (isMetric) meters / 1000.0 else meters / 1609.344
+        val paceSeconds = (seconds / distance).toInt()
+        if (paceSeconds > 3600) return ">60:00"
+        val m = paceSeconds / 60
+        val s = paceSeconds % 60
+        return "$m:${s.toString().padStart(2, '0')}"
+    }
+
+    private fun formatSpeed(meters: Double, seconds: Long, isMetric: Boolean): String {
+        if (seconds <= 0) return "0.0"
+        val distance = if (isMetric) meters / 1000.0 else meters / 1609.344
+        val speed = distance / (seconds / 3600.0)
+        return ((speed * 10).toInt() / 10.0).toString()
+    }
+
     private fun calculateCurrentCadence(stats: RunStatistics): Int {
-        if (stats.route.size < 2) return 0
+        if (stats.route.size < 5) return 0
+        
         val last = stats.route.last()
-        val prev = stats.route[stats.route.size - 2]
+        // 直近 10秒間、または最大 15地点分を遡って平均を出す
+        var prevIndex = stats.route.size - 2
+        val targetTs = last.timestamp.epochSeconds - 10
+        while (prevIndex > 0 && 
+               stats.route[prevIndex].timestamp.epochSeconds > targetTs && 
+               (stats.route.size - prevIndex) < 15) {
+            prevIndex--
+        }
+        
+        val prev = stats.route[prevIndex]
         val stepDiff = (last.steps ?: 0) - (prev.steps ?: 0)
         val timeDiffSec = (last.timestamp.epochSeconds - prev.timestamp.epochSeconds).coerceAtLeast(1)
+        
+        // 低速時や歩数更新がない時間のノイズを抑えるため、平均化して算出
         return (stepDiff.toDouble() / timeDiffSec.toDouble() * 60.0).toInt().coerceIn(0, 250)
     }
 
@@ -252,15 +292,16 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
     }
 
     override fun sendFullSync(stats: RunStatistics) {
+        val settings = hag1987haaa.pebble.iron.KmpDependencies.appSettings
         val pebbleState = mapToPebbleState(stats.status)
         val dict = mapOf(
             KEY_CMD to PebbleDictionaryItem.Int32(5), 
             KEY_TIME to PebbleDictionaryItem.Text(stats.formattedTime),
-            KEY_DISTANCE to PebbleDictionaryItem.Text(stats.formattedDistance),
-            KEY_PACE to PebbleDictionaryItem.Text(stats.formattedPace),
+            KEY_DISTANCE to PebbleDictionaryItem.Text(formatDistance(stats.totalDistanceMeters, settings.isMetric)),
+            KEY_PACE to PebbleDictionaryItem.Text(formatPace(stats.totalDistanceMeters, stats.totalSeconds, settings.isMetric)),
             KEY_STATE to PebbleDictionaryItem.Int32(pebbleState),
             KEY_HR to PebbleDictionaryItem.Text(if (stats.heartRates.isNotEmpty()) stats.heartRates.last().toString() else "--"),
-            KEY_TYPE to PebbleDictionaryItem.Int32(stats.activityType.ordinal) // ★ 現在の種別インデックスを同送
+            KEY_TYPE to PebbleDictionaryItem.Int32(stats.activityType.ordinal)
         )
         commandQueue.trySend(PebbleMessageRequest("SYNC", dict, retryCount = 3))
         sendGraphData(stats)
