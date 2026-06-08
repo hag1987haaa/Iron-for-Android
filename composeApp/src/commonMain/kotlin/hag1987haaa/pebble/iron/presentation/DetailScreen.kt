@@ -155,25 +155,25 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
         if (showExportDialog) {
             AlertDialog(
                 onDismissRequest = { showExportDialog = false },
-                title = { Text("エクスポート形式の選択") },
+                title = { Text(stringResource(Res.string.export_dialog_title)) },
                 text = {
                     Column {
-                        Text("GPX: 標準的な位置情報フォーマットです。多くの地図アプリで読み込めます。", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(Res.string.export_dialog_gpx_desc), style = MaterialTheme.typography.bodySmall)
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text("TCX: フィットネス用フォーマットです。心拍数、カロリー、ケイデンス（ラン/ウォークのみ）を含みます。StravaやGarmin等に最適です。", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(Res.string.export_dialog_tcx_desc), style = MaterialTheme.typography.bodySmall)
                     }
                 },
                 confirmButton = {
                     TextButton(onClick = { 
                         runActivity?.let { actions.shareRunData(it, "tcx") }
                         showExportDialog = false 
-                    }) { Text("TCXで共有") }
+                    }) { Text(stringResource(Res.string.export_dialog_tcx_button)) }
                 },
                 dismissButton = {
                     TextButton(onClick = { 
                         runActivity?.let { actions.shareRunData(it, "gpx") }
                         showExportDialog = false 
-                    }) { Text("GPXで共有") }
+                    }) { Text(stringResource(Res.string.export_dialog_gpx_button)) }
                 }
             )
         }
@@ -246,7 +246,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                         shape = MaterialTheme.shapes.small
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                                            Text("Privacy", style = MaterialTheme.typography.labelSmall)
+                                            Text(stringResource(Res.string.detail_label_privacy), style = MaterialTheme.typography.labelSmall)
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Switch(checked = isPrivacyMapLocal, onCheckedChange = { isPrivacyMapLocal = it }, modifier = Modifier.scale(0.6f))
                                         }
@@ -324,10 +324,19 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                             Spacer(modifier = Modifier.height(16.dp))
                             actionButtons()
                             Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                                val isMetric = KmpDependencies.appSettings.isMetric
                                 Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                    StatItem(stringResource(Res.string.detail_stat_distance), formatDistance(run.distanceMeters), "KM")
+                                    StatItem(
+                                        stringResource(Res.string.detail_stat_distance), 
+                                        formatDistanceLocalized(run.distanceMeters, isMetric), 
+                                        stringResource(if (isMetric) Res.string.unit_km else Res.string.unit_mi).uppercase()
+                                    )
                                     StatItem(stringResource(Res.string.detail_stat_time), formatDuration(run.durationSeconds), "")
-                                    StatItem(stringResource(Res.string.detail_stat_calories), "${run.calories?.toInt() ?: 0}", "kcal")
+                                    StatItem(
+                                        stringResource(Res.string.detail_stat_calories), 
+                                        "${run.calories?.toInt() ?: 0}", 
+                                        stringResource(Res.string.unit_kcal)
+                                    )
                                 }
                             }
 
@@ -337,7 +346,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(imageVector = if (isDistanceBased) Icons.Default.Straighten else Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = if (isDistanceBased) "Distance" else "Time", style = MaterialTheme.typography.labelMedium)
+                                    Text(text = if (isDistanceBased) stringResource(Res.string.detail_stat_distance) else stringResource(Res.string.detail_stat_time), style = MaterialTheme.typography.labelMedium)
                                     Switch(checked = isDistanceBased, onCheckedChange = { isDistanceBased = it }, modifier = Modifier.scale(0.7f))
                                 }
                             }
@@ -368,9 +377,16 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                 }
                             } else { run.route }
 
+                            val isMetric = KmpDependencies.appSettings.isMetric
                             SimpleLineChart(
-                                title = stringResource(Res.string.detail_chart_speed) + if (isDistanceBased) " (km/h vs km)" else " (km/h vs time)",
-                                data = displayRoute.map { it.speed?.toFloat()?.let { s -> s * 3.6f } ?: 0f }.downsample(100),
+                                title = if (isDistanceBased) {
+                                    if (isMetric) stringResource(Res.string.detail_chart_speed_dist_metric)
+                                    else stringResource(Res.string.detail_chart_speed_dist_imperial)
+                                } else {
+                                    if (isMetric) stringResource(Res.string.detail_chart_speed_time_metric)
+                                    else stringResource(Res.string.detail_chart_speed_time_imperial)
+                                },
+                                data = displayRoute.map { it.speed?.toFloat()?.let { s -> if (isMetric) s * 3.6f else s * 2.23694f } ?: 0f }.downsample(100),
                                 color = Color(0xFF2196F3)
                             )
                             
@@ -394,23 +410,47 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                             }.downsample(100)
 
                             SimpleBarChart(
-                                title = stringResource(Res.string.detail_chart_calories) + if (isDistanceBased) " (kcal vs km)" else " (kcal vs time)",
+                                title = if (isDistanceBased) {
+                                    if (isMetric) stringResource(Res.string.detail_chart_calories_dist_metric)
+                                    else stringResource(Res.string.detail_chart_calories_dist_imperial)
+                                } else {
+                                    if (isMetric) stringResource(Res.string.detail_chart_calories_time_metric)
+                                    else stringResource(Res.string.detail_chart_calories_time_imperial)
+                                },
                                 data = calorieIntervalData,
                                 color = Color(0xFFFF5722)
                             )
 
                             SimpleLineChart(
-                                title = stringResource(Res.string.detail_chart_altitude) + if (isDistanceBased) " (m vs km)" else " (m vs time)",
-                                data = displayRoute.map { it.altitude?.toFloat() ?: 0f }.downsample(100),
+                                title = if (isDistanceBased) {
+                                    if (isMetric) stringResource(Res.string.detail_chart_altitude_dist_metric)
+                                    else stringResource(Res.string.detail_chart_altitude_dist_imperial)
+                                } else {
+                                    if (isMetric) stringResource(Res.string.detail_chart_altitude_time_metric)
+                                    else stringResource(Res.string.detail_chart_altitude_time_imperial)
+                                },
+                                data = displayRoute.map { it.altitude?.toFloat()?.let { a: Float -> if (isMetric) a else a * 3.28084f } ?: 0f }.downsample(100),
                                 color = Color(0xFF4CAF50)
                             )
                             SimpleLineChart(
-                                title = stringResource(Res.string.detail_chart_steps) + if (isDistanceBased) " (steps vs km)" else " (steps vs time)",
+                                title = if (isDistanceBased) {
+                                    if (isMetric) stringResource(Res.string.detail_chart_steps_dist_metric)
+                                    else stringResource(Res.string.detail_chart_steps_dist_imperial)
+                                } else {
+                                    if (isMetric) stringResource(Res.string.detail_chart_steps_time_metric)
+                                    else stringResource(Res.string.detail_chart_steps_time_imperial)
+                                },
                                 data = displayRoute.map { it.steps?.toFloat() ?: 0f }.downsample(100),
                                 color = Color(0xFFFF9800)
                             )
                             SimpleLineChart(
-                                title = stringResource(Res.string.detail_chart_heart_rate) + if (isDistanceBased) " (bpm vs km)" else " (bpm vs time)",
+                                title = if (isDistanceBased) {
+                                    if (isMetric) stringResource(Res.string.detail_chart_hr_dist_metric)
+                                    else stringResource(Res.string.detail_chart_hr_dist_imperial)
+                                } else {
+                                    if (isMetric) stringResource(Res.string.detail_chart_hr_time_metric)
+                                    else stringResource(Res.string.detail_chart_hr_time_imperial)
+                                },
                                 data = displayRoute.mapNotNull { it.heartRate?.toFloat() }.downsample(100),
                                 color = Color(0xFFE91E63)
                             )
@@ -447,7 +487,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                     }
                                 }
                                 syncMessage?.let {
-                                    val msg = if (it == "Synced") stringResource(Res.string.detail_sync_hc_success) else "Sync Failed"
+                                    val msg = if (it == "Synced") stringResource(Res.string.detail_synced) else stringResource(Res.string.detail_sync_failed)
                                     Text(text = msg, style = MaterialTheme.typography.labelSmall, color = if (it == "Synced") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
                                 }
                             }
@@ -522,14 +562,19 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        val isMetric = KmpDependencies.appSettings.isMetric
+                                        val distUnit = stringResource(if (isMetric) Res.string.unit_km else Res.string.unit_mi).uppercase()
                                         Text(
-                                            text = formatDistance(run.distanceMeters) + " KM",
+                                            text = formatDistanceLocalized(run.distanceMeters, isMetric) + " " + distUnit,
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold
                                         )
                                         currentPoint?.let {
+                                            val speedLabel = stringResource(Res.string.settings_mid_item_speed)
+                                            val speedValue = if (isMetric) (it.speed?.let { s -> s * 3.6 } ?: 0.0) else (it.speed?.let { s -> s * 2.23694 } ?: 0.0)
+                                            val speedUnit = stringResource(if (isMetric) Res.string.unit_kmh else Res.string.unit_mph)
                                             Text(
-                                                text = "Speed: " + (it.speed?.let { s -> (s * 3.6).toInt() } ?: 0).toString() + " km/h",
+                                                text = "$speedLabel: ${speedValue.toInt()} $speedUnit",
                                                 style = MaterialTheme.typography.bodySmall
                                             )
                                         }
@@ -569,12 +614,16 @@ fun StatItem(label: String, value: String, unit: String) {
     }
 }
 
-private fun formatDistance(meters: Double): String {
-    val km = meters / 1000.0
-    val integerPart = km.toInt()
-    val fractionalPart = ((km - integerPart) * 100).toInt()
+private fun formatDistanceLocalized(meters: Double, isMetric: Boolean): String {
+    val dist = if (isMetric) meters / 1000.0 else meters / 1609.344
+    val integerPart = dist.toInt()
+    val fractionalPart = ((dist - integerPart.toDouble()) * 100).toInt().coerceIn(0, 99)
     val ff = if (fractionalPart < 10) "0$fractionalPart" else fractionalPart.toString()
     return "$integerPart.$ff"
+}
+
+private fun formatDistance(meters: Double): String {
+    return formatDistanceLocalized(meters, true)
 }
 
 private fun formatDuration(seconds: Long): String {

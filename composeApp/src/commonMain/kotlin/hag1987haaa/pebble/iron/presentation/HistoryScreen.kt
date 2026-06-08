@@ -58,14 +58,21 @@ fun HistoryScreen(actions: AppActions, onRunSelected: (Long) -> Unit) {
                     Text(text = run.name ?: "$runPrefix${run.startTime.toString().substringBefore("T")}") 
                 },
                 supportingContent = { 
-                    val km = run.distanceMeters / 1000.0
-                    val integerPart = km.toInt()
-                    val fractionalPart = ((km - integerPart) * 100).toInt()
+                    val isMetric = KmpDependencies.appSettings.isMetric
+                    val distance = if (isMetric) run.distanceMeters / 1000.0 else run.distanceMeters / 1609.344
+                    val integerPart = distance.toInt()
+                    val fractionalPart = ((distance - integerPart.toDouble()) * 100).toInt().coerceIn(0, 99)
                     val ff = if (fractionalPart < 10) "0$fractionalPart" else fractionalPart.toString()
+                    
                     val calories = run.calories
-                    val caloriesStr = if (calories != null) " - ${calories.toInt()}kcal" else ""
+                    val unitKcal = stringResource(Res.string.unit_kcal)
+                    val caloriesStr = if (calories != null) " - ${calories.toInt()}$unitKcal" else ""
+                    
                     val distPrefix = stringResource(Res.string.history_list_item_distance_prefix)
-                    Text("$distPrefix$integerPart.${ff}km - ${run.durationSeconds / 60} min (${run.type.getDisplayName()})$caloriesStr")
+                    val unitDist = stringResource(if (isMetric) Res.string.unit_km else Res.string.unit_mi)
+                    val unitMin = stringResource(Res.string.history_list_item_min)
+                    
+                    Text("$distPrefix$integerPart.$ff$unitDist - ${run.durationSeconds / 60} $unitMin (${run.type.getDisplayName()})$caloriesStr")
                 },
                 trailingContent = {
                     IconButton(onClick = { runToDelete.value = run.id }) {

@@ -5,7 +5,13 @@
     <string name="history_delete_confirm">Delete</string>
     <string name="history_delete_cancel">Cancel</string>
     <string name="history_list_item_run_prefix">Run: </string>
-    <string name="history_list_item_distance_prefix">Distance: </string>
+    <string name="history_list_item_distance_prefix">Dist: </string>
+    <string name="history_list_item_min">min</string>
+    <string name="unit_km">km</string>
+    <string name="unit_mi">mi</string>
+    <string name="unit_kmh">km/h</string>
+    <string name="unit_mph">mph</string>
+    <string name="unit_kcal">kcal</string>
     <string name="history_export_button">Export Data</string>
     <string name="history_import_button">Import Data</string>
     <string name="history_backup_title">Backup &amp; Restore</string>
@@ -131,7 +137,19 @@
     <string name="settings_auto_copy_toast">Copied to clipboard</string>
     <string name="settings_auto_footer_note">* Actions are triggered after long pressing for 0.8+ seconds and releasing (Cancelled after 2+ seconds).\n* State changes (state_name) include: IDLE, PREPARING, READY, ACTIVE, PAUSED, FINISHED, RESULT.</string>
 
-    <string name="share_gpx_chooser_title">Share GPX</string>
+    <string name="share_gpx_chooser_title">Share Workout File</string>
+    <string name="file_export_failed">File export failed</string>
+    <string name="export_failed">Export failed</string>
+    <string name="import_failed">Import failed</string>
+    <string name="imported_success">Imported %d workouts successfully.</string>
+
+    <string name="export_dialog_title">Select Export Format</string>
+    <string name="export_dialog_gpx_desc">GPX: Standard location format. Compatible with most map apps.</string>
+    <string name="export_dialog_tcx_desc">TCX: Fitness format. Includes heart rate, calories, and cadence (Run/Walk only). Best for Strava, Garmin, etc.</string>
+    <string name="export_dialog_tcx_button">Share as TCX</string>
+    <string name="export_dialog_gpx_button">Share as GPX</string>
+    <string name="detail_synced">Synced</string>
+    <string name="detail_sync_failed">Sync Failed</string>
 
     <string name="nav_home">Home</string>
     <string name="nav_history">History</string>
@@ -193,4 +211,26 @@
     <string name="settings_mid_item_gain">Elevation Gain</string>
     <string name="settings_mid_item_cadence">Cadence (SPM)</string>
     <string name="settings_mid_item_detail">Cockpit Mode (4-in-1)</string>
+    <string name="detail_label_privacy">Privacy</string>
+    <string name="detail_chart_speed_dist_metric">Speed (km/h vs km)</string>
+    <string name="detail_chart_speed_time_metric">Speed (km/h vs time)</string>
+    <string name="detail_chart_speed_dist_imperial">Speed (mph vs mi)</string>
+    <string name="detail_chart_speed_time_imperial">Speed (mph vs time)</string>
+    <string name="detail_chart_calories_dist_metric">Calories (kcal vs km)</string>
+    <string name="detail_chart_calories_time_metric">Calories (kcal vs time)</string>
+    <string name="detail_chart_calories_dist_imperial">Calories (kcal vs mi)</string>
+    <string name="detail_chart_calories_time_imperial">Calories (kcal vs time)</string>
+    <string name="detail_chart_altitude_dist_metric">Altitude (m vs km)</string>
+    <string name="detail_chart_altitude_time_metric">Altitude (m vs time)</string>
+    <string name="detail_chart_altitude_dist_imperial">Altitude (ft vs mi)</string>
+    <string name="detail_chart_altitude_time_imperial">Altitude (ft vs time)</string>
+    <string name="detail_chart_steps_dist_metric">Steps (vs km)</string>
+    <string name="detail_chart_steps_time_metric">Steps (vs time)</string>
+    <string name="detail_chart_steps_dist_imperial">Steps (vs mi)</string>
+    <string name="detail_chart_steps_time_imperial">Steps (vs time)</string>
+    <string name="detail_chart_hr_dist_metric">Heart Rate (bpm vs km)</string>
+    <string name="detail_chart_hr_time_metric">Heart Rate (bpm vs time)</string>
+    <string name="detail_chart_hr_dist_imperial">Heart Rate (bpm vs mi)</string>
+    <string name="detail_chart_hr_time_imperial">Heart Rate (bpm vs time)</string>
+    <string name="settings_auto_enable_label">Enable</string>
 </resources>

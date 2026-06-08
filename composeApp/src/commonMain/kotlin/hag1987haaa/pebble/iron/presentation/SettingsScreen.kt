@@ -617,7 +617,7 @@ private fun LongPressButtonSetting(
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "有効化", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Text(text = stringResource(Res.string.settings_auto_enable_label), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                         Switch(checked = isIntentEnabled, onCheckedChange = onIntentEnabledChanged, modifier = Modifier.scale(0.7f))
                     }
                     if (isIntentEnabled) {

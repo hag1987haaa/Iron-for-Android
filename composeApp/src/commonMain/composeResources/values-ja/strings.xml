@@ -5,7 +5,13 @@
     <string name="history_delete_confirm">削除</string>
     <string name="history_delete_cancel">キャンセル</string>
     <string name="history_list_item_run_prefix">Run: </string>
-    <string name="history_list_item_distance_prefix">Distance: </string>
+    <string name="history_list_item_distance_prefix">距離: </string>
+    <string name="history_list_item_min">分</string>
+    <string name="unit_km">km</string>
+    <string name="unit_mi">mi</string>
+    <string name="unit_kmh">km/h</string>
+    <string name="unit_mph">mph</string>
+    <string name="unit_kcal">kcal</string>
     <string name="history_export_button">データ出力</string>
     <string name="history_import_button">データ取込</string>
     <string name="history_backup_title">バックアップと復元</string>
@@ -131,7 +137,19 @@
     <string name="settings_auto_copy_toast">クリップボードにコピーしました</string>
     <string name="settings_auto_footer_note">※各ボタンの連携は0.8秒以上長押しして指を離した際に送信されます（2秒以上でキャンセル）。\n※状態変化（state_name）には IDLE, PREPARING, READY, ACTIVE, PAUSED, FINISHED, RESULT が含まれます。</string>
 
-    <string name="share_gpx_chooser_title">GPX を共有</string>
+    <string name="share_gpx_chooser_title">ワークアウトファイルを共有</string>
+    <string name="file_export_failed">ファイルのエクスポートに失敗しました</string>
+    <string name="export_failed">エクスポートに失敗しました</string>
+    <string name="import_failed">インポートに失敗しました</string>
+    <string name="imported_success">%d 件のワークアウトをインポートしました</string>
+
+    <string name="export_dialog_title">エクスポート形式の選択</string>
+    <string name="export_dialog_gpx_desc">GPX: 標準的な位置情報フォーマットです。多くの地図アプリで読み込めます。</string>
+    <string name="export_dialog_tcx_desc">TCX: フィットネス用フォーマットです。心拍数、カロリー、ケイデンス（ラン/ウォークのみ）を含みます。StravaやGarmin等に最適です。</string>
+    <string name="export_dialog_tcx_button">TCXで共有</string>
+    <string name="export_dialog_gpx_button">GPXで共有</string>
+    <string name="detail_synced">同期済み</string>
+    <string name="detail_sync_failed">同期失敗</string>
 
     <string name="nav_home">ホーム</string>
     <string name="nav_history">履歴</string>
@@ -193,4 +211,26 @@
     <string name="settings_mid_item_gain">獲得標高 (累積上昇)</string>
     <string name="settings_mid_item_cadence">ケイデンス (SPM)</string>
     <string name="settings_mid_item_detail">コックピットモード (4項目表示)</string>
+    <string name="detail_label_privacy">プライバシー</string>
+    <string name="detail_chart_speed_dist_metric">速度 (km/h vs 距離)</string>
+    <string name="detail_chart_speed_time_metric">速度 (km/h vs 時間)</string>
+    <string name="detail_chart_speed_dist_imperial">速度 (mph vs 距離)</string>
+    <string name="detail_chart_speed_time_imperial">速度 (mph vs 時間)</string>
+    <string name="detail_chart_calories_dist_metric">カロリー (kcal vs 距離)</string>
+    <string name="detail_chart_calories_time_metric">カロリー (kcal vs 時間)</string>
+    <string name="detail_chart_calories_dist_imperial">カロリー (kcal vs 距離)</string>
+    <string name="detail_chart_calories_time_imperial">カロリー (kcal vs 時間)</string>
+    <string name="detail_chart_altitude_dist_metric">高度 (m vs 距離)</string>
+    <string name="detail_chart_altitude_time_metric">高度 (m vs 時間)</string>
+    <string name="detail_chart_altitude_dist_imperial">高度 (ft vs 距離)</string>
+    <string name="detail_chart_altitude_time_imperial">高度 (ft vs 時間)</string>
+    <string name="detail_chart_steps_dist_metric">歩数 (vs 距離)</string>
+    <string name="detail_chart_steps_time_metric">歩数 (vs 時間)</string>
+    <string name="detail_chart_steps_dist_imperial">歩数 (vs 距離)</string>
+    <string name="detail_chart_steps_time_imperial">歩数 (vs 時間)</string>
+    <string name="detail_chart_hr_dist_metric">心拍数 (bpm vs 距離)</string>
+    <string name="detail_chart_hr_time_metric">心拍数 (bpm vs 時間)</string>
+    <string name="detail_chart_hr_dist_imperial">心拍数 (bpm vs 距離)</string>
+    <string name="detail_chart_hr_time_imperial">心拍数 (bpm vs 時間)</string>
+    <string name="settings_auto_enable_label">有効化</string>
 </resources>

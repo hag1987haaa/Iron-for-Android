@@ -9,7 +9,7 @@
     <string name="notif_content_executing">Running: %s</string>
     <string name="notif_content_current_state">Current state: %s</string>
     <string name="notif_channel_name">Tracking Service</string>
-    <string name="share_gpx_chooser_title">Share GPX</string>
+    <string name="share_gpx_chooser_title">Share Workout File</string>
     <string name="history_export_chooser_title">Export Workout Data</string>
 
     <string name="status_idle">Idle</string>

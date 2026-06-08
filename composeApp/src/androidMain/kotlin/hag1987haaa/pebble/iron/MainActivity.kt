@@ -239,7 +239,7 @@ class MainActivity : ComponentActivity() {
                             putExtra(Intent.EXTRA_STREAM, uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        startActivity(Intent.createChooser(intent, "Share Workout File"))
+                        startActivity(Intent.createChooser(intent, getString(R.string.share_gpx_chooser_title)))
                     } catch (_: Exception) {
                         Log.e("MainActivity", "File export failed")
                     }
