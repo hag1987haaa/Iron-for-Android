@@ -1,68 +1,88 @@
 # Iron for Android 🏃‍♂️⌚
 
-**Note**: This is the Android companion app. To use the full features, you also need the **Iron for Pebble** watch app (coming soon).
-**注意**: これは Android 用のコンパニオンアプリです。全機能を利用するには、**Iron for Pebble** ウォッチアプリ（近日公開予定）も必要です。
+**Iron** is a modern, high-performance sports tracker for Android, designed to give your **Pebble Smartwatch** a second life as a professional-grade fitness tool.
 
----
-
-**Iron** is a modern and high-performance Android running tracker designed to work seamlessly with your Pebble smartwatch.
-Built with Kotlin Multiplatform (KMP), focusing on privacy and provided without any advertisements.
-
-[日本語の案内は後半にあります]
+Built with **Kotlin Multiplatform (KMP)**, Iron focuses on privacy, extensibility, and a seamless user experience—all without advertisements.
 
 ---
 
 ## ✨ Key Features
 
-- **Pebble Real-time Sync**: View distance, pace, time, heart rate, and steps on your Pebble watch in real-time.
-- **Automation Triggers**: Send broadcast intents by long-pressing Pebble buttons (UP/SELECT/DOWN) or on app state changes. Perfect for advanced users to build custom macros with automation apps.
-- **Detailed Analytics**: Visualize your performance with speed, altitude, and heart rate charts. Supports both distance-based and time-based views.
-- **Health Connect Integration**: Seamlessly sync your workout results with Google Fit and other health management apps.
-- **Privacy Mode**: Protect your privacy by hiding the map background while keeping your GPS track visible.
+- **Voice Assistant Integration**: Trigger Google Assistant or Gemini directly from your wrist by long-pressing a Pebble button. (Uses phone/headset mic).
+- **Customizable "Cockpit" Display**: Choose from 12 real-time data types (Pace, HR, Cadence, Elevation Gain, Clock, etc.) to display in a large, easy-to-read format.
+- **Smart Notifications**: Customizable auto-lap vibrations for distance (e.g., every 1km) and time intervals.
+- **Advanced Data Export**: Support for both **GPX** and **TCX** formats. TCX includes heart rate, calories, and smoothed cadence data, perfect for Strava or Garmin Connect.
+- **Rich Analytics**: Visual charts for speed, altitude, heart rate, and steps. Supports both distance-based and time-based analysis.
+- **Pebble "Thin Client" Architecture**: High-speed rendering with dynamic labels generated on Android, ensuring stability and visual clarity on Pebble's screen.
+- **Metric & Imperial Support**: One-tap switching between km/kg and mile/lb, including automatic weight conversion.
+- **Automation Power**: Send broadcast intents on Pebble button actions or app state changes. Ideal for Tasker users.
+- **Health Connect Integration**: Sync your Pebble-tracked HR and steps with Android's Health Connect.
+
+---
 
 ## 🛠 Setup
 
-1. Install the Android app.
-2. Install the watch app on your Pebble using a provider app (Cobble, Coreapp, etc.).
-3. Launch the app and grant the required permissions (Location, etc.).
+1. Install the **Iron** Android app.
+2. Install the **Iron for Pebble** watch app via a provider like **Cobble** or **Coreapp**.
+3. Grant necessary permissions: Location (Always), Notifications, and "Display over other apps" (required for the Assistant trigger).
 
-## 🤝 Acknowledgement
-This project was inspired by the open-source project **RunnerUp** and rebuilt from scratch using a modern technology stack. We respect and appreciate the pioneering work of the original developers.
+---
+
+## 🤝 Heritage & Acknowledgments
+
+The development of **Iron** stands on the shoulders of the open-source pioneers who kept the Pebble community alive. We would like to express our deepest gratitude to:
+
+- **[RunnerUp](https://github.com/jonasoreland/runnerup)**: This incredible project proved that a Pebble could be a serious tracking companion. It was the spark that inspired the creation of Iron.
+- **[OW Camera Remote](https://github.com/jamsinclair/ow-camera-remote)**: A vital reference that allowed us to finally master the implementation of **PebbleKit Android 2** (PebbleKit2). Without this example, our modern communication architecture wouldn't have been possible.
+
+We respect and appreciate the original developers for their contribution to the Pebble ecosystem.
 
 ---
 
 ## 📄 Privacy Policy
-Please check our Privacy Policy at the following link:  
+Iron is built with a "Privacy First" mindset. No ads, no tracking.
 👉 [Privacy Policy for Iron](https://hagtime.com/?page_id=364)
 
 ### Contact
-If you have any questions, please contact us at: https://x.com/1987haaa
+Developer: [hag1987haaa](https://x.com/1987haaa)
 
 ---
 
 # Iron for Android (日本語) 🇯🇵
 
-『Iron』は、Pebbleスマートウォッチと連携し、あなたのワークアウトデータを強力にサポートする専用Androidアプリです。
+『Iron』は、Pebbleスマートウォッチをプロ仕様のフィットネスツールとして蘇らせる、現代的なAndroid用スポーツトラッカーです。
+
+Kotlin Multiplatform (KMP) を採用し、広告なし、プライバシー重視、そして高度な拡張性を備えています。
 
 ---
 
 ## 📝 主な機能
 
-- **Pebble リアルタイム同期**: 距離、ペース、時間、心拍数、歩数を Pebble ウォッチにリアルタイム表示。
-- **Health Connect 完全対応**: Pebble で記録した心拍数、歩数、消費カロリーなどのワークアウトデータを Android の Health Connect へシームレスに同期。
-- **自動化トリガー連携**: Pebble のボタン（UP/SELECT/DOWN）の長押しや状態変化を Android システムへインテント送信。自動化アプリを使用して、あなただけのマクロを自由に構築できます。
-- **詳細なパフォーマンス分析**: 速度、高度、心拍数のグラフ表示。距離ベースと時間ベースの切り替えに対応。
-- **プライバシー重視**: マップの背景を隠し、GPS軌跡のみを表示するプライバシーモードを搭載。
+- **ボイスアシスタント連携**: Pebbleのボタン長押しでGoogleアシスタントやGeminiを起動。（スマホまたはイヤホンのマイクを使用）
+- **カスタマイズ可能な「コックピット」表示**: 12種類のデータ（ペース、心拍、ケイデンス、獲得標高、時計等）から好きな項目を選び、ウォッチ中段に特大表示可能。
+- **スマート通知機能**: 距離ラップ（例：1kmごと）や時間インターバルを振動でお知らせ。
+- **高度なデータ出力**: **GPX** に加え **TCX** 出力に対応。心拍数、カロリー、平滑化されたケイデンス情報を含み、StravaやGarmin等へのアップロードに最適。
+- **詳細な分析チャート**: 速度、高度、心拍数、歩数をグラフ化。距離ベースと時間ベースの切り替えに対応。
+- **「Thin Client」通信設計**: ラベルや数値をスマホ側で動的に生成して送信。Pebble側での文字化けを防ぎ、視認性を最大化。
+- **メートル/ヤード・ポンド法対応**: km/kg と mile/lb を一括切り替え。単位に合わせて体重設定も自動換算。
+- **強力な自動化連携**: Pebbleの操作やアプリの状態変化をインテント送信。Tasker等の自動化アプリと連携可能。
+- **Health Connect 完全対応**: ウォッチで記録したデータをAndroidのヘルスコネクトへシームレスに同期。
 
-## 🤝 謝辞
-本プロジェクトは、オープンソースプロジェクト **RunnerUp** にインスパイアされ、一から現代的な技術スタックで再構築されたものです。素晴らしい先行開発に敬意を表します。
+---
+
+## 🤝 謝辞と経緯
+『Iron』の開発は、Pebbleコミュニティを支え続けてきた素晴らしいオープンソースプロジェクトの存在なしには成し得ませんでした。
+
+- **[RunnerUp](https://github.com/jonasoreland/runnerup)**: Pebbleが強力なトラッキングデバイスになり得ることを証明してくれたプロジェクトであり、Iron開発の最大のインスピレーションとなりました。
+- **[OW Camera Remote](https://github.com/jamsinclair/ow-camera-remote)**: モダンな **PebbleKit Android 2** の実装方法を理解するための決定的な指針となりました。この例がなければ、現在の安定した通信環境は実現できませんでした。
+
+先人たちの先駆的な活動と、Pebbleエコシステムへの貢献に深く感謝いたします。
 
 ---
 
 ## 📄 プライバシーポリシー
-プライバシーポリシーについては、以下のリンクよりご確認ください。  
+Ironは「プライバシー第一」で設計されています。広告やトラッキングコードは一切含まれていません。  
 👉 [Iron プライバシーポリシー](https://hagtime.com/?page_id=364)
 
 ### お問い合わせ
-ご不明な点がある場合は、以下までご連絡ください：
-https://x.com/1987haaa
+開発者: [hag1987haaa](https://x.com/1987haaa)
