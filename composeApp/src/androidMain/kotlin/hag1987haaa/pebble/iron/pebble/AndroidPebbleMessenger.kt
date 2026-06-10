@@ -237,10 +237,18 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
 
     private fun formatDistance(meters: Double, isMetric: Boolean): String {
         val value = if (isMetric) meters / 1000.0 else meters / 1609.344
-        val integerPart = value.toInt()
-        val fractionalPart = ((value - integerPart) * 100).toInt().coerceIn(0, 99)
-        val ff = if (fractionalPart < 10) "0$fractionalPart" else "$fractionalPart"
-        return "$integerPart.$ff"
+        return if (value >= 100.0) {
+            // 100km (or 100mi) 以上は小数点1桁に制限してはみ出しを防ぐ
+            val integerPart = value.toInt()
+            val fractionalPart = ((value - integerPart.toDouble()) * 10).toInt().coerceIn(0, 9)
+            "$integerPart.$fractionalPart"
+        } else {
+            // 100未満は従来通り小数点2桁
+            val integerPart = value.toInt()
+            val fractionalPart = ((value - integerPart.toDouble()) * 100).toInt().coerceIn(0, 99)
+            val ff = if (fractionalPart < 10) "0$fractionalPart" else "$fractionalPart"
+            "$integerPart.$ff"
+        }
     }
 
     private fun formatPace(meters: Double, seconds: Long, isMetric: Boolean): String {
