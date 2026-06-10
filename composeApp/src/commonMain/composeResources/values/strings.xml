@@ -233,4 +233,5 @@
     <string name="detail_chart_hr_dist_imperial">Heart Rate (bpm vs mi)</string>
     <string name="detail_chart_hr_time_imperial">Heart Rate (bpm vs time)</string>
     <string name="settings_auto_enable_label">Enable</string>
+    <string name="ok_button">OK</string>
 </resources>

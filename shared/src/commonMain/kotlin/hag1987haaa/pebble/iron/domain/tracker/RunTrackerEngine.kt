@@ -55,7 +55,7 @@ data class RunStatistics(
         if (totalDistanceMeters <= 0 || totalSeconds <= 0) return "--:--"
         val km = totalDistanceMeters / 1000.0
         val paceSecondsPerKm = (totalSeconds / km).toInt()
-        if (paceSecondsPerKm > 3600) return ">60:00"
+        if (paceSecondsPerKm > 3600) return "60:00"
         val m = paceSecondsPerKm / 60
         val s = paceSecondsPerKm % 60
         val ss = if (s < 10) "0$s" else "$s"

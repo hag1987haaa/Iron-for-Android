@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -75,10 +76,10 @@ class MainActivity : ComponentActivity() {
                     if (content != null) {
                         val runs = Json.decodeFromString<List<RunActivity>>(content)
                         KmpDependencies.runRepository.importRuns(runs)
-                        Log.i("MainActivity", "Imported ${runs.size} workouts successfully.")
+                        Toast.makeText(this@MainActivity, getString(R.string.imported_success, runs.size), Toast.LENGTH_SHORT).show()
                     }
                 } catch (_: Exception) {
-                    Log.e("MainActivity", "Import failed")
+                    Toast.makeText(this@MainActivity, getString(R.string.import_failed), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -241,7 +242,7 @@ class MainActivity : ComponentActivity() {
                         }
                         startActivity(Intent.createChooser(intent, getString(R.string.share_gpx_chooser_title)))
                     } catch (_: Exception) {
-                        Log.e("MainActivity", "File export failed")
+                        Toast.makeText(this@MainActivity, getString(R.string.file_export_failed), Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -268,7 +269,7 @@ class MainActivity : ComponentActivity() {
                         }
                         startActivity(Intent.createChooser(intent, getString(R.string.history_export_chooser_title)))
                     } catch (_: Exception) {
-                        Log.e("MainActivity", "Export failed")
+                        Toast.makeText(this@MainActivity, getString(R.string.file_export_failed), Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -312,7 +313,7 @@ class MainActivity : ComponentActivity() {
                                     startPermissionChain()
                                 }
                             }) {
-                                Text("OK")
+                                Text(stringResource(Res.string.ok_button))
                             }
                         }
                     )

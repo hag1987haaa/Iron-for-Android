@@ -233,4 +233,5 @@
     <string name="detail_chart_hr_dist_imperial">心拍数 (bpm vs 距離)</string>
     <string name="detail_chart_hr_time_imperial">心拍数 (bpm vs 時間)</string>
     <string name="settings_auto_enable_label">有効化</string>
+    <string name="ok_button">OK</string>
 </resources>

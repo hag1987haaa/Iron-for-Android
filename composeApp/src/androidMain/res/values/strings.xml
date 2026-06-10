@@ -19,4 +19,8 @@
     <string name="status_paused">Paused</string>
     <string name="status_finished">Finished</string>
     <string name="status_result">Result</string>
+    <string name="ok_button">OK</string>
+    <string name="import_failed">Import failed</string>
+    <string name="imported_success">Imported %d workouts successfully.</string>
+    <string name="file_export_failed">File export failed</string>
 </resources>

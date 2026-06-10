@@ -247,7 +247,7 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         if (meters <= 0 || seconds <= 0) return "--:--"
         val distance = if (isMetric) meters / 1000.0 else meters / 1609.344
         val paceSeconds = (seconds / distance).toInt()
-        if (paceSeconds > 3600) return ">60:00"
+        if (paceSeconds > 3600) return "60:00"
         val m = paceSeconds / 60
         val s = paceSeconds % 60
         return "$m:${s.toString().padStart(2, '0')}"
