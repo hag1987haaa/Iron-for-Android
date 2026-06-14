@@ -93,11 +93,9 @@ class RunTrackerEngine(
     private var timeoutJob: Job? = null
     private var isStartPending = false
 
-    // 一時停止（PAUSE）中の計測除外用変数
-    private var workoutStartSteps: Int? = null
-    private var totalPausedSteps: Int = 0
-    private var pauseStartSteps: Int? = null
+    // 歩数計測用変数 (前回値との増分を足していくデルタ方式)
     private var lastIncomingSteps: Int = -1
+    private var totalAccumulatedSteps: Int = 0
 
     // 通知用の前回記録
     private var lastNotifiedDistanceKm: Int = 0
@@ -151,10 +149,7 @@ class RunTrackerEngine(
         isStartPending = false
         timeoutJob?.cancel()
         timeoutJob = null
-        // ワークアウト開始時に有効な歩数データがあれば基準値として設定
-        if (workoutStartSteps == null && lastIncomingSteps != -1) {
-            workoutStartSteps = lastIncomingSteps
-        }
+
         _statistics.update { it.copy(startTime = Clock.System.now(), status = RunStatus.ACTIVE) }
         RunState.setStatus(RunStatus.ACTIVE)
         RunState.updateStats(_statistics.value)
@@ -164,7 +159,6 @@ class RunTrackerEngine(
     }
 
     fun pause() {
-        pauseStartSteps = lastIncomingSteps
         _statistics.update { it.copy(status = RunStatus.PAUSED) }
         RunState.setStatus(RunStatus.PAUSED)
         RunState.updateStats(_statistics.value)
@@ -174,12 +168,6 @@ class RunTrackerEngine(
     }
 
     fun resume() {
-        // 一時停止中に増加した歩数を控除
-        pauseStartSteps?.let { start ->
-            totalPausedSteps += (lastIncomingSteps - start)
-        }
-        pauseStartSteps = null
-        
         // ワープ距離除外のため、直前の座標をリセット
         // これにより RESUME 直後の最初の座標が「新しい計測セグメントの開始点」となる
         lastProcessedLocation = null
@@ -266,14 +254,22 @@ class RunTrackerEngine(
     }
 
     fun updateSteps(totalSteps: Int) {
-        lastIncomingSteps = totalSteps
-        if (_statistics.value.status == RunStatus.ACTIVE) {
-            // 運動開始後に初めてデータが届いた場合に基準値を設定（開始時の漏れ対策）
-            val start = workoutStartSteps ?: totalSteps.also { workoutStartSteps = it }
-            val displaySteps = (totalSteps - start - totalPausedSteps).coerceAtLeast(0)
-            _statistics.update { it.copy(steps = displaySteps) }
-            RunState.updateStats(_statistics.value)
+        if (totalSteps <= 0) return // 0はリセット中とみなして無視
+
+        // 前回値が存在し、かつ増加している場合のみ増分を計算（0時またぎやリセット時はスキップ）
+        if (lastIncomingSteps != -1 && totalSteps >= lastIncomingSteps) {
+            val delta = totalSteps - lastIncomingSteps
+            
+            // アクティブ（計測中）状態の時だけ累積歩数に加算
+            if (_statistics.value.status == RunStatus.ACTIVE) {
+                totalAccumulatedSteps += delta
+                _statistics.update { it.copy(steps = totalAccumulatedSteps) }
+                RunState.updateStats(_statistics.value)
+            }
         }
+        
+        // 常に最新値を保持（減少した場合は、そこが次回の基準点になる）
+        lastIncomingSteps = totalSteps
         resetTimeoutTimer()
     }
 
@@ -323,10 +319,8 @@ class RunTrackerEngine(
         lastNotifiedDistanceKm = 0
         lastNotifiedTimeMinutes = 0
         
-        workoutStartSteps = null
-        totalPausedSteps = 0
-        pauseStartSteps = null
         lastIncomingSteps = -1
+        totalAccumulatedSteps = 0
     }
 
     private fun startTimer() {

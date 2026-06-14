@@ -286,7 +286,10 @@ class PebbleCommandService : BasePebbleListenerService() {
     }
 
     override fun onAppOpened(watchappUUID: UUID, watch: WatchIdentifier) {
-        Log.d("PebbleCommand", "App opened: $watch")
+        Log.d("PebbleCommand", "App opened detected: $watch. Triggering forced full sync.")
+        lastConnectedWatch = watch
+        // ウォッチアプリが開かれたのを検知したら、強制的に現在の全ステータスを同期させる
+        KmpDependencies.trackerEngine.triggerStatisticsUpdate()
     }
 
     override fun onAppClosed(watchappUUID: UUID, watch: WatchIdentifier) {

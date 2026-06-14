@@ -40,6 +40,7 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         private const val KEY_STATE = 10004u
         private const val KEY_GRAPH_DATA = 10009u
         private const val KEY_HR = 10007u
+        private const val KEY_STEPS = 10010u // ★ 歩数送受信共用キー
         private const val KEY_TOUCH_ENABLE = 10011u
         private const val KEY_TYPE = 10012u 
         private const val KEY_MID_DATA = 10013u // ★ 中段カスタムデータ
@@ -157,6 +158,7 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
             KEY_PACE to PebbleDictionaryItem.Text(formatPace(stats.totalDistanceMeters, stats.totalSeconds, settings.isMetric)),
             KEY_STATE to PebbleDictionaryItem.Int32(pebbleState),
             KEY_HR to PebbleDictionaryItem.Text(if (stats.heartRates.isNotEmpty()) stats.heartRates.last().toString() else "--"),
+            KEY_STEPS to PebbleDictionaryItem.Int32(stats.steps), // ★ 計算済みのワークアウト歩数を送り返す
             KEY_TYPE to PebbleDictionaryItem.Int32(stats.activityType.ordinal)
         )
         // 常に最新1件のみを保持
@@ -309,6 +311,7 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
             KEY_PACE to PebbleDictionaryItem.Text(formatPace(stats.totalDistanceMeters, stats.totalSeconds, settings.isMetric)),
             KEY_STATE to PebbleDictionaryItem.Int32(pebbleState),
             KEY_HR to PebbleDictionaryItem.Text(if (stats.heartRates.isNotEmpty()) stats.heartRates.last().toString() else "--"),
+            KEY_STEPS to PebbleDictionaryItem.Int32(stats.steps), // ★ フル同期時も歩数を送る
             KEY_TYPE to PebbleDictionaryItem.Int32(stats.activityType.ordinal)
         )
         commandQueue.trySend(PebbleMessageRequest("SYNC", dict, retryCount = 3))
