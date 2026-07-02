@@ -28,9 +28,9 @@ class AppSettings {
 
     /**
      * 中段表示（Mid Data）の設定
-     * 0: Pace, 1: Distance, 2: Steps, 3: Altitude, 4: HR, 5: Calories, 6: Time, 7: Avg Pace, 8: Speed
+     * 0: Pace, 1: Distance, 2: Steps, 3: Altitude, 4: HR, 5: Calories, 7: Avg Pace, 8: Speed, 9: Clock, 10: Gain, 11: Cadence, 99: Cockpit
      */
-    var enabledMidTypes: List<Int> = listOf(0, 4, 1, 5, 6)
+    var enabledMidTypes: List<Int> = listOf(0, 4, 1, 5, 10)
     var isMetric: Boolean = true
     var userWeightKg: Float = 70.0f
     var hasAskedHealthConnectOnboarding: Boolean = false
@@ -54,6 +54,15 @@ class AppSettings {
     var notificationTimeSeconds: Int = 0 // デフォルト無効
     var isAutoLaunchOnDistanceNotificationEnabled: Boolean = false // 距離通知時にIronを強制起動
     var isAutoLaunchOnTimeNotificationEnabled: Boolean = false // 時間通知時にIronを強制起動
+
+    // 自動エクスポート設定
+    var isAutoExportTcxEnabled: Boolean = false
+    var isAutoExportGpxEnabled: Boolean = false
+    var autoExportTcxUri: String? = null
+    var autoExportGpxUri: String? = null
+
+    // 心拍サンプリング間隔 (0: システムデフォルト, 1, 10, 30, etc.)
+    var hrSamplingInterval: Int = 0
 
     // プラットフォーム固有の保存処理用コールバック
     var onSettingsChanged: (() -> Unit)? = null

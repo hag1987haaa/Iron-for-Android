@@ -44,6 +44,7 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         private const val KEY_TOUCH_ENABLE = 10011u
         private const val KEY_TYPE = 10012u 
         private const val KEY_MID_DATA = 10013u // ★ 中段カスタムデータ
+        private const val KEY_HR_INTERVAL = 10014u // ★ 心拍サンプリング間隔
         
         private const val PEBBLE_STATE_IDLE = 0
         private const val PEBBLE_STATE_GPS_SEARCHING = 1
@@ -312,7 +313,8 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
             KEY_STATE to PebbleDictionaryItem.Int32(pebbleState),
             KEY_HR to PebbleDictionaryItem.Text(if (stats.heartRates.isNotEmpty()) stats.heartRates.last().toString() else "--"),
             KEY_STEPS to PebbleDictionaryItem.Int32(stats.steps), // ★ フル同期時も歩数を送る
-            KEY_TYPE to PebbleDictionaryItem.Int32(stats.activityType.ordinal)
+            KEY_TYPE to PebbleDictionaryItem.Int32(stats.activityType.ordinal),
+            KEY_HR_INTERVAL to PebbleDictionaryItem.UInt32(settings.hrSamplingInterval.toUInt())
         )
         commandQueue.trySend(PebbleMessageRequest("SYNC", dict, retryCount = 3))
         sendGraphData(stats)

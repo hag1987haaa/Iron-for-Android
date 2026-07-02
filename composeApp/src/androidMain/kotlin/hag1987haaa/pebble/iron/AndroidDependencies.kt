@@ -61,9 +61,18 @@ object AndroidDependencies {
         settings.isAutoLaunchOnTimeNotificationEnabled = prefs.getBoolean("auto_launch_time", false)
         
         // Mid Data 設定の読み込み
-        val midTypesStr = prefs.getString("mid_types", "0,4,1,5,6") ?: "0,4,1,5,6"
+        val midTypesStr = prefs.getString("mid_types", "0,4,1,5,10") ?: "0,4,1,5,10"
         settings.enabledMidTypes = midTypesStr.split(",").filter { it.isNotEmpty() }.map { it.toInt() }
         settings.isMetric = prefs.getBoolean("is_metric", true)
+        
+        // 自動エクスポート設定
+        settings.isAutoExportTcxEnabled = prefs.getBoolean("auto_export_tcx", false)
+        settings.isAutoExportGpxEnabled = prefs.getBoolean("auto_export_gpx", false)
+        settings.autoExportTcxUri = prefs.getString("auto_export_tcx_uri", null)
+        settings.autoExportGpxUri = prefs.getString("auto_export_gpx_uri", null)
+        
+        // 心拍サンプリング間隔
+        settings.hrSamplingInterval = prefs.getInt("hr_interval", 0)
 
         // アプリバージョンの取得
         try {
@@ -100,6 +109,15 @@ object AndroidDependencies {
                 // Mid Data 設定の保存
                 putString("mid_types", settings.enabledMidTypes.joinToString(","))
                 putBoolean("is_metric", settings.isMetric)
+                
+                // 自動エクスポート設定の保存
+                putBoolean("auto_export_tcx", settings.isAutoExportTcxEnabled)
+                putBoolean("auto_export_gpx", settings.isAutoExportGpxEnabled)
+                putString("auto_export_tcx_uri", settings.autoExportTcxUri)
+                putString("auto_export_gpx_uri", settings.autoExportGpxUri)
+                
+                // 心拍サンプリング間隔
+                putInt("hr_interval", settings.hrSamplingInterval)
 
                 apply()
             }

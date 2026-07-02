@@ -36,6 +36,7 @@ kotlin {
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.health.connect)
             implementation(libs.kotlinx.coroutines.android)
+            implementation("androidx.documentfile:documentfile:1.0.1")
             implementation(libs.osmdroid)
             implementation(libs.pebblekit2)
             implementation(libs.pebblekit2.ui)
@@ -51,8 +52,8 @@ android {
         applicationId = "hag1987haaa.pebble.iron"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "1.1.3"
+        versionCode = 15
+        versionName = "1.1.4"
         
         // ネイティブライブラリ（SQLCipher等）のデバッグシンボルをAABに含める設定
         ndk {

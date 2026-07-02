@@ -36,6 +36,7 @@ import hag1987haaa.pebble.iron.presentation.AppActions
 import hag1987haaa.pebble.iron.presentation.LocalPebblePermissionDialog
 import hag1987haaa.pebble.iron.presentation.PebblePermissionDialogProvider
 import hag1987haaa.pebble.iron.service.TrackingService
+import hag1987haaa.pebble.iron.util.AutoExporter
 import hag1987haaa.pebble.iron.util.GpxExporter
 import hag1987haaa.pebble.iron.util.HealthUtils
 import kotlinx.coroutines.launch
@@ -82,6 +83,28 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(this@MainActivity, getString(R.string.import_failed), Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    private val tcxFolderLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let {
+            contentResolver.takePersistableUriPermission(
+                it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            KmpDependencies.appSettings.autoExportTcxUri = it.toString()
+            KmpDependencies.appSettings.save()
+        }
+    }
+
+    private val gpxFolderLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let {
+            contentResolver.takePersistableUriPermission(
+                it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            KmpDependencies.appSettings.autoExportGpxUri = it.toString()
+            KmpDependencies.appSettings.save()
         }
     }
 
@@ -285,6 +308,41 @@ class MainActivity : ComponentActivity() {
                         Uri.parse("package:$packageName")
                     )
                     startActivity(intent)
+                }
+            }
+
+            override fun selectAutoExportFolder(format: String) {
+                if (format == "tcx") {
+                    tcxFolderLauncher.launch(null)
+                } else if (format == "gpx") {
+                    gpxFolderLauncher.launch(null)
+                }
+            }
+
+            override fun openAutoExportFolder(format: String) {
+                val uriString = if (format == "tcx") KmpDependencies.appSettings.autoExportTcxUri else KmpDependencies.appSettings.autoExportGpxUri
+                uriString?.let {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(Uri.parse(it), "resource/folder")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        // 万が一フォルダとして開けない場合は、汎用的なVIEWを試みる
+                        if (intent.resolveActivity(packageManager) != null) {
+                            startActivity(intent)
+                        } else {
+                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it)))
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Failed to open folder", e)
+                        Toast.makeText(this@MainActivity, "Could not open folder", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+
+            override fun triggerAutoExport(run: RunActivity) {
+                lifecycleScope.launch {
+                    AutoExporter.execute(applicationContext, run)
                 }
             }
         }
@@ -496,6 +554,9 @@ fun AppAndroidPreview() {
         override fun exportData() {}
         override fun importData() {}
         override fun requestOverlayPermission() {}
+        override fun selectAutoExportFolder(format: String) {}
+        override fun openAutoExportFolder(format: String) {}
+        override fun triggerAutoExport(run: RunActivity) {}
     }
     App(actions)
 }

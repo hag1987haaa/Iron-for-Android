@@ -63,6 +63,21 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _isAutoLaunchTimeEnabled = MutableStateFlow(settings.isAutoLaunchOnTimeNotificationEnabled)
     val isAutoLaunchTimeEnabled: StateFlow<Boolean> = _isAutoLaunchTimeEnabled.asStateFlow()
 
+    private val _isAutoExportTcxEnabled = MutableStateFlow(settings.isAutoExportTcxEnabled)
+    val isAutoExportTcxEnabled: StateFlow<Boolean> = _isAutoExportTcxEnabled.asStateFlow()
+
+    private val _isAutoExportGpxEnabled = MutableStateFlow(settings.isAutoExportGpxEnabled)
+    val isAutoExportGpxEnabled: StateFlow<Boolean> = _isAutoExportGpxEnabled.asStateFlow()
+
+    private val _autoExportTcxUri = MutableStateFlow(settings.autoExportTcxUri)
+    val autoExportTcxUri: StateFlow<String?> = _autoExportTcxUri.asStateFlow()
+
+    private val _autoExportGpxUri = MutableStateFlow(settings.autoExportGpxUri)
+    val autoExportGpxUri: StateFlow<String?> = _autoExportGpxUri.asStateFlow()
+
+    private val _hrSamplingInterval = MutableStateFlow(settings.hrSamplingInterval)
+    val hrSamplingInterval: StateFlow<Int> = _hrSamplingInterval.asStateFlow()
+
     val isPrivacyMapModeEnabled: StateFlow<Boolean> = settings.isPrivacyMapModeEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), settings.isPrivacyMapModeEnabled)
 
@@ -171,5 +186,30 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.isAutoLaunchOnTimeNotificationEnabled = enabled
         _isAutoLaunchTimeEnabled.value = enabled
         settings.save()
+    }
+
+    fun updateAutoExportTcxEnabled(enabled: Boolean) {
+        settings.isAutoExportTcxEnabled = enabled
+        _isAutoExportTcxEnabled.value = enabled
+        settings.save()
+    }
+
+    fun updateAutoExportGpxEnabled(enabled: Boolean) {
+        settings.isAutoExportGpxEnabled = enabled
+        _isAutoExportGpxEnabled.value = enabled
+        settings.save()
+    }
+
+    fun updateHrSamplingInterval(interval: Int) {
+        settings.hrSamplingInterval = interval
+        _hrSamplingInterval.value = interval
+        settings.save()
+        // ウォッチへ即座に同期（もし計測中なら反映させる）
+        hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.triggerStatisticsUpdate()
+    }
+
+    fun refreshUris() {
+        _autoExportTcxUri.value = settings.autoExportTcxUri
+        _autoExportGpxUri.value = settings.autoExportGpxUri
     }
 }

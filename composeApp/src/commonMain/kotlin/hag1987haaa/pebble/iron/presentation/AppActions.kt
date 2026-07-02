@@ -20,4 +20,7 @@ interface AppActions {
     fun exportData() // 全データをエクスポート
     fun importData() // バックアップからインポート
     fun requestOverlayPermission() // 「他のアプリの上に重ねて表示」権限
+    fun selectAutoExportFolder(format: String) // 自動エクスポート先フォルダ選択 (format: "gpx" or "tcx")
+    fun openAutoExportFolder(format: String) // 自動エクスポート先フォルダを開く
+    fun triggerAutoExport(run: RunActivity) // 自動エクスポートを実行
 }

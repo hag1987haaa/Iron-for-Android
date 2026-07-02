@@ -18,6 +18,7 @@ import hag1987haaa.pebble.iron.R
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
+import hag1987haaa.pebble.iron.util.AutoExporter
 import hag1987haaa.pebble.iron.util.HealthUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -213,6 +214,15 @@ class TrackingService : Service() {
                 // データベース保存
                 KmpDependencies.runRepository.saveRun(run.copy(healthConnectId = hcId))
                 
+                // 自動エクスポートを実行 (保存後にIDが確定している前提)
+                // ただしSqlRunRepository.saveRunはIDを返さないので、一旦runの情報をそのまま渡す
+                // 実際にはgetAllRunsで最後の一件を取るなどの工夫が必要かもしれないが、
+                // AutoExporter側でprefixにIDを含めるロジックがあるので、直近のデータを取得し直す。
+                val savedRun = KmpDependencies.runRepository.getAllRunsWithDetails().lastOrNull()
+                if (savedRun != null) {
+                    AutoExporter.execute(applicationContext, savedRun)
+                }
+
                 // エンジンをリザルト表示モードへ移行
                 KmpDependencies.trackerEngine.saveToResult()
                 
@@ -275,6 +285,12 @@ class TrackingService : Service() {
                 // データベース保存
                 KmpDependencies.runRepository.saveRun(run.copy(healthConnectId = hcId))
                 
+                // 自動エクスポートを実行
+                val savedRun = KmpDependencies.runRepository.getAllRunsWithDetails().lastOrNull()
+                if (savedRun != null) {
+                    AutoExporter.execute(applicationContext, savedRun)
+                }
+
                 // トラッキングリセット
                 KmpDependencies.trackerEngine.resetToIdle()
                 

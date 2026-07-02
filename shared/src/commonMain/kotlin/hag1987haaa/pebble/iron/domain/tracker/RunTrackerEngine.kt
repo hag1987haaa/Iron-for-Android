@@ -101,6 +101,11 @@ class RunTrackerEngine(
     private var lastNotifiedDistanceKm: Int = 0
     private var lastNotifiedTimeMinutes: Int = 0
 
+    // 心拍フィルタ用バッファ
+    private val hrRawBuffer = mutableListOf<Int>()
+    private val hrSmoothingBuffer = mutableListOf<Int>()
+    private val HR_FILTER_WINDOW = 5
+
     fun setActivityType(type: ActivityType) {
         _statistics.update { it.copy(activityType = type) }
         RunState.updateStats(_statistics.value)
@@ -225,25 +230,53 @@ class RunTrackerEngine(
     }
 
     fun addHeartRate(bpm: Int) {
-        // IDLE/RESULT/FINISHED状態では心拍履歴を更新しない（不整合防止）
         val currentStatus = RunState.status.value
         if (currentStatus == RunStatus.IDLE || 
             currentStatus == RunStatus.RESULT || 
             currentStatus == RunStatus.FINISHED) return
 
+        // 1. 基本ガード (0や生理的にあり得ない値を排除)
+        if (bpm <= 0 || bpm < 30 || bpm > 220) return
+
+        val interval = appSettings?.hrSamplingInterval ?: 0
+        val processedBpm: Int
+
+        if (interval > 0) {
+            // 高速モード (生値): 2段階フィルタ (Median -> Moving Average)
+
+            // Step A: Median Filter (外れ値の除去)
+            hrRawBuffer.add(bpm)
+            if (hrRawBuffer.size > HR_FILTER_WINDOW) hrRawBuffer.removeAt(0)
+            
+            val medianBpm = if (hrRawBuffer.size >= 3) {
+                val sorted = hrRawBuffer.sorted()
+                sorted[sorted.size / 2]
+            } else {
+                bpm
+            }
+
+            // Step B: Moving Average (スムージング)
+            hrSmoothingBuffer.add(medianBpm)
+            if (hrSmoothingBuffer.size > HR_FILTER_WINDOW) hrSmoothingBuffer.removeAt(0)
+            processedBpm = hrSmoothingBuffer.average().toInt()
+        } else {
+            // 安定モード (OSフィルタ済): 直接使用
+            hrRawBuffer.clear()
+            hrSmoothingBuffer.clear()
+            processedBpm = bpm
+        }
+
         _statistics.update { stats ->
             val updatedRoute = if (stats.status == RunStatus.ACTIVE && stats.route.isNotEmpty()) {
-                // 最新の地点に心拍数がない、または最新地点の心拍数を更新したい場合（任意）
-                // ここでは最新の地点にも心拍数を即座に反映させる
                 val lastPoint = stats.route.last()
-                stats.route.dropLast(1) + lastPoint.copy(heartRate = bpm)
+                stats.route.dropLast(1) + lastPoint.copy(heartRate = processedBpm)
             } else {
                 stats.route
             }
 
             stats.copy(
-                currentHeartRate = bpm,
-                heartRates = stats.heartRates + bpm,
+                currentHeartRate = processedBpm,
+                heartRates = stats.heartRates + processedBpm,
                 route = updatedRoute
             ).also { s -> 
                 RunState.updateStats(s) 
@@ -321,6 +354,8 @@ class RunTrackerEngine(
         
         lastIncomingSteps = -1
         totalAccumulatedSteps = 0
+        hrRawBuffer.clear()
+        hrSmoothingBuffer.clear()
     }
 
     private fun startTimer() {

@@ -233,5 +233,25 @@
     <string name="detail_chart_hr_dist_imperial">心拍数 (bpm vs 距離)</string>
     <string name="detail_chart_hr_time_imperial">心拍数 (bpm vs 時間)</string>
     <string name="settings_auto_enable_label">有効化</string>
+    <string name="settings_section_auto_export">自動エクスポート</string>
+    <string name="settings_auto_export_desc">ワークアウト終了時に、指定したフォルダへ自動的にファイルを出力します。</string>
+    <string name="settings_auto_export_tcx">TCXを自動出力</string>
+    <string name="settings_auto_export_gpx">GPXを自動出力</string>
+    <string name="settings_auto_export_folder_select">フォルダを選択</string>
+    <string name="settings_auto_export_folder_none">フォルダが未選択です</string>
+    <string name="settings_auto_export_strava_note">※外部サービス等へ再アップロードする際は、重複検知を避けるため古い記録を先に削除してください。</string>
+
+    <string name="settings_label_hr_interval">心拍サンプリング間隔</string>
+    <string name="settings_hr_interval_default">システムのデフォルト</string>
+    <string name="settings_hr_mode_stable">安定モード (OSフィルタ済)</string>
+    <string name="settings_hr_mode_fast">高速モード (生データ+スムージング)</string>
+    <string name="settings_hr_interval_1s">1秒</string>
+    <string name="settings_hr_interval_10s">10秒</string>
+    <string name="settings_hr_interval_30s">30秒</string>
+    <string name="settings_hr_interval_1m">1分</string>
+    <string name="settings_hr_interval_5m">5分</string>
+    <string name="settings_hr_desc">※心拍計搭載モデル（Pebble 2 HR / Time 2）専用の設定です。\n\n・安定モード：PebbleOSによる最適化済みの値を使用します。ラグはありますが数値は安定しています。\n・高速モード：センサーの生値を直接取得し、スマホ側で5秒間の移動平均をかけて表示します。反応は早いですが、装着状態によりノイズが乗りやすくなります。</string>
+    <string name="settings_auto_export_folder_open">フォルダを開く</string>
+
     <string name="ok_button">OK</string>
 </resources>

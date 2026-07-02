@@ -233,5 +233,25 @@
     <string name="detail_chart_hr_dist_imperial">Heart Rate (bpm vs mi)</string>
     <string name="detail_chart_hr_time_imperial">Heart Rate (bpm vs time)</string>
     <string name="settings_auto_enable_label">Enable</string>
+    <string name="settings_section_auto_export">Auto Export</string>
+    <string name="settings_auto_export_desc">Automatically export your workouts to specific folders upon completion.</string>
+    <string name="settings_auto_export_tcx">Auto Export TCX</string>
+    <string name="settings_auto_export_gpx">Auto Export GPX</string>
+    <string name="settings_auto_export_folder_select">Select Folder</string>
+    <string name="settings_auto_export_folder_none">No folder selected</string>
+    <string name="settings_auto_export_strava_note">Note: If you re-upload an edited workout to external services, you may need to delete the previous record first due to duplicate detection.</string>
+
+    <string name="settings_label_hr_interval">HR Sampling Interval</string>
+    <string name="settings_hr_interval_default">System Default</string>
+    <string name="settings_hr_mode_stable">Stable Mode (OS Filtered)</string>
+    <string name="settings_hr_mode_fast">Fast Mode (Raw Data + Smoothing)</string>
+    <string name="settings_hr_interval_1s">1 second</string>
+    <string name="settings_hr_interval_10s">10 seconds</string>
+    <string name="settings_hr_interval_30s">30 seconds</string>
+    <string name="settings_hr_interval_1m">1 minute</string>
+    <string name="settings_hr_interval_5m">5 minutes</string>
+    <string name="settings_hr_desc">Note: Only for models with heart rate monitors (Pebble 2 HR / Time 2).\n\n- Stable Mode: Uses optimized values from PebbleOS. Reliable but with slight lag.\n- Fast Mode: Uses raw sensor data with 5-second smoothing on Android. Highly responsive but more sensitive to fit and movement noise.</string>
+    <string name="settings_auto_export_folder_open">Open Folder</string>
+
     <string name="ok_button">OK</string>
 </resources>

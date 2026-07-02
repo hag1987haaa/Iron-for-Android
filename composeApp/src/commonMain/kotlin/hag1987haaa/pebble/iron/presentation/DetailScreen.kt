@@ -290,6 +290,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                                             runActivity = updatedRun
                                                             updatedRun?.let { runObj ->
                                                                 actions.syncWithHealthConnect(runObj) { }
+                                                                actions.triggerAutoExport(runObj)
                                                             }
                                                         }
                                                     },
