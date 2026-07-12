@@ -18,7 +18,8 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
 
     private val queries = db.runActivityQueries
 
-    override suspend fun saveRun(run: RunActivity) = withContext(Dispatchers.IO) {
+    override suspend fun saveRun(run: RunActivity): Long = withContext(Dispatchers.IO) {
+        var insertedId: Long = 0
         queries.transaction {
             queries.insertRun(
                 run.name,
@@ -26,6 +27,7 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                 run.startTime.toString(),
             )
             val runId = queries.lastInsertId().executeAsOne()
+            insertedId = runId
 
             run.route.forEach { point ->
                 queries.insertLocation(
@@ -55,6 +57,7 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                 id = runId,
             )
         }
+        insertedId
     }
 
     override fun getAllRuns(): Flow<List<RunActivity>> {

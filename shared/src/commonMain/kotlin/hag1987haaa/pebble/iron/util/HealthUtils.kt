@@ -37,13 +37,16 @@ object HealthUtils {
         }
 
         // 傾斜による負荷増分 (1%の平均傾斜につき METs を 10% 増加させる簡易補正)
-        if (distanceMeters > 100.0) {
-            val grade = (elevationGainMeters / distanceMeters) * 100.0
-            if (grade > 0) {
-                mets += (grade * 0.5) // 登り坂による補正
-            }
+        // GPSの飛びによる異常な傾斜（スパイク）を防ぐため、gradeを45%に制限
+        if (distanceMeters > 10.0) {
+            val grade = ((elevationGainMeters / distanceMeters) * 100.0).coerceIn(0.0, 45.0)
+            mets += (grade * 0.5) // 登り坂による補正
         }
 
-        return mets * weightKg * durationHours * 1.05
+        val totalKcal = mets * weightKg * durationHours * 1.05
+        
+        // 人間の生理的限界（1秒あたり約1.0kcal、1時間で3600kcal）でキャップをかけ、スパイクを完全に排除する
+        val maxSafeKcal = durationSeconds.toDouble() * 1.0
+        return totalKcal.coerceIn(0.0, maxSafeKcal.coerceAtLeast(totalKcal)) // 通常時はtotalKcalを返し、異常値のみ制限
     }
 }

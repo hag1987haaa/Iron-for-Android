@@ -27,8 +27,10 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getWritePermission(StepsRecord::class),
         HealthPermission.getWritePermission(DistanceRecord::class),
         HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class),
+        HealthPermission.getWritePermission(ElevationGainedRecord::class),
         // 運動ルート権限 (Android 14+ で詳細なマップ表示に必須)
         "android.permission.health.WRITE_EXERCISE_ROUTE",
+        "android.permission.health.WRITE_ELEVATION_GAINED",
     )
 
     suspend fun hasAllPermissions(): Boolean {
@@ -84,6 +86,19 @@ class HealthConnectManager(private val context: Context) {
                 metadata = metadata,
                 exerciseRoute = exerciseRoute,
             )
+
+            // 2.5 獲得標高データの作成
+            val elevationGainedRecord = run.elevationGain?.let {
+                if (it <= 0) return@let null
+                ElevationGainedRecord(
+                    startTime = startTime,
+                    startZoneOffset = zoneOffset,
+                    endTime = endTime,
+                    endZoneOffset = zoneOffset,
+                    elevation = Length.meters(it),
+                    metadata = HealthMetadata(clientRecordId = "iron_elev_$startTimeMillis")
+                )
+            }
 
             // 3. 距離データの作成
             val distanceRecord = DistanceRecord(
@@ -145,6 +160,7 @@ class HealthConnectManager(private val context: Context) {
             heartRateRecord?.let { records.add(it) }
             caloriesRecord?.let { records.add(it) }
             stepsRecord?.let { records.add(it) }
+            elevationGainedRecord?.let { records.add(it) }
             
             Log.d("HealthConnect", "Inserting ${records.size} records for session: ${run.name ?: "Workout"}")
             val response = healthConnectClient.insertRecords(records)
@@ -165,7 +181,8 @@ class HealthConnectManager(private val context: Context) {
                 "iron_dist_$startTimeMillis",
                 "iron_hr_$startTimeMillis",
                 "iron_cal_$startTimeMillis",
-                "iron_steps_$startTimeMillis"
+                "iron_steps_$startTimeMillis",
+                "iron_elev_$startTimeMillis"
             )
 
             val recordTypes = listOf(
@@ -173,7 +190,8 @@ class HealthConnectManager(private val context: Context) {
                 DistanceRecord::class,
                 HeartRateRecord::class,
                 ActiveCaloriesBurnedRecord::class,
-                StepsRecord::class
+                StepsRecord::class,
+                ElevationGainedRecord::class
             )
             
             recordTypes.forEach { recordType ->

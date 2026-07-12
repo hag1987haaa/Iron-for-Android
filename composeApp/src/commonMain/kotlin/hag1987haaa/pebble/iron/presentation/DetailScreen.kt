@@ -400,11 +400,18 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                         prevPoint.latitude, prevPoint.longitude,
                                         point.latitude, point.longitude
                                     )
+                                    val pAlt = point.altitude
+                                    val prevAlt = prevPoint.altitude
+                                    val elevGain = if (pAlt != null && prevAlt != null) {
+                                        (pAlt - prevAlt).coerceAtLeast(0.0)
+                                    } else 0.0
+
                                     hag1987haaa.pebble.iron.util.HealthUtils.calculateCalories(
                                         type = run.type,
                                         weightKg = KmpDependencies.appSettings.userWeightKg,
                                         durationSeconds = duration,
                                         distanceMeters = dist,
+                                        elevationGainMeters = elevGain,
                                         avgHeartRate = point.heartRate?.toDouble()
                                     ).toFloat()
                                 }

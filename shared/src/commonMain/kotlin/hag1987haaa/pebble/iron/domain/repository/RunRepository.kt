@@ -5,7 +5,7 @@ import hag1987haaa.pebble.iron.domain.model.LocationPoint
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 
 interface RunRepository {
-    suspend fun saveRun(run: RunActivity)
+    suspend fun saveRun(run: RunActivity): Long
     fun getAllRuns(): Flow<List<RunActivity>>
     suspend fun getAllRunsWithDetails(): List<RunActivity>
     suspend fun importRuns(runs: List<RunActivity>)

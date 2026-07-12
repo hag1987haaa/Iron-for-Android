@@ -14,17 +14,24 @@ import kotlinx.datetime.toLocalDateTime
 
 object AutoExporter {
     suspend fun execute(context: Context, run: RunActivity) = withContext(Dispatchers.IO) {
+        // もしDBから読み込んだデータでなければ（routeが空など）、DBから最新版を取得し直す
+        val finalRun = if (run.route.isEmpty() && run.id != 0L) {
+            KmpDependencies.runRepository.getRunDetails(run.id) ?: run
+        } else {
+            run
+        }
+
         val settings = KmpDependencies.appSettings
         
         if (settings.isAutoExportTcxEnabled) {
             settings.autoExportTcxUri?.let { uriString ->
-                exportFile(context, run, "tcx", uriString)
+                exportFile(context, finalRun, "tcx", uriString)
             }
         }
         
         if (settings.isAutoExportGpxEnabled) {
             settings.autoExportGpxUri?.let { uriString ->
-                exportFile(context, run, "gpx", uriString)
+                exportFile(context, finalRun, "gpx", uriString)
             }
         }
     }

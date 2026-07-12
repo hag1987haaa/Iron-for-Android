@@ -212,13 +212,10 @@ class TrackingService : Service() {
                 }
                 
                 // データベース保存
-                KmpDependencies.runRepository.saveRun(run.copy(healthConnectId = hcId))
+                val savedId = KmpDependencies.runRepository.saveRun(run.copy(healthConnectId = hcId))
                 
-                // 自動エクスポートを実行 (保存後にIDが確定している前提)
-                // ただしSqlRunRepository.saveRunはIDを返さないので、一旦runの情報をそのまま渡す
-                // 実際にはgetAllRunsで最後の一件を取るなどの工夫が必要かもしれないが、
-                // AutoExporter側でprefixにIDを含めるロジックがあるので、直近のデータを取得し直す。
-                val savedRun = KmpDependencies.runRepository.getAllRunsWithDetails().lastOrNull()
+                // データベースから「保存完了した完全なデータ（route/ID含む）」を読み直して自動エクスポートを実行
+                val savedRun = KmpDependencies.runRepository.getRunDetails(savedId)
                 if (savedRun != null) {
                     AutoExporter.execute(applicationContext, savedRun)
                 }
@@ -283,10 +280,10 @@ class TrackingService : Service() {
                 }
 
                 // データベース保存
-                KmpDependencies.runRepository.saveRun(run.copy(healthConnectId = hcId))
+                val savedId = KmpDependencies.runRepository.saveRun(run.copy(healthConnectId = hcId))
                 
                 // 自動エクスポートを実行
-                val savedRun = KmpDependencies.runRepository.getAllRunsWithDetails().lastOrNull()
+                val savedRun = KmpDependencies.runRepository.getRunDetails(savedId)
                 if (savedRun != null) {
                     AutoExporter.execute(applicationContext, savedRun)
                 }

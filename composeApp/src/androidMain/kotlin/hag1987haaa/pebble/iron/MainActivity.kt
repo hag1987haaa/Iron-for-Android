@@ -323,19 +323,28 @@ class MainActivity : ComponentActivity() {
                 val uriString = if (format == "tcx") KmpDependencies.appSettings.autoExportTcxUri else KmpDependencies.appSettings.autoExportGpxUri
                 uriString?.let {
                     try {
+                        val uri = Uri.parse(it)
                         val intent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(Uri.parse(it), "resource/folder")
+                            // SAFの標準的なディレクトリ表示用MIMEタイプを使用
+                            setDataAndType(uri, "vnd.android.document/directory")
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        // 万が一フォルダとして開けない場合は、汎用的なVIEWを試みる
-                        if (intent.resolveActivity(packageManager) != null) {
-                            startActivity(intent)
-                        } else {
-                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it)))
-                        }
+                        
+                        // ユーザーにアプリを選択させるダイアログを表示
+                        val chooser = Intent.createChooser(intent, "Open Folder")
+                        startActivity(chooser)
                     } catch (e: Exception) {
                         Log.e("MainActivity", "Failed to open folder", e)
-                        Toast.makeText(this@MainActivity, "Could not open folder", Toast.LENGTH_SHORT).show()
+                        // 万が一失敗した場合のフォールバック
+                        try {
+                            val fallbackIntent = Intent(Intent.ACTION_VIEW).apply {
+                                data = Uri.parse(it)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            startActivity(Intent.createChooser(fallbackIntent, "Open Folder"))
+                        } catch (e2: Exception) {
+                            Toast.makeText(this@MainActivity, "Could not open folder", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }

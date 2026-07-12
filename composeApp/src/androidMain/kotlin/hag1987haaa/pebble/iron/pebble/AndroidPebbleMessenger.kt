@@ -278,6 +278,12 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         // 直近 10秒間、または最大 15地点分を遡って平均を出す
         var prevIndex = stats.route.size - 2
         val targetTs = last.timestamp.epochSeconds - 10
+        
+        // ★ 修正：あまりにも古いデータ（30秒以上前）しかない場合は、再接続直後とみなして0を返す
+        if (stats.route[prevIndex].timestamp.epochSeconds < (last.timestamp.epochSeconds - 30)) {
+            return 0
+        }
+
         while (prevIndex > 0 && 
                stats.route[prevIndex].timestamp.epochSeconds > targetTs && 
                (stats.route.size - prevIndex) < 15) {

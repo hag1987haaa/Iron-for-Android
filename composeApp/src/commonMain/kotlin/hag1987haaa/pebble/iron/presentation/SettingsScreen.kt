@@ -21,7 +21,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.domain.settings.LongPressMode
 import org.jetbrains.compose.resources.stringResource
-import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
