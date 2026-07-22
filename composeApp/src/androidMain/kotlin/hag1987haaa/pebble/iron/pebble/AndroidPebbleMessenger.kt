@@ -275,18 +275,37 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         if (stats.route.size < 5) return 0
         
         val last = stats.route.last()
-        // 直近 10秒間、または最大 15地点分を遡って平均を出す
-        var prevIndex = stats.route.size - 2
-        val targetTs = last.timestamp.epochSeconds - 10
+        val activityType = stats.activityType
         
-        // ★ 修正：あまりにも古いデータ（30秒以上前）しかない場合は、再接続直後とみなして0を返す
+        // アクティビティ種別に応じた最大窓幅 (秒)
+        val maxWindowSec = when (activityType) {
+            hag1987haaa.pebble.iron.domain.model.ActivityType.RUNNING -> 20
+            hag1987haaa.pebble.iron.domain.model.ActivityType.WALKING,
+            hag1987haaa.pebble.iron.domain.model.ActivityType.HIKING -> 30
+            hag1987haaa.pebble.iron.domain.model.ActivityType.CYCLING -> {
+                // サイクリングは将来のBLEケイデンスセンサー対応まで一旦0（または専用ロジック）
+                return 0 
+            }
+            else -> 25
+        }
+
+        // データの蓄積状況に応じて窓幅を動的に広げる (最小5秒から開始)
+        val firstTs = stats.route.first().timestamp.epochSeconds
+        val elapsedFromStart = last.timestamp.epochSeconds - firstTs
+        val currentWindowSec = elapsedFromStart.coerceIn(5, maxWindowSec.toLong()).toInt()
+
+        // 指定された秒数分を遡る
+        var prevIndex = stats.route.size - 2
+        val targetTs = last.timestamp.epochSeconds - currentWindowSec
+        
+        // あまりにも古いデータ（30秒以上前）しかない場合は、再接続直後とみなしてガード
         if (stats.route[prevIndex].timestamp.epochSeconds < (last.timestamp.epochSeconds - 30)) {
             return 0
         }
 
+        // 遡れるだけ遡るが、窓幅を越えないようにする
         while (prevIndex > 0 && 
-               stats.route[prevIndex].timestamp.epochSeconds > targetTs && 
-               (stats.route.size - prevIndex) < 15) {
+               stats.route[prevIndex].timestamp.epochSeconds > targetTs) {
             prevIndex--
         }
         
@@ -294,8 +313,13 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         val stepDiff = (last.steps ?: 0) - (prev.steps ?: 0)
         val timeDiffSec = (last.timestamp.epochSeconds - prev.timestamp.epochSeconds).coerceAtLeast(1)
         
-        // 低速時や歩数更新がない時間のノイズを抑えるため、平均化して算出
-        return (stepDiff.toDouble() / timeDiffSec.toDouble() * 60.0).toInt().coerceIn(0, 250)
+        // 低速時や歩数更新がない時間のノイズを抑えるため、十分な時間差がある場合のみ計算
+        if (timeDiffSec < 5 && elapsedFromStart < maxWindowSec) return 0
+
+        val cadence = (stepDiff.toDouble() / timeDiffSec.toDouble() * 60.0).toInt()
+        
+        // 人間として現実的な範囲に収める
+        return cadence.coerceIn(0, 250)
     }
 
     override fun sendState(status: RunStatus) {

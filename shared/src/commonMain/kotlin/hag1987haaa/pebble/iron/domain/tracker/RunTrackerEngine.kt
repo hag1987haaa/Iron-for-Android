@@ -196,7 +196,7 @@ class RunTrackerEngine(
         val localTime = now.toLocalDateTime(TimeZone.currentSystemDefault())
         val dateStr = "${localTime.year}${localTime.monthNumber.toString().padStart(2, '0')}${localTime.dayOfMonth.toString().padStart(2, '0')}"
         val timeStr = "${localTime.hour.toString().padStart(2, '0')}${localTime.minute.toString().padStart(2, '0')}"
-        val defaultName = "${_statistics.value.activityType.displayName}-$dateStr-$timeStr"
+        val defaultName = "$dateStr-$timeStr"
         
         _statistics.update { it.copy(status = RunStatus.FINISHED, name = defaultName) }
         RunState.setStatus(RunStatus.FINISHED)
