@@ -63,7 +63,12 @@
     <string name="activity_rowing">Rowing</string>
     <string name="activity_other">Other</string>
 
-    <string name="settings_title">Settings</string>
+    <string name="settings_tab_phone">Phone</string>
+    <string name="settings_tab_watch">Watch</string>
+    <string name="settings_tab_sensors">Sensors</string>
+    <string name="settings_section_sensor_priority">Data Priority</string>
+    <string name="settings_label_ble_hr_priority">Prefer External HR Sensor</string>
+    <string name="settings_desc_ble_hr_priority">Prioritize recording from external BLE heart rate sensors. Automatically falls back to Pebble\'s internal HRM if disconnected or no data is received.</string>
     <string name="settings_section_device">Device Integration</string>
     <string name="settings_pebble_app_title">Select Pebble Provider App</string>
     <string name="settings_pebble_app_desc">Choose the app (Coreapp, Cobble, etc.) used for communication</string>
@@ -236,7 +241,9 @@
     <string name="settings_mid_item_dist">Total Distance</string>
     <string name="settings_mid_item_steps">Total Steps</string>
     <string name="settings_mid_item_alt">Current Altitude</string>
-    <string name="settings_mid_item_hr">Heart Rate</string>
+    <string name="settings_mid_item_hr">Heart Rate (Recording)</string>
+    <string name="settings_mid_item_hr_ble">Heart Rate (BLE)</string>
+    <string name="settings_mid_item_hr_watch">Heart Rate (Watch)</string>
     <string name="settings_mid_item_cal">Calories Burned</string>
     <string name="settings_mid_item_avg_pace">Average Pace (Overall)</string>
     <string name="settings_mid_item_speed">Current Speed</string>
@@ -274,7 +281,8 @@
     <string name="settings_auto_export_folder_none">No folder selected</string>
     <string name="settings_auto_export_strava_note">Note: If you re-upload an edited workout to external services, you may need to delete the previous record first due to duplicate detection.</string>
 
-    <string name="settings_label_hr_interval">HR Sampling Interval</string>
+    <string name="settings_section_hr_interval">HR Sampling (Pebble)</string>
+    <string name="settings_label_hr_interval">Sampling Interval</string>
     <string name="settings_hr_interval_default">System Default</string>
     <string name="settings_hr_mode_stable">Stable Mode (OS Filtered)</string>
     <string name="settings_hr_mode_fast">Fast Mode (Raw Data + Smoothing)</string>

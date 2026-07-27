@@ -65,7 +65,7 @@ class PebbleCommandService : BasePebbleListenerService() {
         val hr = hrItem?.let { parsePebbleItemToInt(it) }
         if (hr != null) {
             Log.i("PebbleCommand", "Data: Heart Rate ($hr)")
-            KmpDependencies.trackerEngine.addHeartRate(hr)
+            KmpDependencies.trackerEngine.addHeartRate(hr, source = "PEBBLE")
         }
 
         val stepsItem = data[10010u]
@@ -116,10 +116,13 @@ class PebbleCommandService : BasePebbleListenerService() {
                         else -> Log.w("PebbleCommand", "UP ignored in $currentStatus")
                     }
                 }
-                2 -> { // SELECT ボタン (一時停止中): ワークアウトの終了
+                2 -> { // SELECT ボタン
                     if (currentStatus == RunStatus.PAUSED) {
                         Log.i("PebbleCommand", "FINISH command received via SELECT (Cmd 2)")
                         sendCommandToService("FINISH")
+                    } else if (currentStatus == RunStatus.ACTIVE) {
+                        Log.i("PebbleCommand", "Rotate Mid Data via SELECT (Cmd 2)")
+                        engine.rotateMidData()
                     }
                 }
                 0 -> { // SELECT ボタン (待機中): 設定モード

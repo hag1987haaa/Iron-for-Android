@@ -460,7 +460,9 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                     else stringResource(Res.string.detail_chart_hr_time_imperial)
                                 },
                                 data = displayRoute.mapNotNull { it.heartRate?.toFloat() }.downsample(100),
-                                color = Color(0xFFE91E63)
+                                color = Color(0xFFE91E63),
+                                minScale = 0f,
+                                maxScale = 200f
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             actionButtons()

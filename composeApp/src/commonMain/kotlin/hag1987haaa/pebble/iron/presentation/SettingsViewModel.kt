@@ -78,6 +78,24 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _hrSamplingInterval = MutableStateFlow(settings.hrSamplingInterval)
     val hrSamplingInterval: StateFlow<Int> = _hrSamplingInterval.asStateFlow()
 
+    private val _bleHeartRateDeviceAddress = MutableStateFlow(settings.bleHeartRateDeviceAddress)
+    val bleHeartRateDeviceAddress: StateFlow<String?> = _bleHeartRateDeviceAddress.asStateFlow()
+
+    private val _bleHeartRateDeviceName = MutableStateFlow(settings.bleHeartRateDeviceName)
+    val bleHeartRateDeviceName: StateFlow<String?> = _bleHeartRateDeviceName.asStateFlow()
+
+    private val _isBleHeartRateEnabled = MutableStateFlow(settings.isBleHeartRateEnabled)
+    val isBleHeartRateEnabled: StateFlow<Boolean> = _isBleHeartRateEnabled.asStateFlow()
+
+    private val _preferBleHeartRate = MutableStateFlow(settings.preferBleHeartRate)
+    val preferBleHeartRate: StateFlow<Boolean> = _preferBleHeartRate.asStateFlow()
+
+    private val _registeredBleHrDevices = MutableStateFlow(settings.registeredBleHrDevices)
+    val registeredBleHrDevices: StateFlow<List<String>> = _registeredBleHrDevices.asStateFlow()
+
+    private val _preferredBleHrAddress = MutableStateFlow(settings.preferredBleHrAddress)
+    val preferredBleHrAddress: StateFlow<String?> = _preferredBleHrAddress.asStateFlow()
+
     val isPrivacyMapModeEnabled: StateFlow<Boolean> = settings.isPrivacyMapModeEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), settings.isPrivacyMapModeEnabled)
 
@@ -206,6 +224,53 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.save()
         // ウォッチへ即座に同期（もし計測中なら反映させる）
         hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.triggerStatisticsUpdate()
+    }
+
+    fun updateBleHeartRateEnabled(enabled: Boolean) {
+        settings.isBleHeartRateEnabled = enabled
+        _isBleHeartRateEnabled.value = enabled
+        settings.save()
+    }
+
+    fun updatePreferBleHeartRate(prefer: Boolean) {
+        settings.preferBleHeartRate = prefer
+        _preferBleHeartRate.value = prefer
+        settings.save()
+    }
+
+    fun setBleHeartRateDevice(address: String?, name: String?) {
+        // 下位互換用の古いフィールドを更新
+        settings.bleHeartRateDeviceAddress = address
+        settings.bleHeartRateDeviceName = name
+        _bleHeartRateDeviceAddress.value = address
+        _bleHeartRateDeviceName.value = name
+        
+        // 登録済みリストに追加
+        if (address != null && name != null) {
+            val entry = "$address|$name"
+            if (entry !in settings.registeredBleHrDevices) {
+                settings.registeredBleHrDevices = settings.registeredBleHrDevices + entry
+                _registeredBleHrDevices.value = settings.registeredBleHrDevices
+            }
+        }
+        settings.save()
+    }
+
+    fun removeRegisteredBleHrDevice(address: String) {
+        settings.registeredBleHrDevices = settings.registeredBleHrDevices.filter { !it.startsWith(address) }
+        if (settings.preferredBleHrAddress == address) {
+            settings.preferredBleHrAddress = null
+            _preferredBleHrAddress.value = null
+        }
+        _registeredBleHrDevices.value = settings.registeredBleHrDevices
+        settings.save()
+    }
+
+    fun togglePreferredBleHrDevice(address: String) {
+        val next = if (settings.preferredBleHrAddress == address) null else address
+        settings.preferredBleHrAddress = next
+        _preferredBleHrAddress.value = next
+        settings.save()
     }
 
     fun refreshUris() {

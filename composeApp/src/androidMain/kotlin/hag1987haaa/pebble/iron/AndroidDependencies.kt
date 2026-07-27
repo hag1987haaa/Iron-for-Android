@@ -7,10 +7,13 @@ import hag1987haaa.pebble.iron.data.repository.SqlRunRepository
 import hag1987haaa.pebble.iron.db.DatabaseDriverFactory
 import hag1987haaa.pebble.iron.db.PebbleTrackerDatabase
 import hag1987haaa.pebble.iron.domain.settings.AppSettings
+import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.tracker.RunTrackerEngine
 import hag1987haaa.pebble.iron.health.HealthConnectManager
 import hag1987haaa.pebble.iron.location.AndroidLocationTracker
 import hag1987haaa.pebble.iron.pebble.AndroidPebbleMessenger
+import hag1987haaa.pebble.iron.ble.AndroidBleScanner
+import hag1987haaa.pebble.iron.ble.AndroidBleHeartRateManager
 import kotlinx.coroutines.MainScope
 
 @SuppressLint("StaticFieldLeak")
@@ -71,8 +74,18 @@ object AndroidDependencies {
         settings.autoExportTcxUri = prefs.getString("auto_export_tcx_uri", null)
         settings.autoExportGpxUri = prefs.getString("auto_export_gpx_uri", null)
         
-        // 心拍サンプリング間隔
         settings.hrSamplingInterval = prefs.getInt("hr_interval", 0)
+        settings.lastActivityType = prefs.getString("last_activity_type", ActivityType.RUNNING.name) ?: ActivityType.RUNNING.name
+        settings.lastMidDataId = prefs.getInt("last_mid_id", -1)
+        settings.lastGraphTypeId = prefs.getInt("last_graph_id", -1)
+
+        // BLE センサー設定
+        settings.bleHeartRateDeviceAddress = prefs.getString("ble_hr_address", null)
+        settings.bleHeartRateDeviceName = prefs.getString("ble_hr_name", null)
+        settings.registeredBleHrDevices = prefs.getString("ble_hr_registered", "")?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
+        settings.preferredBleHrAddress = prefs.getString("ble_hr_preferred", null)
+        settings.isBleHeartRateEnabled = prefs.getBoolean("ble_hr_enabled", false)
+        settings.preferBleHeartRate = prefs.getBoolean("ble_hr_prefer", true)
 
         // アプリバージョンの取得
         try {
@@ -118,6 +131,17 @@ object AndroidDependencies {
                 
                 // 心拍サンプリング間隔
                 putInt("hr_interval", settings.hrSamplingInterval)
+                putString("last_activity_type", settings.lastActivityType)
+                putInt("last_mid_id", settings.lastMidDataId)
+                putInt("last_graph_id", settings.lastGraphTypeId)
+
+                // BLE センサー設定
+                putString("ble_hr_address", settings.bleHeartRateDeviceAddress)
+                putString("ble_hr_name", settings.bleHeartRateDeviceName)
+                putString("ble_hr_registered", settings.registeredBleHrDevices.joinToString(","))
+                putString("ble_hr_preferred", settings.preferredBleHrAddress)
+                putBoolean("ble_hr_enabled", settings.isBleHeartRateEnabled)
+                putBoolean("ble_hr_prefer", settings.preferBleHeartRate)
 
                 apply()
             }
@@ -132,15 +156,19 @@ object AndroidDependencies {
         val database = PebbleTrackerDatabase(driver)
         val repository = SqlRunRepository(database)
 
+        val bleScanner = AndroidBleScanner(appContext)
+        val bleHeartRateManager = AndroidBleHeartRateManager(appContext)
+
         val engine = RunTrackerEngine(
             locationTracker = AndroidLocationTracker(appContext),
             runRepository = repository,
             pebbleMessenger = AndroidPebbleMessenger(appContext),
             appSettings = settings,
+            bleHrManager = bleHeartRateManager,
             scope = MainScope()
         )
         
-        KmpDependencies.setup(repository, engine, settings)
+        KmpDependencies.setup(repository, engine, settings, bleScanner, bleHeartRateManager)
         isInitialized = true
     }
 }

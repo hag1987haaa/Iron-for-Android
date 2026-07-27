@@ -7,4 +7,5 @@ import kotlinx.coroutines.flow.StateFlow
 
 class RunViewModel : ViewModel() {
     val statistics: StateFlow<RunStatistics> = KmpDependencies.trackerEngine.statistics
+    val isBleConnected: StateFlow<Boolean> = KmpDependencies.bleHeartRateManager.isConnected
 }

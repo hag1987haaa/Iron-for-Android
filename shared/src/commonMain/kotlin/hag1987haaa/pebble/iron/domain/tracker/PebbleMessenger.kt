@@ -27,6 +27,11 @@ interface PebbleMessenger {
     fun rotateGraphType(stats: RunStatistics)
 
     /**
+     * 中段の表示項目を次へ切り替えて再送する
+     */
+    fun rotateMidData(stats: RunStatistics)
+
+    /**
      * タッチ操作の設定をウォッチに送信する
      */
     fun sendTouchConfig(enabled: Boolean)

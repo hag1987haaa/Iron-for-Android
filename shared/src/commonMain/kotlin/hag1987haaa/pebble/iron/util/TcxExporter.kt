@@ -49,8 +49,20 @@ object TcxExporter {
         
         var prevSteps = 0
         var prevTime: Instant? = null
+        var accumulatedDistance = 0.0
+        var lastPt: hag1987haaa.pebble.iron.domain.model.LocationPoint? = null
 
         run.route.forEach { pt ->
+            // 距離の累積計算
+            val currentLastPt = lastPt
+            if (currentLastPt != null) {
+                accumulatedDistance += LocationUtils.calculateDistance(
+                    currentLastPt.latitude, currentLastPt.longitude,
+                    pt.latitude, pt.longitude
+                )
+            }
+            lastPt = pt
+
             sb.append("          <Trackpoint>\n")
             sb.append("            <Time>${pt.timestamp}</Time>\n")
             sb.append("            <Position>\n")
@@ -60,6 +72,9 @@ object TcxExporter {
             
             pt.altitude?.let { sb.append("            <AltitudeMeters>$it</AltitudeMeters>\n") }
             
+            // 累積距離を各ポイントに記録
+            sb.append("            <DistanceMeters>$accumulatedDistance</DistanceMeters>\n")
+
             // 心拍数
             pt.heartRate?.let {
                 if (it > 0) {

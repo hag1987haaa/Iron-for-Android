@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import hag1987haaa.pebble.iron.Res
 import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.domain.model.ActivityType
+import hag1987haaa.pebble.iron.theme.IronColors
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -20,15 +21,16 @@ fun ActivityType.getDisplayName(): String {
 }
 
 fun ActivityType.getPastelColor(): androidx.compose.ui.graphics.Color {
-    return when (this) {
-        ActivityType.RUNNING -> androidx.compose.ui.graphics.Color(0xFFFFD1D1) // Pastel Red
-        ActivityType.WALKING -> androidx.compose.ui.graphics.Color(0xFFD1FFD1) // Pastel Green
-        ActivityType.CYCLING -> androidx.compose.ui.graphics.Color(0xFFD1E8FF) // Pastel Blue
-        ActivityType.HIKING -> androidx.compose.ui.graphics.Color(0xFFF0E4D7) // Pastel Brown/Beige
-        ActivityType.KAYAKING -> androidx.compose.ui.graphics.Color(0xFFD1FFFF) // Pastel Cyan
-        ActivityType.ROWING -> androidx.compose.ui.graphics.Color(0xFFE8D1FF) // Pastel Lavender
-        ActivityType.OTHER -> androidx.compose.ui.graphics.Color(0xFFE5E5E5) // Pastel Grey
+    val hex = when (this) {
+        ActivityType.RUNNING -> IronColors.COLOR_RUNNING
+        ActivityType.WALKING -> IronColors.COLOR_WALKING
+        ActivityType.CYCLING -> IronColors.COLOR_CYCLING
+        ActivityType.HIKING -> IronColors.COLOR_HIKING
+        ActivityType.KAYAKING -> IronColors.COLOR_KAYAKING
+        ActivityType.ROWING -> IronColors.COLOR_ROWING
+        ActivityType.OTHER -> IronColors.COLOR_OTHER
     }
+    return androidx.compose.ui.graphics.Color(hex)
 }
 
 @Composable

@@ -18,10 +18,11 @@ fun SimpleLineChart(
     title: String,
     data: List<Float>,
     modifier: Modifier = Modifier,
-    color: Color = Color.Red
+    color: Color = Color.Red,
+    minScale: Float? = null,
+    maxScale: Float? = null
 ) {
-    // Explicit calculations to avoid unresolved references to extension functions
-    val minVal = if (data.isEmpty()) 0f else {
+    var rawMin = if (data.isEmpty()) 0f else {
         var min = data[0]
         for (i in 1 until data.size) {
             if (data[i] < min) min = data[i]
@@ -29,13 +30,16 @@ fun SimpleLineChart(
         min
     }
     
-    val maxVal = if (data.isEmpty()) 0f else {
+    var rawMax = if (data.isEmpty()) 0f else {
         var max = data[0]
         for (i in 1 until data.size) {
             if (data[i] > max) max = data[i]
         }
         max
     }
+
+    val effectiveMin = minScale?.let { if (rawMin < it) rawMin else it } ?: rawMin
+    val effectiveMax = maxScale?.let { if (rawMax > it) rawMax else it } ?: rawMax
     
     val avgVal = if (data.isEmpty()) 0f else {
         var sum = 0f
@@ -51,51 +55,74 @@ fun SimpleLineChart(
         ) {
             Text(text = title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
             
-            // 縦軸の値（最小、最大、平均）をヘッダー付近に表示
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Min: ${minVal.toInt()}", fontSize = 10.sp, color = Color.Gray)
+                Text("Min: ${rawMin.toInt()}", fontSize = 10.sp, color = Color.Gray)
                 Text("Avg: ${avgVal.toInt()}", fontSize = 10.sp, color = Color.Gray)
-                Text("Max: ${maxVal.toInt()}", fontSize = 10.sp, color = Color.Gray)
+                Text("Max: ${rawMax.toInt()}", fontSize = 10.sp, color = Color.Gray)
             }
         }
         
         Spacer(modifier = Modifier.height(8.dp))
         
         if (data.size < 2) {
-            Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
                 Text("データ不足", fontSize = 12.sp, color = Color.Gray)
             }
         } else {
-            Box(modifier = Modifier.fillMaxWidth().height(100.dp)) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val width = size.width
-                    val height = size.height
-                    val range = (maxVal - minVal).coerceAtLeast(1f)
+            Row(modifier = Modifier.fillMaxWidth().height(120.dp)) {
+                // メインのグラフエリア
+                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val width = size.width
+                        val height = size.height
+                        val range = (effectiveMax - effectiveMin).coerceAtLeast(1f)
 
-                    val path = Path().apply {
-                        data.forEachIndexed { index, value ->
-                            val x = index.toFloat() / (data.size - 1) * width
-                            val y = height - ((value - minVal) / range * height)
-                            if (index == 0) moveTo(x, y) else lineTo(x, y)
+                        // 1. 背景の水平補助線 (4分割)
+                        val gridCount = 4
+                        for (i in 0..gridCount) {
+                            val y = height - (i.toFloat() / gridCount * height)
+                            drawLine(
+                                color = Color.LightGray.copy(alpha = 0.4f),
+                                start = androidx.compose.ui.geometry.Offset(0f, y),
+                                end = androidx.compose.ui.geometry.Offset(width, y),
+                                strokeWidth = 1f
+                            )
                         }
+
+                        // 2. グラフ曲線
+                        val path = Path().apply {
+                            data.forEachIndexed { index, value ->
+                                val x = index.toFloat() / (data.size - 1) * width
+                                val y = height - ((value - effectiveMin) / range * height)
+                                if (index == 0) moveTo(x, y) else lineTo(x, y)
+                            }
+                        }
+                        
+                        drawPath(
+                            path = path,
+                            color = color,
+                            style = Stroke(width = 4f)
+                        )
                     }
-                    
-                    drawPath(
-                        path = path,
-                        color = color,
-                        style = Stroke(width = 4f)
-                    )
-                    
-                    // 補助線（上下）
-                    drawLine(Color.LightGray.copy(alpha = 0.5f), start = androidx.compose.ui.geometry.Offset(0f, 0f), end = androidx.compose.ui.geometry.Offset(width, 0f))
-                    drawLine(Color.LightGray.copy(alpha = 0.5f), start = androidx.compose.ui.geometry.Offset(0f, height), end = androidx.compose.ui.geometry.Offset(width, height))
+                }
+
+                // 3. 右端の縦軸数値
+                Column(
+                    modifier = Modifier.width(32.dp).fillMaxHeight(),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(text = effectiveMax.toInt().toString(), fontSize = 9.sp, color = Color.Gray)
+                    Text(text = ((effectiveMax + effectiveMin) / 2).toInt().toString(), fontSize = 9.sp, color = Color.Gray)
+                    Text(text = effectiveMin.toInt().toString(), fontSize = 9.sp, color = Color.Gray)
                 }
             }
             
-            // 横軸の時間を明示
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // 横軸のガイド
+            Row(modifier = Modifier.fillMaxWidth().padding(end = 32.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Start", fontSize = 10.sp, color = Color.Gray)
-                Text("Time (Workout Progress)", fontSize = 10.sp, color = Color.Gray)
                 Text("End", fontSize = 10.sp, color = Color.Gray)
             }
         }
@@ -143,27 +170,39 @@ fun SimpleBarChart(
                 Text("データ不足", fontSize = 12.sp, color = Color.Gray)
             }
         } else {
-            Box(modifier = Modifier.fillMaxWidth().height(100.dp)) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val width = size.width
-                    val height = size.height
-                    val range = maxVal.coerceAtLeast(1f)
-                    val barWidth = width / data.size
+            Row(modifier = Modifier.fillMaxWidth().height(100.dp)) {
+                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val width = size.width
+                        val height = size.height
+                        val range = maxVal.coerceAtLeast(1f)
+                        val barWidth = width / data.size
 
-                    data.forEachIndexed { index, value ->
-                        val barHeight = (value / range) * height
-                        drawRect(
-                            color = color,
-                            topLeft = androidx.compose.ui.geometry.Offset(index * barWidth, height - barHeight),
-                            size = androidx.compose.ui.geometry.Size(barWidth * 0.8f, barHeight)
-                        )
+                        data.forEachIndexed { index, value ->
+                            val barHeight = (value / range) * height
+                            drawRect(
+                                color = color,
+                                topLeft = androidx.compose.ui.geometry.Offset(index * barWidth, height - barHeight),
+                                size = androidx.compose.ui.geometry.Size(barWidth * 0.8f, barHeight)
+                            )
+                        }
+                        
+                        drawLine(Color.LightGray.copy(alpha = 0.5f), start = androidx.compose.ui.geometry.Offset(0f, height), end = androidx.compose.ui.geometry.Offset(width, height))
                     }
-                    
-                    drawLine(Color.LightGray.copy(alpha = 0.5f), start = androidx.compose.ui.geometry.Offset(0f, height), end = androidx.compose.ui.geometry.Offset(width, height))
+                }
+                
+                // バーチャート用の簡易的な目盛り
+                Column(
+                    modifier = Modifier.width(32.dp).fillMaxHeight(),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(text = maxVal.toInt().toString(), fontSize = 9.sp, color = Color.Gray)
+                    Text(text = "0", fontSize = 9.sp, color = Color.Gray)
                 }
             }
             
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(modifier = Modifier.fillMaxWidth().padding(end = 32.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Start", fontSize = 10.sp, color = Color.Gray)
                 Text("End", fontSize = 10.sp, color = Color.Gray)
             }

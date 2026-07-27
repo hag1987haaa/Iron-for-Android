@@ -39,8 +39,8 @@ actual fun PlatformMapView(
             setBuiltInZoomControls(false)
             setHasTransientState(true)
             
-            // 世界地図が複数並ぶのを防ぐ
-            setHorizontalMapRepetitionEnabled(false)
+            // 地図を水平方向にループさせる（世界の端で白くなるのを防ぐ）
+            setHorizontalMapRepetitionEnabled(true)
             setVerticalMapRepetitionEnabled(false)
             setScrollableAreaLimitLatitude(MapView.getTileSystem().maxLatitude, MapView.getTileSystem().minLatitude, 0)
 

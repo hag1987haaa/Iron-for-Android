@@ -63,7 +63,12 @@
     <string name="activity_rowing">ボート</string>
     <string name="activity_other">その他</string>
 
-    <string name="settings_title">設定</string>
+    <string name="settings_tab_phone">スマホ設定</string>
+    <string name="settings_tab_watch">ウォッチ設定</string>
+    <string name="settings_tab_sensors">センサー</string>
+    <string name="settings_section_sensor_priority">記録データの優先順位</string>
+    <string name="settings_label_ble_hr_priority">心拍計測に外部BLEセンサーを優先</string>
+    <string name="settings_desc_ble_hr_priority">外部センサー接続時はその値を優先して記録します。未接続や数値が届かない場合は、Pebble内蔵心拍計に自動で切り替わります。</string>
     <string name="settings_section_device">デバイス連携</string>
     <string name="settings_pebble_app_title">Pebble 管理アプリの選択</string>
     <string name="settings_pebble_app_desc">通信に使用するアプリ（Coreapp/Cobble等）を指定します</string>
@@ -236,7 +241,9 @@
     <string name="settings_mid_item_dist">走行距離</string>
     <string name="settings_mid_item_steps">累積歩数</string>
     <string name="settings_mid_item_alt">現在高度</string>
-    <string name="settings_mid_item_hr">心拍数</string>
+    <string name="settings_mid_item_hr">心拍数 (記録用メイン)</string>
+    <string name="settings_mid_item_hr_ble">心拍数 (外部BLE)</string>
+    <string name="settings_mid_item_hr_watch">心拍数 (Pebble)</string>
     <string name="settings_mid_item_cal">消費カロリー</string>
     <string name="settings_mid_item_avg_pace">平均ペース (全体)</string>
     <string name="settings_mid_item_speed">現在速度</string>
@@ -274,7 +281,8 @@
     <string name="settings_auto_export_folder_none">フォルダが未選択です</string>
     <string name="settings_auto_export_strava_note">※外部サービス等へ再アップロードする際は、重複検知を避けるため古い記録を先に削除してください。</string>
 
-    <string name="settings_label_hr_interval">心拍サンプリング間隔</string>
+    <string name="settings_section_hr_interval">心拍サンプリング設定 (Pebble)</string>
+    <string name="settings_label_hr_interval">サンプリング周期</string>
     <string name="settings_hr_interval_default">システムのデフォルト</string>
     <string name="settings_hr_mode_stable">安定モード (OSフィルタ済)</string>
     <string name="settings_hr_mode_fast">高速モード (生データ+スムージング)</string>

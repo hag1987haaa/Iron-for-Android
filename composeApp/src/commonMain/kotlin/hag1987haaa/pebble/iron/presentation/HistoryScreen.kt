@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,6 +32,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
+import hag1987haaa.pebble.iron.theme.IronColors
 import hag1987haaa.pebble.iron.util.getDisplayName
 import hag1987haaa.pebble.iron.util.getMonthName
 import hag1987haaa.pebble.iron.util.getPastelColor
@@ -374,7 +374,7 @@ private fun MonthlyCalendarView(viewModel: HistoryViewModel, calDate: LocalDate,
                                         .background(
                                             when {
                                                 isSelected -> MaterialTheme.colorScheme.primaryContainer
-                                                hasRuns -> Color(0xFF333333)
+                                                hasRuns -> Color(IronColors.TEXT_ON_PASTEL)
                                                 else -> Color.Transparent
                                             }
                                         )
@@ -389,7 +389,7 @@ private fun MonthlyCalendarView(viewModel: HistoryViewModel, calDate: LocalDate,
                                         color = when {
                                             isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
                                             hasRuns -> Color.White
-                                            else -> Color(0xFF333333)
+                                            else -> Color(IronColors.TEXT_ON_PASTEL)
                                         }
                                     )
                                     Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -463,7 +463,7 @@ private fun WeeklyCalendarView(viewModel: HistoryViewModel, calDate: LocalDate, 
                         color = when {
                             isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
                             hasRuns -> Color.White
-                            else -> Color(0xFF333333)
+                            else -> Color(IronColors.TEXT_ON_PASTEL)
                         }
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -480,7 +480,7 @@ private fun WeeklyCalendarView(viewModel: HistoryViewModel, calDate: LocalDate, 
 @Composable
 private fun HistoryListItem(run: RunActivity, onRunSelected: (Long) -> Unit, onDelete: () -> Unit) {
     val bgColor = run.type.getPastelColor()
-    val contentColor = Color(0xFF333333)
+    val contentColor = Color(IronColors.TEXT_ON_PASTEL)
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clickable { onRunSelected(run.id) },

@@ -38,6 +38,9 @@ kotlin {
             implementation(libs.kotlinx.coroutines.android)
             implementation("androidx.documentfile:documentfile:1.0.1")
             implementation(libs.osmdroid)
+            implementation(libs.nordic.scanner)
+            implementation(libs.nordic.ble)
+            implementation(libs.nordic.ble.ktx)
             implementation(libs.pebblekit2)
             implementation(libs.pebblekit2.ui)
         }
@@ -47,13 +50,13 @@ kotlin {
 android {
     @Suppress("ComposeModifierMissing")
     namespace = "hag1987haaa.pebble.iron"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         applicationId = "hag1987haaa.pebble.iron"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 17
-        versionName = "1.1.6"
+        targetSdk = 36
+        versionCode = 18
+        versionName = "2.0.0"
         
         // ネイティブライブラリ（SQLCipher等）のデバッグシンボルをAABに含める設定
         ndk {

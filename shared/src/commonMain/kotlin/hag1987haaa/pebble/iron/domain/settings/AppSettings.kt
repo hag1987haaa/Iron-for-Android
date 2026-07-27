@@ -3,6 +3,7 @@ package hag1987haaa.pebble.iron.domain.settings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import hag1987haaa.pebble.iron.domain.model.ActivityType
 
 class AppSettings {
     var isMusicControlEnabled: Boolean = false
@@ -63,6 +64,21 @@ class AppSettings {
 
     // 心拍サンプリング間隔 (0: システムデフォルト, 1, 10, 30, etc.)
     var hrSamplingInterval: Int = 0
+
+    // 最後に使用したアクティビティ種別
+    var lastActivityType: String = ActivityType.RUNNING.name
+
+    // 最後に表示していた項目のID (保存用)
+    var lastMidDataId: Int = -1
+    var lastGraphTypeId: Int = -1
+
+    // BLE センサー設定
+    var bleHeartRateDeviceAddress: String? = null // 下位互換用（現在選択中または最後に繋がったもの）
+    var bleHeartRateDeviceName: String? = null
+    var registeredBleHrDevices: List<String> = emptyList() // "address|name" のリスト
+    var preferredBleHrAddress: String? = null // 明示的に固定されたデバイスのアドレス
+    var isBleHeartRateEnabled: Boolean = false
+    var preferBleHeartRate: Boolean = true // BLEセンサーがある場合はPebbleより優先する
 
     // プラットフォーム固有の保存処理用コールバック
     var onSettingsChanged: (() -> Unit)? = null
