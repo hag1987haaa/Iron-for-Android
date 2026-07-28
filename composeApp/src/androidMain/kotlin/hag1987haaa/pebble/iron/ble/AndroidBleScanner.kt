@@ -55,29 +55,28 @@ class AndroidBleScanner(private val context: Context) : BleScanner {
     }
 
     override fun startScan(serviceUuid: String?) {
-        // 安全のため、既にスキャン中であれば一度停止してリセットする
         if (_isScanning.value) {
             stopScan()
         }
         
         _foundDevices.value = emptyList()
         
+        // Legacy（古い広告形式）を許可して発見率を上げる
         val settings = ScanSettings.Builder()
-            .setLegacy(false)
+            .setLegacy(true)
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .setReportDelay(0)
             .setUseHardwareBatchingIfSupported(true)
             .build()
             
         val filters = mutableListOf<ScanFilter>()
-        if (serviceUuid != null) {
-            filters.add(ScanFilter.Builder().setServiceUuid(ParcelUuid.fromString(serviceUuid)).build())
-        }
+        // 心拍計サービス (0x180D) を持っているデバイスのみに厳選
+        filters.add(ScanFilter.Builder().setServiceUuid(ParcelUuid.fromString("0000180d-0000-1000-8000-00805f9b34fb")).build())
 
         try {
             scanner.startScan(filters, settings, scanCallback)
             _isScanning.value = true
-            Log.i("AndroidBleScanner", "Scan started with filter: $serviceUuid")
+            Log.i("AndroidBleScanner", "Scan started with HR Filter")
         } catch (e: Exception) {
             Log.e("AndroidBleScanner", "Failed to start scan", e)
         }

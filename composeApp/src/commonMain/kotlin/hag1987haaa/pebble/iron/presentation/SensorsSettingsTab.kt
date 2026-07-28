@@ -30,14 +30,33 @@ fun SensorsSettingsTab(settingsViewModel: SettingsViewModel) {
     
     val registeredDevices by settingsViewModel.registeredBleHrDevices.collectAsState()
     val preferredAddress by settingsViewModel.preferredBleHrAddress.collectAsState()
+    val isBleHrEnabled by settingsViewModel.isBleHeartRateEnabled.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        // --- 1. マスター・スイッチ ---
+        Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "Enable BLE Sensors", style = MaterialTheme.typography.titleMedium)
+                    Text(text = "Allow Iron to use external heart rate monitors.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                }
+                Switch(checked = isBleHrEnabled, onCheckedChange = { settingsViewModel.updateBleHeartRateEnabled(it) })
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // --- 2. スキャン操作 ---
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(text = "Manage Sensors", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
             if (isScanning) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                TextButton(onClick = { sensorViewModel.stopScan() }) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Stop Scan")
+                }
             } else {
-                Button(onClick = { sensorViewModel.startHrScan() }) {
+                Button(onClick = { sensorViewModel.startHrScan() }, enabled = isBleHrEnabled) {
                     Icon(Icons.Default.BluetoothSearching, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Scan")
@@ -45,9 +64,9 @@ fun SensorsSettingsTab(settingsViewModel: SettingsViewModel) {
             }
         }
         
-        Spacer(Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Registered Devices List
+        // --- 3. 登録済みデバイス一覧 ---
         Text("Registered Devices", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
         if (registeredDevices.isEmpty()) {
             Surface(tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -91,7 +110,9 @@ fun SensorsSettingsTab(settingsViewModel: SettingsViewModel) {
                         trailingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(contentAlignment = Alignment.Center, modifier = Modifier.size(40.dp)) {
-                                    if (isConnected && isDataActive && KmpDependencies.appSettings.bleHeartRateDeviceAddress == address) {
+                                    // settingsViewModel の StateFlow を通じて現在のアドレスを監視
+                                    val currentActiveAddr by settingsViewModel.bleHeartRateDeviceAddress.collectAsState()
+                                    if (isConnected && isDataActive && currentActiveAddr == address) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                             Text(heartRateBpm.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(IronColors.HEART_RATE_PINK))
                                             Text("BPM", fontSize = 7.sp, color = Color(IronColors.HEART_RATE_PINK), fontWeight = FontWeight.Bold)
@@ -109,21 +130,24 @@ fun SensorsSettingsTab(settingsViewModel: SettingsViewModel) {
             }
         }
 
-        Spacer(Modifier.height(24.dp))
-        Text("Available Devices (Scan Results)", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+        Spacer(modifier = Modifier.height(24.dp))
         
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            items(foundDevices) { device ->
-                if (registeredDevices.none { it.startsWith(device.address) }) {
-                    ListItem(
-                        headlineContent = { Text(device.name ?: "Unknown Device") },
-                        supportingContent = { Text(device.address) },
-                        modifier = Modifier.clickable { 
-                            settingsViewModel.setBleHeartRateDevice(device.address, device.name)
-                            sensorViewModel.connectDevice(device.address)
-                        },
-                        trailingContent = { Icon(Icons.Default.Add, null) }
-                    )
+        // --- 4. スキャン結果 ---
+        if (isScanning) {
+            Text("Available Devices (Scan Results)", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(foundDevices) { device ->
+                    if (registeredDevices.none { it.startsWith(device.address) }) {
+                        ListItem(
+                            headlineContent = { Text(device.name ?: "Unknown Device") },
+                            supportingContent = { Text(device.address) },
+                            modifier = Modifier.clickable { 
+                                settingsViewModel.setBleHeartRateDevice(device.address, device.name)
+                                sensorViewModel.connectDevice(device.address)
+                            },
+                            trailingContent = { Icon(Icons.Default.Add, null) }
+                        )
+                    }
                 }
             }
         }

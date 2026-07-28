@@ -14,7 +14,7 @@ import no.nordicsemi.android.ble.BleManager
 import no.nordicsemi.android.ble.observer.ConnectionObserver
 import java.util.UUID
 
-class AndroidBleHeartRateManager(context: Context) : BleHeartRateManager {
+class AndroidBleHeartRateManager(private val context: Context) : BleHeartRateManager {
     
     private val manager = HeartRateBleManager(context)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -33,50 +33,86 @@ class AndroidBleHeartRateManager(context: Context) : BleHeartRateManager {
 
     init {
         manager.connectionObserver = object : ConnectionObserver {
-            override fun onDeviceConnecting(device: BluetoothDevice) {}
-            override fun onDeviceConnected(device: BluetoothDevice) {}
+            override fun onDeviceConnecting(device: BluetoothDevice) {
+                Log.i("BleHR", "Connecting to ${device.address}...")
+            }
+            override fun onDeviceConnected(device: BluetoothDevice) {
+                Log.i("BleHR", "Connected to ${device.address}")
+            }
             override fun onDeviceFailedToConnect(device: BluetoothDevice, reason: Int) {
+                Log.e("BleHR", "Failed to connect to ${device.address}, reason: $reason")
                 _isConnected.value = false
                 _isDataActive.value = false
             }
             override fun onDeviceReady(device: BluetoothDevice) {
+                Log.i("BleHR", "Device ${device.address} is READY")
                 _isConnected.value = true
             }
             override fun onDeviceDisconnecting(device: BluetoothDevice) {}
             override fun onDeviceDisconnected(device: BluetoothDevice, reason: Int) {
+                Log.w("BleHR", "Disconnected from ${device.address}, reason: $reason")
                 _isConnected.value = false
                 _isDataActive.value = false
                 _heartRateBpm.value = 0
+
+                // 意図しない切断の場合、autoConnect(true)で再接続を試み続ける
+                if (reason != ConnectionObserver.REASON_SUCCESS) {
+                    Log.i("BleHR", "Attempting background auto-reconnect...")
+                    connect(device.address, useAutoConnect = true)
+                }
             }
         }
     }
 
     private fun resetDataTimeout() {
-        _isDataActive.value = true
+        if (!_isDataActive.value) {
+            _isDataActive.value = true
+        }
         dataTimeoutJob?.cancel()
         dataTimeoutJob = scope.launch {
-            delay(10000) // 10秒間データが来なければ非アクティブとする
-            _isDataActive.value = false
-            _heartRateBpm.value = 0
-            Log.w("BleHR", "Data timeout - No HR broadcast received for 10s")
+            delay(12000)
+            if (_isDataActive.value) {
+                _isDataActive.value = false
+                _heartRateBpm.value = 0
+                Log.w("BleHR", "Data timeout - No HR data")
+            }
         }
     }
 
     override fun connect(address: String) {
-        // すでに接続中または同じアドレスへの接続試行中なら何もしない
-        if (_isConnected.value && currentDeviceAddress == address) return
+        connect(address, useAutoConnect = false)
+    }
+
+    /**
+     * 接続のコアロジック。
+     * @param useAutoConnect true の場合、Android OS がデバイスを永続的に探し続け、見つかった瞬間に繋ぐ。
+     */
+    private fun connect(address: String, useAutoConnect: Boolean) {
+        if (_isConnected.value && currentDeviceAddress == address && !useAutoConnect) {
+            return
+        }
         
+        Log.i("BleHR", "Initiating connection to $address (AutoConnect=$useAutoConnect)")
         val bluetoothAdapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter()
-        val device = bluetoothAdapter.getRemoteDevice(address)
-        currentDeviceAddress = address
-        
-        manager.connect(device)
-            .retry(3, 100)
-            .useAutoConnect(true)
-            .enqueue()
+        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) return
+
+        try {
+            val device = bluetoothAdapter.getRemoteDevice(address)
+            currentDeviceAddress = address
+            
+            manager.connect(device)
+                .retry(10, 500) // 再試行回数を増やして粘り強く
+                .useAutoConnect(useAutoConnect)
+                .timeout(15000)
+                .enqueue()
+        } catch (e: Exception) {
+            Log.e("BleHR", "Connect error: ${e.message}")
+        }
     }
 
     override fun disconnect() {
+        Log.i("BleHR", "Disconnecting")
+        // 切断時は明示的にアドレスをクリアしないことで、OSの再接続キューから外れるのを防ぐ
         manager.disconnect().enqueue()
     }
 
@@ -85,10 +121,10 @@ class AndroidBleHeartRateManager(context: Context) : BleHeartRateManager {
         _isConnected.value = false
         _isDataActive.value = false
         _heartRateBpm.value = 0
+        currentDeviceAddress = null
     }
 
     private inner class HeartRateBleManager(context: Context) : BleManager(context) {
-        
         private var hrCharacteristic: BluetoothGattCharacteristic? = null
 
         override fun getGattCallback(): BleManagerGattCallback = object : BleManagerGattCallback() {
@@ -106,7 +142,6 @@ class AndroidBleHeartRateManager(context: Context) : BleHeartRateManager {
                             _heartRateBpm.value = bpm
                             resetDataTimeout()
                         }
-                        Log.d("BleHR", "Received BPM: $bpm")
                     }
                 enableNotifications(hrCharacteristic).enqueue()
             }
@@ -115,6 +150,8 @@ class AndroidBleHeartRateManager(context: Context) : BleHeartRateManager {
                 hrCharacteristic = null
             }
         }
+
+        override fun shouldClearCacheWhenDisconnected(): Boolean = true
     }
 
     private fun parseHeartRate(data: ByteArray?): Int {
@@ -122,9 +159,9 @@ class AndroidBleHeartRateManager(context: Context) : BleHeartRateManager {
         val flag = data[0].toInt()
         val format = flag and 0x01
         return if (format == 0) {
-            data[1].toInt() and 0xFF
+            if (data.size < 2) 0 else data[1].toInt() and 0xFF
         } else {
-            ((data[2].toInt() and 0xFF) shl 8) or (data[1].toInt() and 0xFF)
+            if (data.size < 3) 0 else ((data[2].toInt() and 0xFF) shl 8) or (data[1].toInt() and 0xFF)
         }
     }
 
