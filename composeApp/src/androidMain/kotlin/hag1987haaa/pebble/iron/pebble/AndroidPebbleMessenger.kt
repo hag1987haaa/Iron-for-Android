@@ -26,8 +26,6 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
     private var nextMidDataRequest: PebbleMessageRequest? = null
 
     private var cachedSender: DefaultPebbleSender? = null
-
-    // 現在表示中の項目ID
     private var currentMidDataId: Int = -1
     private var currentGraphTypeId: Int = -1
 
@@ -45,7 +43,6 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         private const val KEY_TYPE = 10012u 
         private const val KEY_MID_DATA = 10013u 
         private const val KEY_HR_INTERVAL = 10014u 
-        
         private const val SEND_TIMEOUT_MS = 2500L
     }
 
@@ -111,6 +108,10 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
 
     override fun sendStatistics(stats: RunStatistics) {
         val settings = KmpDependencies.appSettings
+        if (stats.status == RunStatus.IDLE) {
+            currentMidDataId = -1
+            currentGraphTypeId = -1
+        }
         syncIdsFromSettings(settings)
 
         val dict = mapOf(
@@ -128,17 +129,12 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
     }
 
     private fun syncIdsFromSettings(settings: hag1987haaa.pebble.iron.domain.settings.AppSettings) {
-        // メモリ上にない場合は設定からロード
         if (currentMidDataId == -1) currentMidDataId = settings.lastMidDataId
         if (currentGraphTypeId == -1) currentGraphTypeId = settings.lastGraphTypeId
-
         val enabledMid = settings.enabledMidTypes
-        // ★重要: 現在表示しようとしているIDが、ユーザーが有効にしているリストにあるかチェック
-        // なければ（一時停止中のコックピットID 99など）、リストの先頭を採用する
         if (currentMidDataId == -1 || currentMidDataId !in enabledMid) {
             currentMidDataId = enabledMid.firstOrNull() ?: -1
         }
-
         val enabledGraphs = settings.enabledGraphTypes
         if (currentGraphTypeId == -1 || currentGraphTypeId !in enabledGraphs) {
             currentGraphTypeId = enabledGraphs.firstOrNull() ?: -1
@@ -149,28 +145,21 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         val settings = KmpDependencies.appSettings
         val enabledTypes = settings.enabledMidTypes
         if (enabledTypes.isEmpty()) return
-
-        // 全ページの文字列を生成
-        val allPages = enabledTypes.mapNotNull { typeId -> generateMidPageString(typeId, stats, settings) }
-        if (allPages.isEmpty()) return
-
-        // 表示すべきIDのインデックスを探す
-        val targetIdx = enabledTypes.indexOf(currentMidDataId).coerceAtLeast(0)
+        val basePages = enabledTypes.mapNotNull { typeId -> generateMidPageString(typeId, stats, settings) }
+        if (basePages.isEmpty()) return
+        val currentIdxInSettings = enabledTypes.indexOf(currentMidDataId).coerceAtLeast(0)
 
         val finalPages = if (stats.status == RunStatus.PAUSED) {
-            // 一時停止中はコックピット(99)を先頭にするが、currentMidDataIdは変更しない！
             val cockpitPage = generateMidPageString(99, stats, settings)
             if (cockpitPage != null) {
-                listOf(cockpitPage) + allPages.filter { !it.contains(",DETAIL,") }
-            } else allPages
+                listOf(cockpitPage) + basePages.filter { !it.contains(",DETAIL,") }
+            } else basePages
         } else {
-            // 通常時はお気に入りIDが先頭に来るようにリストを回転
-            allPages.drop(targetIdx) + allPages.take(targetIdx)
+            basePages.drop(currentIdxInSettings) + basePages.take(currentIdxInSettings)
         }
 
         val midDataString = finalPages.joinToString("|")
-        val dict = mapOf(KEY_MID_DATA to PebbleDictionaryItem.Text(midDataString))
-        nextMidDataRequest = PebbleMessageRequest("MID_DATA", dict)
+        nextMidDataRequest = PebbleMessageRequest("MID_DATA", mapOf(KEY_MID_DATA to PebbleDictionaryItem.Text(midDataString)))
     }
 
     private fun generateMidPageString(typeId: Int, stats: RunStatistics, settings: hag1987haaa.pebble.iron.domain.settings.AppSettings): String? {
@@ -211,15 +200,10 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         val settings = KmpDependencies.appSettings
         val enabled = settings.enabledMidTypes
         if (enabled.isEmpty()) return
-
-        // リストの中から現在のIDの次を探す
         val currentIdx = enabled.indexOf(currentMidDataId)
         val nextIdx = (currentIdx + 1) % enabled.size
         val nextId = enabled[nextIdx]
-
         currentMidDataId = nextId
-        
-        // ★重要: リストにある正規のIDなら永続化。99（コックピット）などは保存しない。
         if (nextId in enabled && nextId != 99) {
             settings.lastMidDataId = nextId
             settings.save()
@@ -231,11 +215,9 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         val settings = KmpDependencies.appSettings
         val enabled = settings.enabledGraphTypes
         if (enabled.isEmpty()) return
-
         val currentIdx = enabled.indexOf(currentGraphTypeId)
         val nextIdx = (currentIdx + 1) % enabled.size
         val nextId = enabled[nextIdx]
-
         currentGraphTypeId = nextId
         if (nextId in enabled) {
             settings.lastGraphTypeId = nextId
@@ -250,7 +232,6 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
             syncIdsFromSettings(settings)
             val enabled = settings.enabledGraphTypes
             if (enabled.isEmpty()) return@launch
-
             val typeToSend = if (currentGraphTypeId in enabled) currentGraphTypeId else enabled[0]
             val unifiedGraph = GraphDataGenerator.generateUnifiedGraph(stats, typeToSend)
             commandQueue.trySend(PebbleMessageRequest("GRAPH", mapOf(KEY_GRAPH_DATA to PebbleDictionaryItem.Text(unifiedGraph))))
@@ -315,7 +296,16 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
 
     override fun sendState(status: RunStatus) {
         val dict = mapOf(KEY_CMD to PebbleDictionaryItem.Int32(1), KEY_STATE to PebbleDictionaryItem.Int32(mapToPebbleState(status)))
-        commandQueue.trySend(PebbleMessageRequest("STATE", dict, retryCount = 3))
+        
+        // 状態変更を最優先で送信
+        commandQueue.trySend(PebbleMessageRequest("STATE_CHANGE", dict, retryCount = 5))
+        
+        // 重要: 状態が変わった直後には、その状態にふさわしい表示リストを即座に再送する
+        // 例: 一時停止ならコックピット表示、再開ならお気に入り表示を Pebble に認識させる
+        scope.launch {
+            delay(100) 
+            KmpDependencies.trackerEngine.triggerStatisticsUpdate()
+        }
     }
 
     override fun sendFullSync(stats: RunStatistics) {

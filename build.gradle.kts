@@ -13,8 +13,9 @@ plugins {
 subprojects {
     configurations.all {
         resolutionStrategy.eachDependency {
+            // org.jetbrains.kotlinx (コルーチン等) は除外して、本体のみを固定
             if (requested.group == "org.jetbrains.kotlin") {
-                useVersion("2.1.0")
+                useVersion("2.2.10")
             }
             // API 36 を要求するトラブルを避けるため、実績のある安定版に固定
             if (requested.group == "androidx.core") {
