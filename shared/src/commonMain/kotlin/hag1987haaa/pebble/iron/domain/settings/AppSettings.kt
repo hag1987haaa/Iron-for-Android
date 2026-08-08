@@ -49,10 +49,10 @@ class AppSettings {
     var enabledGraphTypes: List<Int> = listOf(0, 1, 2, 3, 4, 5)
 
     /**
-     * 自動通知設定 (0 は無効)
+     * 自動通知設定 (0.0 は無効, 1.0 は 1km または 1mi)
      */
-    var notificationDistanceMeters: Int = 1000 // デフォルト1km
-    var notificationTimeSeconds: Int = 0 // デフォルト無効
+    var notificationDistanceStep: Float = 1.0f 
+    var notificationTimeSeconds: Int = 0
     var isAutoLaunchOnDistanceNotificationEnabled: Boolean = false // 距離通知時にIronを強制起動
     var isAutoLaunchOnTimeNotificationEnabled: Boolean = false // 時間通知時にIronを強制起動
 
@@ -68,9 +68,13 @@ class AppSettings {
     // 最後に使用したアクティビティ種別
     var lastActivityType: String = ActivityType.RUNNING.name
 
-    // 最後に表示していた項目のID (保存用)
+    // 最後に使用した表示インデックス
     var lastMidDataId: Int = -1
     var lastGraphTypeId: Int = -1
+
+    // 最後に開いていたタブの状態
+    var lastSettingsTabName: String = "PHONE"
+    var lastHistoryViewModeName: String = "SCROLL"
 
     // BLE センサー設定
     var bleHeartRateDeviceAddress: String? = null // 下位互換用（現在選択中または最後に繋がったもの）

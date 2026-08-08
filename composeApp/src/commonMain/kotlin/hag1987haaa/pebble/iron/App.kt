@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -17,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,17 +31,9 @@ import androidx.compose.runtime.collectAsState
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
 import hag1987haaa.pebble.iron.domain.tracker.RunState
-import hag1987haaa.pebble.iron.presentation.AppActions
-import hag1987haaa.pebble.iron.presentation.DetailScreen
-import hag1987haaa.pebble.iron.presentation.HistoryScreen
-import hag1987haaa.pebble.iron.presentation.SettingsScreen
-import hag1987haaa.pebble.iron.presentation.RunViewModel
-import hag1987haaa.pebble.iron.presentation.RouteMapView
-import hag1987haaa.pebble.iron.presentation.BackPressHandler
-import hag1987haaa.pebble.iron.util.getDisplayName
+import hag1987haaa.pebble.iron.presentation.*
 import hag1987haaa.pebble.iron.theme.IronColors
-import androidx.compose.ui.platform.LocalUriHandler
-import hag1987haaa.pebble.iron.presentation.LicenseScreen
+import hag1987haaa.pebble.iron.util.getDisplayName
 import org.jetbrains.compose.resources.stringResource
 import kotlinx.datetime.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -88,7 +82,13 @@ fun App(actions: AppActions) {
     MaterialTheme {
         NavHost(navController = navController, startDestination = "main") {
             composable("main?tab={tab}") { backStackEntry ->
-                val tabIndex = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: 0
+                val settings = KmpDependencies.appSettings
+                val initialTab = try {
+                    SettingsTab.valueOf(settings.lastSettingsTabName).ordinal
+                } catch (e: Exception) { 0 }
+
+                val tabIndex = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: initialTab
+
                 MainScreen(
                     navController = navController,
                     actions = actions,
@@ -108,22 +108,23 @@ fun App(actions: AppActions) {
                     actions = actions,
                     onBack = {
                         if (runId == -1L) {
+                            // 終了直後のサマリーから戻る場合は、履歴タブ(tab=1)へ
                             navController.navigate("main?tab=1") {
-                                popUpTo(navController.graph.id) {
-                                    inclusive = true
-                                }
+                                popUpTo("main") { inclusive = true }
                             }
                         } else {
-                            navController.popBackStack()
+                            // 履歴リストから入った場合は、元の履歴タブへ戻る
+                            // もしスタックが怪しい場合でも tab=1 を指定して戻る
+                            navController.navigate("main?tab=1") {
+                                popUpTo("main") { inclusive = true }
+                            }
                         }
                     }
                 )
             }
             composable("licenses") {
                 LicenseScreen(onBack = { 
-                    navController.navigate("main?tab=2") {
-                        popUpTo("main") { inclusive = true }
-                    }
+                    navController.popBackStack()
                 })
             }
         }
@@ -139,19 +140,13 @@ fun MainScreen(
     onRunSelected: (Long) -> Unit, 
     onShowLicenses: () -> Unit
 ) {
-    var currentTab by rememberSaveable { mutableIntStateOf(initialTab) }
-    val status by RunState.status.collectAsState()
-
-    BackPressHandler(enabled = currentTab != 0) {
-        currentTab = 0
-        navController.navigate("main?tab=0") {
-            popUpTo("main?tab=0") { inclusive = true }
-        }
-    }
+    val viewModel: SettingsViewModel = viewModel { SettingsViewModel(KmpDependencies.appSettings) }
+    var currentTabIdx by rememberSaveable { mutableIntStateOf(initialTab) }
 
     val onTabSelected: (Int) -> Unit = { index ->
-        if (currentTab != index) {
-            currentTab = index
+        if (currentTabIdx != index) {
+            currentTabIdx = index
+            // メインタブの遷移時にサブタブの状態を壊さないようにする
             navController.navigate("main?tab=$index") {
                 popUpTo("main?tab=0") { saveState = true }
                 launchSingleTop = true
@@ -161,12 +156,12 @@ fun MainScreen(
     }
 
     LaunchedEffect(initialTab) {
-        currentTab = initialTab
+        currentTabIdx = initialTab
     }
 
     Scaffold(
         topBar = {
-            if (currentTab == 1) {
+            if (currentTabIdx == 1) {
                 TopAppBar(
                     title = { Text(stringResource(Res.string.nav_history)) },
                     actions = {
@@ -183,28 +178,28 @@ fun MainScreen(
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
-                    selected = currentTab == 0,
+                    selected = currentTabIdx == 0,
                     onClick = { onTabSelected(0) },
-                    icon = { Icon(Icons.Default.Home, stringResource(Res.string.nav_home)) },
+                    icon = { Icon(Icons.Default.DirectionsRun, null) },
                     label = { Text(stringResource(Res.string.nav_home)) }
                 )
                 NavigationBarItem(
-                    selected = currentTab == 1,
+                    selected = currentTabIdx == 1,
                     onClick = { onTabSelected(1) },
-                    icon = { Icon(Icons.Default.List, stringResource(Res.string.nav_history)) },
+                    icon = { Icon(Icons.Default.History, null) },
                     label = { Text(stringResource(Res.string.nav_history)) }
                 )
                 NavigationBarItem(
-                    selected = currentTab == 2,
+                    selected = currentTabIdx == 2,
                     onClick = { onTabSelected(2) },
-                    icon = { Icon(Icons.Default.Settings, stringResource(Res.string.nav_settings)) },
+                    icon = { Icon(Icons.Default.Settings, null) },
                     label = { Text(stringResource(Res.string.nav_settings)) }
                 )
             }
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
-            when (currentTab) {
+            when (currentTabIdx) {
                 0 -> RunScreen(actions)
                 1 -> HistoryScreen(actions, onRunSelected = onRunSelected)
                 2 -> SettingsScreen(actions = actions, onShowLicenses = onShowLicenses)
@@ -218,6 +213,7 @@ fun RunScreen(actions: AppActions) {
     val viewModel: RunViewModel = viewModel { RunViewModel() }
     val stats by viewModel.statistics.collectAsState()
     val status by RunState.status.collectAsState()
+    val isMetric = KmpDependencies.appSettings.isMetric
     
     val privacyModeFlow = remember {
         try {
@@ -301,9 +297,8 @@ fun RunScreen(actions: AppActions) {
                 }
             }
 
-            // 2. メイン表示エリア (中央揃えを維持)
+            // 2. メイン表示エリア
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                // 背景層: メインの統計情報
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -315,17 +310,14 @@ fun RunScreen(actions: AppActions) {
                     if (status != RunStatus.IDLE) {
                         val gpsStatusColor = if (stats.hasGpsFix) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                         Text(
-                            text = if (stats.hasGpsFix) stringResource(Res.string.run_gps_fixed) else stringResource(Res.string.run_gps_searching), 
+                            text = if (stats.hasGpsFix) "GPS FIXED" else "SEARCHING GPS...", 
                             color = gpsStatusColor, 
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleMedium
                         )
                     } else {
-                        Text(
-                            text = stringResource(Res.string.run_ready_to_start),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.outline
-                        )
+                        // 2.0.3 同様、IDLE時は文言を出さずスペーサーを調整
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -333,8 +325,7 @@ fun RunScreen(actions: AppActions) {
                     if (status == RunStatus.IDLE) {
                         Box {
                             OutlinedButton(onClick = { expanded = true }) {
-                                val typeLabel = stringResource(Res.string.detail_label_type).replace("%s", stats.activityType.getDisplayName())
-                                Text(typeLabel)
+                                Text(stats.activityType.getDisplayName())
                                 Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                             }
                             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -359,17 +350,17 @@ fun RunScreen(actions: AppActions) {
 
                     Spacer(modifier = Modifier.height(24.dp))
                     Text(text = stats.formattedTime, fontSize = 64.sp, fontWeight = FontWeight.Bold)
-                    Text(text = stringResource(Res.string.run_label_time), style = MaterialTheme.typography.labelLarge)
+                    Text(text = "DURATION", style = MaterialTheme.typography.labelLarge)
 
                     Spacer(modifier = Modifier.height(24.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(text = stats.formattedDistance, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                            Text(text = stringResource(Res.string.run_label_km), style = MaterialTheme.typography.labelMedium)
+                            Text(text = if (isMetric) "KM" else "MI", style = MaterialTheme.typography.labelMedium)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(text = stats.formattedPace, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                            Text(text = stringResource(Res.string.run_label_pace), style = MaterialTheme.typography.labelMedium)
+                            Text(text = "PACE", style = MaterialTheme.typography.labelMedium)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
@@ -386,26 +377,24 @@ fun RunScreen(actions: AppActions) {
                     
                     // 操作ボタン
                     when (status) {
-                        RunStatus.IDLE -> Button(onClick = { actions.prepareTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_start_gps)) }
-                        RunStatus.PREPARING -> Button(onClick = { actions.discardTracking() }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_cancel)) }
-                        RunStatus.READY -> Button(onClick = { actions.startTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_start_workout)) }
-                        RunStatus.ACTIVE -> Button(onClick = { actions.pauseTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_pause)) }
+                        RunStatus.IDLE -> Button(onClick = { actions.prepareTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text("PREPARE") }
+                        RunStatus.PREPARING, RunStatus.READY -> {
+                           Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().height(64.dp)) {
+                               Button(onClick = { actions.discardTracking() }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.weight(0.4f).fillMaxHeight()) { Text("CANCEL") }
+                               Button(onClick = { actions.startTracking() }, enabled = status == RunStatus.READY, modifier = Modifier.weight(0.6f).fillMaxHeight()) { Text("START") }
+                           }
+                        }
+                        RunStatus.ACTIVE -> Button(onClick = { actions.pauseTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text("PAUSE") }
                         RunStatus.PAUSED -> Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().height(64.dp)) {
-                            Button(onClick = { actions.resumeTracking() }, modifier = Modifier.weight(1f).fillMaxHeight()) { Text(stringResource(Res.string.run_btn_resume)) }
-                            Button(onClick = { actions.finishTracking() }, modifier = Modifier.weight(1f).fillMaxHeight(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(Res.string.run_btn_finish)) }
+                            Button(onClick = { actions.resumeTracking() }, modifier = Modifier.weight(1f).fillMaxHeight()) { Text("RESUME") }
+                            Button(onClick = { actions.finishTracking() }, modifier = Modifier.weight(1f).fillMaxHeight(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("FINISH") }
                         }
-                        RunStatus.FINISHED -> {
-                            Text(stringResource(Res.string.run_status_processing))
-                        }
-                        RunStatus.RESULT -> {
-                            Button(onClick = { actions.resetTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text(stringResource(Res.string.run_btn_reset)) }
-                        }
+                        RunStatus.FINISHED -> { Text("PROCESSING...") }
+                        RunStatus.RESULT -> { Button(onClick = { actions.resetTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text("RESET") } }
                     }
                 }
 
-                // 前面層: ソースインジケーター (左端に浮かせる)
-                // top = 16dp (Column padding) + ~24dp (Status Text) + 16dp (Spacer) = 56dp
-                // バランスを見て 64dp に設定
+                // 前面層: ソースインジケーター
                 SourceIndicatorList(
                     stats = stats,
                     modifier = Modifier
@@ -415,7 +404,7 @@ fun RunScreen(actions: AppActions) {
             }
         }
 
-        // --- 3. マップ全画面オーバーレイ ---
+        // --- 3. マップ全画面オーバーレイ (2.0.3 のデザインを完全復旧) ---
         if (isMapFullScreen) {
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 RouteMapView(
@@ -445,12 +434,12 @@ fun RunScreen(actions: AppActions) {
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(text = stats.formattedTime, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text(text = stringResource(Res.string.run_label_time), style = MaterialTheme.typography.labelSmall)
+                            Text(text = "DURATION", style = MaterialTheme.typography.labelSmall)
                         }
                         VerticalDivider(modifier = Modifier.height(30.dp).padding(horizontal = 16.dp))
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(text = stats.formattedDistance, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text(text = stringResource(Res.string.run_label_km), style = MaterialTheme.typography.labelSmall)
+                            Text(text = if (isMetric) "KM" else "MI", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -503,37 +492,6 @@ fun RunScreen(actions: AppActions) {
                         .align(Alignment.CenterStart)
                         .padding(start = 16.dp)
                 )
-
-                // E. 下部：操作ボタンオーバーレイ (計測中のみ)
-                if (status == RunStatus.ACTIVE || status == RunStatus.PAUSED) {
-                    Surface(
-                        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp).padding(bottom = 32.dp),
-                        color = Color.Transparent
-                    ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.height(64.dp)) {
-                            if (status == RunStatus.ACTIVE) {
-                                Button(
-                                    onClick = { actions.pauseTracking() },
-                                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
-                                ) { Icon(Icons.Default.Pause, null); Spacer(Modifier.width(8.dp)); Text(stringResource(Res.string.run_btn_pause)) }
-                            } else {
-                                Button(
-                                    onClick = { actions.resumeTracking() },
-                                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
-                                ) { Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(8.dp)); Text(stringResource(Res.string.run_btn_resume)) }
-                                
-                                Button(
-                                    onClick = { actions.finishTracking() },
-                                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
-                                ) { Icon(Icons.Default.Stop, null); Spacer(Modifier.width(8.dp)); Text(stringResource(Res.string.run_btn_finish)) }
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -546,16 +504,13 @@ private fun SourceIndicatorList(stats: hag1987haaa.pebble.iron.domain.tracker.Ru
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // HR Source
         SourceBadge(
             icon = if (stats.hrSource == "BLE") Icons.Default.Bluetooth else Icons.Default.Watch,
             label = stats.hrSource,
             value = if (stats.currentHeartRate != null && stats.currentHeartRate!! > 0) stats.currentHeartRate.toString() else null,
             isActive = (stats.currentHeartRate ?: 0) > 0,
-            activeColor = if (stats.hrSource == "BLE") Color(0xFFE91E63) else MaterialTheme.colorScheme.primary
+            activeColor = if (stats.hrSource == "BLE") Color(IronColors.HEART_RATE_PINK) else MaterialTheme.colorScheme.primary
         )
-
-        // GPS Source
         SourceBadge(
             icon = Icons.Default.GpsFixed,
             label = "GPS",
@@ -563,8 +518,6 @@ private fun SourceIndicatorList(stats: hag1987haaa.pebble.iron.domain.tracker.Ru
             isActive = stats.hasGpsFix,
             activeColor = MaterialTheme.colorScheme.primary
         )
-
-        // Motion (Cadence) Source
         SourceBadge(
             icon = Icons.Default.DirectionsRun,
             label = "Watch",
@@ -585,13 +538,7 @@ private fun SourceBadge(icon: ImageVector, label: String, value: String? = null,
             .padding(4.dp)
     ) {
         if (value != null && isActive) {
-            Text(
-                text = value,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = activeColor,
-                lineHeight = 9.sp
-            )
+            Text(text = value, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = activeColor, lineHeight = 9.sp)
         }
         Icon(
             imageVector = icon,
@@ -599,11 +546,6 @@ private fun SourceBadge(icon: ImageVector, label: String, value: String? = null,
             modifier = Modifier.size(if (value != null && isActive) 18.dp else 22.dp),
             tint = if (isActive) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
         )
-        Text(
-            text = label,
-            fontSize = 8.sp,
-            fontWeight = FontWeight.Bold,
-            color = if (isActive) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-        )
+        Text(text = label, fontSize = 8.sp, fontWeight = FontWeight.Bold, color = if (isActive) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
     }
 }

@@ -18,12 +18,13 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
     val hrInterval by viewModel.hrSamplingInterval.collectAsState()
-    val notifDistance by viewModel.notifDistance.collectAsState()
+    val notifDistanceStep by viewModel.notifDistanceStep.collectAsState()
     val notifTime by viewModel.notifTime.collectAsState()
     val isAutoLaunchDistEnabled by viewModel.isAutoLaunchDistEnabled.collectAsState()
     val isAutoLaunchTimeEnabled by viewModel.isAutoLaunchTimeEnabled.collectAsState()
     val enabledMidItems by viewModel.enabledMidTypes.collectAsState()
     val enabledGraphs by viewModel.enabledGraphTypes.collectAsState()
+    val isMetric by viewModel.isMetric.collectAsState()
 
     var isNotifExpanded by remember { mutableStateOf(false) }
     var isMidDataExpanded by remember { mutableStateOf(false) }
@@ -35,7 +36,7 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
         // 1. エクササイズ設定
         SettingsSectionHeader(stringResource(Res.string.settings_section_exercise))
         ExpandableSubSection(stringResource(Res.string.settings_section_notification), isNotifExpanded, { isNotifExpanded = !isNotifExpanded }) {
-            NotificationSettingsContent(notifDistance, notifTime, isAutoLaunchDistEnabled, isAutoLaunchTimeEnabled, viewModel)
+            NotificationSettingsContent(notifDistanceStep, notifTime, isAutoLaunchDistEnabled, isAutoLaunchTimeEnabled, isMetric, viewModel)
         }
         ExpandableSubSection(stringResource(Res.string.settings_section_mid_data), isMidDataExpanded, { isMidDataExpanded = !isMidDataExpanded }) {
             MidDataSettingsContent(enabledMidItems, viewModel)
@@ -73,18 +74,39 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
 }
 
 @Composable
-fun NotificationSettingsContent(dist: Int, time: Int, launchDist: Boolean, launchTime: Boolean, viewModel: SettingsViewModel) {
+fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist: Boolean, launchTime: Boolean, isMetric: Boolean, viewModel: SettingsViewModel) {
     Column(modifier = Modifier.padding(12.dp)) {
         Text(text = stringResource(Res.string.settings_notif_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
         Spacer(modifier = Modifier.height(12.dp))
+        
+        // --- 距離通知 (オートラップ) ---
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(Res.string.settings_notif_distance_label), style = MaterialTheme.typography.bodyMedium)
             var expanded by remember { mutableStateOf(false) }
+            
+            val unitLabel = if (isMetric) "km" else "mi"
+            val displayValue = if (notifDistanceStep == 0.0f) {
+                stringResource(Res.string.settings_notif_off)
+            } else {
+                "$notifDistanceStep $unitLabel"
+            }
+
             Box {
-                TextButton(onClick = { expanded = true }) { Text(if (dist == 0) stringResource(Res.string.settings_notif_off) else "${dist / 1000} km") }
+                TextButton(onClick = { expanded = true }) { Text(displayValue) }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    listOf(0, 1000, 2000, 5000).forEach { d ->
-                        DropdownMenuItem(text = { Text(if (d == 0) stringResource(Res.string.settings_notif_off) else "${d / 1000} km") }, onClick = { viewModel.updateNotifDistance(d); expanded = false })
+                    val steps = listOf(0.0, 0.5, 1.0, 2.0, 5.0, 10.0)
+                    
+                    steps.forEach { step ->
+                        val label = if (step == 0.0) {
+                            stringResource(Res.string.settings_notif_off)
+                        } else {
+                            "$step $unitLabel"
+                        }
+                        
+                        DropdownMenuItem(
+                            text = { Text(label) }, 
+                            onClick = { viewModel.updateNotifDistanceStep(step); expanded = false }
+                        )
                     }
                 }
             }
@@ -93,14 +115,17 @@ fun NotificationSettingsContent(dist: Int, time: Int, launchDist: Boolean, launc
             Text(stringResource(Res.string.settings_notif_distance_autolaunch), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
             Switch(checked = launchDist, onCheckedChange = { viewModel.updateAutoLaunchDistEnabled(it) }, modifier = Modifier.scale(0.7f))
         }
+
         HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
+
+        // --- 時間通知 ---
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(Res.string.settings_notif_time_label), style = MaterialTheme.typography.bodyMedium)
             var expanded by remember { mutableStateOf(false) }
             Box {
                 TextButton(onClick = { expanded = true }) { Text(if (time == 0) stringResource(Res.string.settings_notif_off) else "${time / 60} min") }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    listOf(0, 60, 300, 600, 900).forEach { s ->
+                    listOf(0, 60, 300, 600, 900, 1800, 3600).forEach { s ->
                         DropdownMenuItem(text = { Text(if (s == 0) stringResource(Res.string.settings_notif_off) else "${s / 60} min") }, onClick = { viewModel.updateNotifTime(s); expanded = false })
                     }
                 }

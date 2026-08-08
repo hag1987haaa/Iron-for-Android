@@ -46,7 +46,12 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
                 )
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(Res.string.settings_unit_title), modifier = Modifier.weight(1f))
+                    val unitSystemLabel = if (isMetric) {
+                        "${stringResource(Res.string.settings_unit_title)} (Metric / km)"
+                    } else {
+                        "${stringResource(Res.string.settings_unit_title)} (Imperial / mile)"
+                    }
+                    Text(unitSystemLabel, modifier = Modifier.weight(1f))
                     Switch(checked = isMetric, onCheckedChange = { viewModel.updateMetric(it) })
                 }
             }

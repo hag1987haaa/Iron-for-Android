@@ -21,7 +21,7 @@ enum class SettingsTab {
 @Composable
 fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(KmpDependencies.appSettings) }
-    var currentTab by remember { mutableStateOf(SettingsTab.PHONE) }
+    val currentTab by viewModel.currentTab.collectAsState()
 
     Scaffold(
         topBar = {
@@ -38,17 +38,17 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
                 SegmentedButton(
                     selected = currentTab == SettingsTab.PHONE,
-                    onClick = { currentTab = SettingsTab.PHONE },
+                    onClick = { viewModel.updateCurrentTab(SettingsTab.PHONE) },
                     shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3)
                 ) { Text(stringResource(Res.string.settings_tab_phone), fontSize = 11.sp) }
                 SegmentedButton(
                     selected = currentTab == SettingsTab.WATCH,
-                    onClick = { currentTab = SettingsTab.WATCH },
+                    onClick = { viewModel.updateCurrentTab(SettingsTab.WATCH) },
                     shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3)
                 ) { Text(stringResource(Res.string.settings_tab_watch), fontSize = 11.sp) }
                 SegmentedButton(
                     selected = currentTab == SettingsTab.SENSORS,
-                    onClick = { currentTab = SettingsTab.SENSORS },
+                    onClick = { viewModel.updateCurrentTab(SettingsTab.SENSORS) },
                     shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3)
                 ) { Text(stringResource(Res.string.settings_tab_sensors), fontSize = 11.sp) }
             }

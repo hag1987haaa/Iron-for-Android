@@ -51,8 +51,8 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _isMetric = MutableStateFlow(settings.isMetric)
     val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
 
-    private val _notifDistance = MutableStateFlow(settings.notificationDistanceMeters)
-    val notifDistance: StateFlow<Int> = _notifDistance.asStateFlow()
+    private val _notifDistanceStep = MutableStateFlow(settings.notificationDistanceStep)
+    val notifDistanceStep: StateFlow<Float> = _notifDistanceStep.asStateFlow()
 
     private val _notifTime = MutableStateFlow(settings.notificationTimeSeconds)
     val notifTime: StateFlow<Int> = _notifTime.asStateFlow()
@@ -95,6 +95,16 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
 
     private val _preferredBleHrAddress = MutableStateFlow(settings.preferredBleHrAddress)
     val preferredBleHrAddress: StateFlow<String?> = _preferredBleHrAddress.asStateFlow()
+
+    // 最後に開いていたタブ
+    private val _currentTab = MutableStateFlow(try { SettingsTab.valueOf(settings.lastSettingsTabName) } catch(e: Exception) { SettingsTab.PHONE })
+    val currentTab: StateFlow<SettingsTab> = _currentTab.asStateFlow()
+
+    fun updateCurrentTab(tab: SettingsTab) {
+        _currentTab.value = tab
+        settings.lastSettingsTabName = tab.name
+        settings.save()
+    }
 
     val isPrivacyMapModeEnabled: StateFlow<Boolean> = settings.isPrivacyMapModeEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), settings.isPrivacyMapModeEnabled)
@@ -182,9 +192,9 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.save()
     }
 
-    fun updateNotifDistance(meters: Int) {
-        settings.notificationDistanceMeters = meters
-        _notifDistance.value = meters
+    fun updateNotifDistanceStep(step: Double) {
+        settings.notificationDistanceStep = step.toFloat()
+        _notifDistanceStep.value = step.toFloat()
         settings.save()
     }
 

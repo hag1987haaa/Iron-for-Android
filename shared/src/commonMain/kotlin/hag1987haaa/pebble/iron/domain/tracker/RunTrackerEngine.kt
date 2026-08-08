@@ -280,6 +280,20 @@ class RunTrackerEngine(
                 stats.route.dropLast(1) + lastPoint.copy(heartRate = mainBpm)
             } else stats.route
             stats.copy(heartRates = stats.heartRates + mainBpm, route = updatedRoute).also { s -> 
+                // --- オートラップ (距離通知) 判定 ---
+                val step = appSettings?.notificationDistanceStep ?: 0.0f
+                if (step > 0.0f) {
+                    val unitMeters = if (appSettings?.isMetric == true) 1000.0 else 1609.344
+                    val threshold = step * unitMeters
+                    val currentLapIdx = (s.totalDistanceMeters / threshold).toInt()
+                    
+                    if (currentLapIdx > lastNotifiedDistanceKm) {
+                        lastNotifiedDistanceKm = currentLapIdx
+                        if (appSettings?.isAutoLaunchOnDistanceNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
+                        pebbleMessenger?.sendNotification(0) 
+                    }
+                }
+
                 RunState.updateStats(s)
                 pebbleMessenger?.sendStatistics(s)
             }

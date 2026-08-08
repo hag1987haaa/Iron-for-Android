@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.repository.RunRepository
+import hag1987haaa.pebble.iron.KmpDependencies
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -38,7 +39,12 @@ data class HistoryFilter(
 )
 
 class HistoryViewModel(private val repository: RunRepository) : ViewModel() {
-    private val _viewMode = MutableStateFlow(HistoryViewMode.SCROLL)
+    private val settings = KmpDependencies.appSettings
+
+    private val _viewMode = MutableStateFlow(
+        try { HistoryViewMode.valueOf(settings.lastHistoryViewModeName) } 
+        catch (e: Exception) { HistoryViewMode.SCROLL }
+    )
     val viewMode = _viewMode.asStateFlow()
 
     private val _filter = MutableStateFlow(HistoryFilter())
@@ -87,8 +93,7 @@ class HistoryViewModel(private val repository: RunRepository) : ViewModel() {
                     if (specDate != null) {
                         dt.date == specDate
                     } else {
-                        // 精確な週の判定: calDate を含む月〜日の範囲
-                        val dayOffset = calDate.dayOfWeek.ordinal // Mon=0
+                        val dayOffset = calDate.dayOfWeek.ordinal 
                         val weekStart = calDate.minus(dayOffset, DateTimeUnit.DAY)
                         val weekEnd = weekStart.plus(6, DateTimeUnit.DAY)
                         dt.date in weekStart..weekEnd
@@ -107,6 +112,9 @@ class HistoryViewModel(private val repository: RunRepository) : ViewModel() {
     fun setViewMode(mode: HistoryViewMode) {
         _viewMode.value = mode
         _selectedSpecificDate.value = null
+        // 記憶
+        settings.lastHistoryViewModeName = mode.name
+        settings.save()
     }
 
     fun toggleTypeFilter(type: ActivityType) {
@@ -141,7 +149,6 @@ class HistoryViewModel(private val repository: RunRepository) : ViewModel() {
     fun clearFilters() {
         _filter.value = HistoryFilter()
         _selectedSpecificDate.value = null
-        // クリア時に表示基準日を「今日」に戻す
         _calendarDate.value = now
     }
 

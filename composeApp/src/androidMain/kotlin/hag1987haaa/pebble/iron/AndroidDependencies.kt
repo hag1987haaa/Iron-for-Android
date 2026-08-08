@@ -58,7 +58,7 @@ object AndroidDependencies {
         // グラフ・通知設定の読み込み
         val graphTypesStr = prefs.getString("graph_types", "0,1,2,3,4,5") ?: "0,1,2,3,4,5"
         settings.enabledGraphTypes = graphTypesStr.split(",").filter { it.isNotEmpty() }.map { it.toInt() }
-        settings.notificationDistanceMeters = prefs.getInt("notif_dist", 1000)
+        settings.notificationDistanceStep = prefs.getFloat("notif_dist_step", 1.0f)
         settings.notificationTimeSeconds = prefs.getInt("notif_time", 0)
         settings.isAutoLaunchOnDistanceNotificationEnabled = prefs.getBoolean("auto_launch_dist", false)
         settings.isAutoLaunchOnTimeNotificationEnabled = prefs.getBoolean("auto_launch_time", false)
@@ -78,6 +78,9 @@ object AndroidDependencies {
         settings.lastActivityType = prefs.getString("last_activity_type", ActivityType.RUNNING.name) ?: ActivityType.RUNNING.name
         settings.lastMidDataId = prefs.getInt("last_mid_id", -1)
         settings.lastGraphTypeId = prefs.getInt("last_graph_id", -1)
+        
+        settings.lastSettingsTabName = prefs.getString("last_settings_tab", "PHONE") ?: "PHONE"
+        settings.lastHistoryViewModeName = prefs.getString("last_history_view", "SCROLL") ?: "SCROLL"
 
         // BLE センサー設定
         settings.bleHeartRateDeviceAddress = prefs.getString("ble_hr_address", null)
@@ -114,7 +117,7 @@ object AndroidDependencies {
                 
                 // グラフ・通知設定の保存
                 putString("graph_types", settings.enabledGraphTypes.joinToString(","))
-                putInt("notif_dist", settings.notificationDistanceMeters)
+                putFloat("notif_dist_step", settings.notificationDistanceStep)
                 putInt("notif_time", settings.notificationTimeSeconds)
                 putBoolean("auto_launch_dist", settings.isAutoLaunchOnDistanceNotificationEnabled)
                 putBoolean("auto_launch_time", settings.isAutoLaunchOnTimeNotificationEnabled)
@@ -134,6 +137,9 @@ object AndroidDependencies {
                 putString("last_activity_type", settings.lastActivityType)
                 putInt("last_mid_id", settings.lastMidDataId)
                 putInt("last_graph_id", settings.lastGraphTypeId)
+                
+                putString("last_settings_tab", settings.lastSettingsTabName)
+                putString("last_history_view", settings.lastHistoryViewModeName)
 
                 // BLE センサー設定
                 putString("ble_hr_address", settings.bleHeartRateDeviceAddress)
