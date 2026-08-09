@@ -20,7 +20,9 @@ object LocationUtils {
                 cos(lat1.toRadians()) * cos(lat2.toRadians()) *
                 sin(dLon / 2).pow(2.0))
 
-        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        // 浮動小数点の誤差で a が 1.0 を僅かに超える場合があるため、coerceIn でガード
+        val safeA = a.coerceIn(0.0, 1.0)
+        val c = 2 * atan2(sqrt(safeA), sqrt(1.0 - safeA))
         return EARTH_RADIUS_METERS * c
     }
 

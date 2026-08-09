@@ -178,8 +178,9 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
     }
 
     private fun generateMidPageString(typeId: Int, stats: RunStatistics, settings: hag1987haaa.pebble.iron.domain.settings.AppSettings): String? {
+        val unitStr = if (settings.isMetric) "/km" else "/mi"
         return when (typeId) {
-            0 -> "PACE,${formatPace(stats.totalDistanceMeters, stats.totalSeconds, settings.isMetric)},${if (settings.isMetric) "/km" else "/mi"},0"
+            0 -> "30s PACE,${calculateWindowedPace(stats, 30, settings.isMetric)},$unitStr,0"
             1 -> "DIST,${formatDistance(stats.totalDistanceMeters, settings.isMetric)},${if (settings.isMetric) "km" else "mi"},0"
             2 -> "STEPS,${stats.steps},steps,0"
             3 -> {
@@ -193,7 +194,7 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
                 "$label,$hr,bpm,0"
             }
             5 -> "CAL,${stats.calories.toInt()},kcal,0"
-            7 -> "AVG PACE,${formatPace(stats.totalDistanceMeters, stats.totalSeconds, settings.isMetric)},${if (settings.isMetric) "/km" else "/mi"},0"
+            7 -> "AVG PACE,${formatPace(stats.totalDistanceMeters, stats.totalSeconds, settings.isMetric)},$unitStr,0"
             8 -> "SPEED,${formatSpeed(stats.totalDistanceMeters, stats.totalSeconds, settings.isMetric)},${if (settings.isMetric) "km/h" else "mph"},0"
             9 -> {
                 val now = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
@@ -206,9 +207,38 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
             11 -> "CADENCE,${calculateCurrentCadence(stats)},spm,0"
             12 -> "BLE HR,${stats.latestBleHeartRate ?: "--"},bpm,0"
             13 -> "WATCH HR,${stats.latestPebbleHeartRate ?: "--"},bpm,0"
+            14 -> "1m PACE,${calculateWindowedPace(stats, 60, settings.isMetric)},$unitStr,0"
+            15 -> "2m PACE,${calculateWindowedPace(stats, 120, settings.isMetric)},$unitStr,0"
+            16 -> "5m PACE,${calculateWindowedPace(stats, 300, settings.isMetric)},$unitStr,0"
+            17 -> "10m PACE,${calculateWindowedPace(stats, 600, settings.isMetric)},$unitStr,0"
             99 -> ",DETAIL,,0"
             else -> null
         }
+    }
+
+    private fun calculateWindowedPace(stats: RunStatistics, windowSeconds: Long, isMetric: Boolean): String {
+        if (stats.route.size < 2) return "--:--"
+        val last = stats.route.last()
+        val targetTime = last.timestamp.epochSeconds - windowSeconds
+        
+        var distSum = 0.0
+        var timeSum = 0L
+        
+        for (i in stats.route.size - 1 downTo 1) {
+            val p1 = stats.route[i]
+            val p2 = stats.route[i-1]
+            
+            if (p2.timestamp.epochSeconds < targetTime) break
+            
+            distSum += hag1987haaa.pebble.iron.util.LocationUtils.calculateDistance(
+                p1.latitude, p1.longitude,
+                p2.latitude, p2.longitude
+            )
+            timeSum += (p1.timestamp.epochSeconds - p2.timestamp.epochSeconds)
+        }
+        
+        if (distSum <= 1.0 || timeSum <= 0) return "--:--"
+        return formatPace(distSum, timeSum, isMetric)
     }
 
     override fun rotateMidData(stats: RunStatistics) {

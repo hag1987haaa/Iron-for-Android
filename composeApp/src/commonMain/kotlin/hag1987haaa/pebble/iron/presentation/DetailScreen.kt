@@ -13,8 +13,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -191,133 +193,151 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                             shadowElevation = 4.dp,
                             modifier = Modifier.fillMaxWidth().zIndex(1f)
                         ) {
-                            Column {
-                                Box(modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp)
-                                ) {
-                                    RouteMapView(
-                                        points = run.route,
-                                        modifier = Modifier.fillMaxSize(),
-                                        isPrivacyMode = isPrivacyMapLocal,
-                                        isAutoCenter = false,
-                                        mapRotation = 0f
+                            // 固定画面の中いっぱいにマップを表示し、情報をその上に配置する
+                            Box(modifier = Modifier
+                                .fillMaxWidth()
+                                .height(280.dp)
+                                .clip(RectangleShape)
+                            ) {
+                                RouteMapView(
+                                    points = run.route,
+                                    modifier = Modifier.fillMaxSize(),
+                                    isPrivacyMode = isPrivacyMapLocal,
+                                    isAutoCenter = false,
+                                    mapRotation = 0f
+                                )
+                                
+                                // 右上：拡大ボタン
+                                FilledIconButton(
+                                    onClick = { isMapFullScreen = true },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(8.dp)
+                                        .size(40.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = Color.Black.copy(alpha = 0.4f),
+                                        contentColor = Color.White
                                     )
-                                    
-                                    FilledIconButton(
-                                        onClick = { isMapFullScreen = true },
-                                        modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .padding(8.dp)
-                                            .size(40.dp),
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = Color.Black.copy(alpha = 0.4f),
-                                            contentColor = Color.White
-                                        )
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.AspectRatio,
-                                            contentDescription = "Expand"
-                                        )
-                                    }
-
-                                    // 著作権表示 (OSM)
-                                    val uriHandler = LocalUriHandler.current
-                                    Surface(
-                                        modifier = Modifier
-                                            .align(Alignment.TopCenter)
-                                            .padding(top = 4.dp)
-                                            .graphicsLayer(alpha = 0.6f)
-                                            .clickable { uriHandler.openUri("https://www.openstreetmap.org/copyright") },
-                                        color = Color.Black.copy(alpha = 0.2f),
-                                        shape = MaterialTheme.shapes.extraSmall
-                                    ) {
-                                        Text(
-                                            text = "© OpenStreetMap contributors",
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color.White
-                                        )
-                                    }
-
-                                    Surface(
-                                        modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
-                                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                                        shape = MaterialTheme.shapes.small
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                                            Text(stringResource(Res.string.detail_label_privacy), style = MaterialTheme.typography.labelSmall)
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Switch(checked = isPrivacyMapLocal, onCheckedChange = { isPrivacyMapLocal = it }, modifier = Modifier.scale(0.6f))
-                                        }
-                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AspectRatio,
+                                        contentDescription = "Expand"
+                                    )
                                 }
 
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                                // 著作権表示 (OSM)
+                                val uriHandler = LocalUriHandler.current
+                                Surface(
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .padding(top = 4.dp)
+                                        .graphicsLayer(alpha = 0.6f)
+                                        .clickable { uriHandler.openUri("https://www.openstreetmap.org/copyright") },
+                                    color = Color.Black.copy(alpha = 0.2f),
+                                    shape = MaterialTheme.shapes.extraSmall
                                 ) {
-                                    if (isEditingName || runId == -1L) {
-                                        Column {
-                                            OutlinedTextField(
-                                                value = editableName,
-                                                onValueChange = { editableName = it },
-                                                label = { Text(stringResource(Res.string.detail_label_name)) },
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Box(modifier = Modifier.fillMaxWidth()) {
-                                                OutlinedButton(onClick = { typeDropdownExpanded = true }, modifier = Modifier.fillMaxWidth()) {
-                                                    val typeLabel = stringResource(Res.string.detail_label_type).replace("%s", selectedType.getDisplayName())
-                                                    Text(typeLabel)
-                                                    Spacer(modifier = Modifier.weight(1f))
-                                                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                    Text(
+                                        text = "© OpenStreetMap contributors",
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White
+                                    )
+                                }
+
+                                // 情報オーバーレイ（下部に配置、完全透明）
+                                Surface(
+                                    modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                                    color = Color.Transparent
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                        horizontalAlignment = Alignment.Start
+                                    ) {
+                                        if (isEditingName || runId == -1L) {
+                                            Column {
+                                                OutlinedTextField(
+                                                    value = editableName,
+                                                    onValueChange = { editableName = it },
+                                                    label = { Text(stringResource(Res.string.detail_label_name)) },
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    colors = OutlinedTextFieldDefaults.colors(
+                                                        focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                                                    )
+                                                )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Box(modifier = Modifier.fillMaxWidth()) {
+                                                    OutlinedButton(
+                                                        onClick = { typeDropdownExpanded = true }, 
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
+                                                    ) {
+                                                        val typeLabel = stringResource(Res.string.detail_label_type).replace("%s", selectedType.getDisplayName())
+                                                        Text(typeLabel)
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                                    }
+                                                    DropdownMenu(expanded = typeDropdownExpanded, onDismissRequest = { typeDropdownExpanded = false }) {
+                                                        ActivityType.entries.forEach { type ->
+                                                            DropdownMenuItem(text = { Text(type.getDisplayName()) }, onClick = { selectedType = type; typeDropdownExpanded = false })
+                                                        }
+                                                    }
                                                 }
-                                                DropdownMenu(expanded = typeDropdownExpanded, onDismissRequest = { typeDropdownExpanded = false }) {
-                                                    ActivityType.entries.forEach { type ->
-                                                        DropdownMenuItem(text = { Text(type.getDisplayName()) }, onClick = { selectedType = type; typeDropdownExpanded = false })
+                                                if (runId != -1L) {
+                                                    Button(
+                                                        onClick = {
+                                                            viewModel.viewModelScope.launch {
+                                                                viewModel.updateRunName(runId, editableName)
+                                                                viewModel.updateActivityType(runId, selectedType, KmpDependencies.appSettings.userWeightKg)
+                                                                isEditingName = false
+                                                                val updatedRun = viewModel.getRunDetails(runId)
+                                                                runActivity = updatedRun
+                                                                updatedRun?.let { runObj ->
+                                                                    actions.syncWithHealthConnect(runObj) { }
+                                                                    actions.triggerAutoExport(runObj)
+                                                                }
+                                                            }
+                                                        },
+                                                        modifier = Modifier.align(Alignment.End).padding(top = 8.dp)
+                                                    ) {
+                                                        Text(stringResource(Res.string.detail_save))
                                                     }
                                                 }
                                             }
-                                            if (runId != -1L) {
-                                                Button(
-                                                    onClick = {
-                                                        viewModel.viewModelScope.launch {
-                                                            viewModel.updateRunName(runId, editableName)
-                                                            viewModel.updateActivityType(runId, selectedType, KmpDependencies.appSettings.userWeightKg)
-                                                            isEditingName = false
-                                                            val updatedRun = viewModel.getRunDetails(runId)
-                                                            runActivity = updatedRun
-                                                            updatedRun?.let { runObj ->
-                                                                actions.syncWithHealthConnect(runObj) { }
-                                                                actions.triggerAutoExport(runObj)
-                                                            }
-                                                        }
-                                                    },
-                                                    modifier = Modifier.align(Alignment.End).padding(top = 8.dp)
-                                                ) {
-                                                    Text(stringResource(Res.string.detail_save))
+                                        } else {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = editableName.ifEmpty { "${selectedType.getDisplayName()} - ${run.startTime.toString().substringBefore("T")}" }, 
+                                                    style = MaterialTheme.typography.titleLarge, 
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface // 背景が透明なので、テーマに応じた色を確実に適用
+                                                )
+                                                IconButton(onClick = { isEditingName = true }) { 
+                                                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(16.dp)) 
                                                 }
                                             }
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = "${selectedType.getDisplayName()} - ${run.startTime.toString().substringBefore("T")}",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.outline
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Text(stringResource(Res.string.detail_label_privacy), style = MaterialTheme.typography.labelSmall)
+                                                Switch(checked = isPrivacyMapLocal, onCheckedChange = { isPrivacyMapLocal = it }, modifier = Modifier.scale(0.6f))
+                                            }
                                         }
-                                    } else {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(text = editableName.ifEmpty { "${selectedType.getDisplayName()} - ${run.startTime.toString().substringBefore("T")}" }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                                            IconButton(onClick = { isEditingName = true }) { Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(16.dp)) }
-                                        }
-                                        Text(
-                                            text = "${selectedType.getDisplayName()} - ${run.startTime.toString().substringBefore("T")}",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.outline
-                                        )
                                     }
                                 }
                             }
                         }
 
+                        // 下部を weight(1f) にすることで、マップエリア（200dp）を正しく残し、
+                        // 残りのスペースで統計情報のスクロールを実現する
                         Column(
                             modifier = Modifier
-                                .fillMaxSize()
+                                .weight(1f)
+                                .fillMaxWidth()
                                 .verticalScroll(scrollState)
                                 .padding(horizontal = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -391,6 +411,8 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                 color = Color(0xFF2196F3)
                             )
                             
+                            // カロリーグラフの計算：今後の新しいワークアウトで、保存された地点データ(speed/HR等)を元に正しく算出する。
+                            // 過去のデータでこれらの値が欠落している場合は 0 になるが、意図的に再計算は行わない。
                             val calorieIntervalData = displayRoute.mapIndexed { index, point ->
                                 if (index == 0) 0f
                                 else {
@@ -406,6 +428,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                         (pAlt - prevAlt).coerceAtLeast(0.0)
                                     } else 0.0
 
+                                    // 今後のワークアウトで保存される、地点ごとの心拍数や速度を活用
                                     hag1987haaa.pebble.iron.util.HealthUtils.calculateCalories(
                                         type = run.type,
                                         weightKg = KmpDependencies.appSettings.userWeightKg,
@@ -531,7 +554,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                 Icon(Icons.Default.Close, contentDescription = "Exit Fullscreen")
                             }
 
-                            // 著作権表示 (OSM) 全画面時
+                            // 著作権表示 (OSM)
                             val uriHandler = LocalUriHandler.current
                             Surface(
                                 modifier = Modifier

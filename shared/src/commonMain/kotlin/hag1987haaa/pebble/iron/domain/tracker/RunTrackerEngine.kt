@@ -359,10 +359,28 @@ class RunTrackerEngine(
         }
         if (RunState.status.value != RunStatus.ACTIVE) return
         rawLocationWindow.add(location); if (rawLocationWindow.size > windowSize) rawLocationWindow.removeAt(0)
-        val filteredLocation = calculateWeightedAverage(rawLocationWindow); lastProcessedLocation = filteredLocation
-        val finalLocation = filteredLocation.copy(heartRate = location.heartRate ?: _statistics.value.currentHeartRate, steps = _statistics.value.steps)
+        val filteredLocation = calculateWeightedAverage(rawLocationWindow)
+        
+        // 1つ前の位置からの移動距離を計算して加算
+        var distanceDelta = 0.0
+        lastProcessedLocation?.let { prev ->
+            distanceDelta = LocationUtils.calculateDistance(
+                prev.latitude, prev.longitude,
+                filteredLocation.latitude, filteredLocation.longitude
+            )
+        }
+        lastProcessedLocation = filteredLocation
+
+        val finalLocation = filteredLocation.copy(
+            heartRate = location.heartRate ?: _statistics.value.currentHeartRate, 
+            steps = _statistics.value.steps
+        )
         fullRoute.add(finalLocation)
-        _statistics.update { it.copy(totalDistanceMeters = it.totalDistanceMeters + 1.0 /* dummy/placeholder */, route = fullRoute.toList()).also { s -> 
+
+        _statistics.update { it.copy(
+            totalDistanceMeters = it.totalDistanceMeters + distanceDelta, 
+            route = fullRoute.toList()
+        ).also { s ->
             pebbleMessenger?.sendStatistics(s); RunState.updateStats(s)
         } }
     }

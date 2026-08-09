@@ -237,7 +237,11 @@
     <string name="settings_unit_imperial">ヤード・ポンド法 (mile, lb)</string>
     <string name="settings_section_mid_data">中段の表示項目</string>
     <string name="settings_mid_data_desc">ACTIVE（計測中）に表示する項目を設定します。Pebble側でSELECTボタンを押すと、この順番で切り替わります。</string>
-    <string name="settings_mid_item_pace">瞬間ペース</string>
+    <string name="settings_mid_item_pace">30秒平均ペース</string>
+    <string name="settings_mid_item_pace_1m">1分平均ペース</string>
+    <string name="settings_mid_item_pace_2m">2分平均ペース</string>
+    <string name="settings_mid_item_pace_5m">5分平均ペース</string>
+    <string name="settings_mid_item_pace_10m">10分平均ペース</string>
     <string name="settings_mid_item_dist">走行距離</string>
     <string name="settings_mid_item_steps">累積歩数</string>
     <string name="settings_mid_item_alt">現在高度</string>

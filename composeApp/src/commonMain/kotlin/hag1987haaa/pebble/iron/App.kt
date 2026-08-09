@@ -59,7 +59,10 @@ fun App(actions: AppActions) {
             
             lastRedirectedWorkoutStart = stats.startTime
             navController.navigate("detail/-1") {
+                // 連打対策: 同じ画面が既にトップにある場合は、新しくスタックを積まない
                 launchSingleTop = true
+                // 万が一の連打で複数の「詳細」が開くのを防ぐ
+                popUpTo("main") { saveState = true }
             }
         }
 
@@ -148,9 +151,10 @@ fun MainScreen(
             currentTabIdx = index
             // メインタブの遷移時にサブタブの状態を壊さないようにする
             navController.navigate("main?tab=$index") {
-                popUpTo("main?tab=0") { saveState = true }
+                // 連打ガード
                 launchSingleTop = true
                 restoreState = true
+                popUpTo("main?tab=0") { saveState = true }
             }
         }
     }

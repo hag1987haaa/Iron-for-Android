@@ -144,6 +144,11 @@ fun MidDataSettingsContent(enabledMidItems: List<Int>, viewModel: SettingsViewMo
         Text(text = stringResource(Res.string.settings_mid_data_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
         val allItems = listOf(
             0 to stringResource(Res.string.settings_mid_item_pace),
+            14 to stringResource(Res.string.settings_mid_item_pace_1m),
+            15 to stringResource(Res.string.settings_mid_item_pace_2m),
+            16 to stringResource(Res.string.settings_mid_item_pace_5m),
+            17 to stringResource(Res.string.settings_mid_item_pace_10m),
+            7 to stringResource(Res.string.settings_mid_item_avg_pace),
             1 to stringResource(Res.string.settings_mid_item_dist),
             2 to stringResource(Res.string.settings_mid_item_steps),
             3 to stringResource(Res.string.settings_mid_item_alt),
@@ -151,7 +156,6 @@ fun MidDataSettingsContent(enabledMidItems: List<Int>, viewModel: SettingsViewMo
             12 to stringResource(Res.string.settings_mid_item_hr_ble),
             13 to stringResource(Res.string.settings_mid_item_hr_watch),
             5 to stringResource(Res.string.settings_mid_item_cal),
-            7 to stringResource(Res.string.settings_mid_item_avg_pace),
             8 to stringResource(Res.string.settings_mid_item_speed),
             9 to stringResource(Res.string.settings_mid_item_clock),
             10 to stringResource(Res.string.settings_mid_item_gain),

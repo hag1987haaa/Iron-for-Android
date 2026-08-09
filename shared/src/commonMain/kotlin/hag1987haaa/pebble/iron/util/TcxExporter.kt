@@ -7,6 +7,7 @@ import kotlinx.datetime.Instant
 object TcxExporter {
     /**
      * RunActivity のデータを TCX (Training Center XML) 形式の文字列に変換します。
+     * 外部プラットフォームでの再計算を促すため、累積距離（DistanceMeters）は含めません。
      */
     fun export(run: RunActivity): String {
         val sb = StringBuilder()
@@ -30,9 +31,10 @@ object TcxExporter {
         // 1つの Lap として記録
         sb.append("      <Lap StartTime=\"${run.startTime}\">\n")
         sb.append("        <TotalTimeSeconds>${run.durationSeconds}</TotalTimeSeconds>\n")
-        sb.append("        <DistanceMeters>${run.distanceMeters}</DistanceMeters>\n")
         
-        // アプリ側で計算済みの最高速度やカロリーをセット
+        // 距離はプラットフォーム側に再計算させるため 0.0 または省略（TCXスキーマ上は必須な場合が多いが、0.0で送れば再計算される）
+        sb.append("        <DistanceMeters>0.0</DistanceMeters>\n")
+        
         val maxSpeed = run.route.maxOfOrNull { it.speed ?: 0.0 } ?: 0.0
         sb.append("        <MaximumSpeed>$maxSpeed</MaximumSpeed>\n")
         sb.append("        <Calories>${run.calories?.toInt() ?: 0}</Calories>\n")
@@ -49,20 +51,8 @@ object TcxExporter {
         
         var prevSteps = 0
         var prevTime: Instant? = null
-        var accumulatedDistance = 0.0
-        var lastPt: hag1987haaa.pebble.iron.domain.model.LocationPoint? = null
 
         run.route.forEach { pt ->
-            // 距離の累積計算
-            val currentLastPt = lastPt
-            if (currentLastPt != null) {
-                accumulatedDistance += LocationUtils.calculateDistance(
-                    currentLastPt.latitude, currentLastPt.longitude,
-                    pt.latitude, pt.longitude
-                )
-            }
-            lastPt = pt
-
             sb.append("          <Trackpoint>\n")
             sb.append("            <Time>${pt.timestamp}</Time>\n")
             sb.append("            <Position>\n")
@@ -72,9 +62,9 @@ object TcxExporter {
             
             pt.altitude?.let { sb.append("            <AltitudeMeters>$it</AltitudeMeters>\n") }
             
-            // 累積距離を各ポイントに記録
-            sb.append("            <DistanceMeters>$accumulatedDistance</DistanceMeters>\n")
-
+            // 各ポイントの累積距離も除外（または0.0）
+            // これにより、Strava等はGPS座標から正確に再計算を行う
+            
             // 心拍数
             pt.heartRate?.let {
                 if (it > 0) {
@@ -91,7 +81,6 @@ object TcxExporter {
                     val timeDiffSec = (currentTime.toEpochMilliseconds() - pTime.toEpochMilliseconds()) / 1000.0
                     if (timeDiffSec > 0) {
                         val stepsDiff = (currentSteps - prevSteps).coerceAtLeast(0)
-                        // 分速（SPM）に変換
                         val spm = (stepsDiff / (timeDiffSec / 60.0)).toInt().coerceIn(0, 250)
                         if (spm > 0) {
                             sb.append("            <Cadence>$spm</Cadence>\n")

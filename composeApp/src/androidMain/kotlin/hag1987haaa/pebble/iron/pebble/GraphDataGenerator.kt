@@ -131,10 +131,17 @@ object GraphDataGenerator {
 
         val resultData = mutableListOf<Int>()
         for (i in 0 until numBuckets) {
-            val v = if (typeId == 3 || typeId == 4) { if (bucketCounts[i] > 0) bucketValues[i] / bucketCounts[i] else 0.0 }
-                    else if (typeId == 2) { bucketValues[i] / scaleMinutes }
-                    else { bucketValues[i] }
-            resultData.add(v.roundToInt().coerceIn(0, VALUE_CLIP_MAX))
+            val v = if (typeId == 3 || typeId == 4) {
+                if (bucketCounts[i] > 0) bucketValues[i] / bucketCounts[i] else 0.0
+            } else if (typeId == 2) {
+                bucketValues[i] / scaleMinutes.coerceAtLeast(1)
+            } else {
+                bucketValues[i]
+            }
+            
+            // NaN や Infinity を 0.0 に安全にフォールバック
+            val safeV = if (v.isFinite()) v else 0.0
+            resultData.add(safeV.roundToInt().coerceIn(0, VALUE_CLIP_MAX))
         }
 
         return resultData.takeLast(MAX_DATA_POINTS).joinToString(",")
@@ -163,14 +170,20 @@ object GraphDataGenerator {
         for (i in 1 until stats.route.size) {
             val currLoc = stats.route[i]
             val d = LocationUtils.calculateDistance(prevLoc.latitude, prevLoc.longitude, currLoc.latitude, currLoc.longitude)
-            val validD = if (d.isFinite() && d > 0) d else 0.0
+            // NaN/Infinity チェックを追加
+            val validD = if (d.isFinite() && d > 0.0) d else 0.0
             
-            if (currentBucketDist + validD < bucketStepMeters) { currentBucketDist += validD }
-            else {
+            if (currentBucketDist + validD < bucketStepMeters) { 
+                currentBucketDist += validD 
+            } else {
                 val currTime = currLoc.timestamp.toEpochMilliseconds()
                 val durationSec = (currTime - currentBucketStartTime) / 1000
-                buckets.add(durationSec.toInt().coerceIn(0, VALUE_CLIP_MAX))
-                currentBucketDist = (currentBucketDist + validD) - bucketStepMeters
+                // 負の値や異常値をガード
+                val safeDuration = durationSec.coerceAtLeast(0).toInt()
+                buckets.add(safeDuration.coerceIn(0, VALUE_CLIP_MAX))
+                
+                // 次のバケットへの繰越距離（異常に大きな移動を考慮してクランプ）
+                currentBucketDist = ((currentBucketDist + validD) - bucketStepMeters).coerceAtLeast(0.0)
                 currentBucketStartTime = currTime
             }
             prevLoc = currLoc
