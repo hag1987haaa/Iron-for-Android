@@ -240,7 +240,10 @@ class RunTrackerEngine(
         val now = Clock.System.now(); val localTime = now.toLocalDateTime(TimeZone.currentSystemDefault())
         val defaultName = "${localTime.year}${localTime.monthNumber.toString().padStart(2, '0')}${localTime.dayOfMonth.toString().padStart(2, '0')}-${localTime.hour.toString().padStart(2, '0')}${localTime.minute.toString().padStart(2, '0')}"
         _statistics.update { it.copy(status = RunStatus.FINISHED, name = defaultName) }
-        RunState.setStatus(RunStatus.FINISHED); pebbleMessenger?.sendState(RunStatus.FINISHED)
+        // 修正: 生成したデフォルト名をアプリ全体(RunState)にも即座に反映させる
+        RunState.updateStats(_statistics.value)
+        RunState.setStatus(RunStatus.FINISHED)
+        pebbleMessenger?.sendState(RunStatus.FINISHED)
     }
 
     fun discard() { reset() }
