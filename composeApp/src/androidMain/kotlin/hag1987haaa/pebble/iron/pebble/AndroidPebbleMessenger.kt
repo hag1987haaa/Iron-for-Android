@@ -27,7 +27,10 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
 
     private var cachedSender: DefaultPebbleSender? = null
     
-    // Pebbleの画面上で「今」実際に表示されている項目のID
+    // --- 安定表示のためのセッション管理 ---
+    // そのワークアウト中に使う固定のリスト順序
+    private var sessionMidList: List<Int> = emptyList()
+    // 今実際に Pebble の画面に表示されている ID
     private var currentMidDataId: Int = -1
     private var currentGraphTypeId: Int = -1
 
@@ -110,7 +113,7 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
 
     override fun sendStatistics(stats: RunStatistics) {
         val settings = KmpDependencies.appSettings
-        syncIdsFromSettings(stats.status, settings)
+        ensureSessionInitialized(stats.status, settings)
 
         val dict = mapOf(
             KEY_CMD to PebbleDictionaryItem.Int32(1), 
@@ -126,25 +129,28 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         sendMidData(stats)
     }
 
-    private fun syncIdsFromSettings(status: RunStatus, settings: hag1987haaa.pebble.iron.domain.settings.AppSettings) {
-        // メモリ上が未初期化なら読み込む
-        if (currentMidDataId == -1) {
-            currentMidDataId = settings.lastMidDataId
+    private fun ensureSessionInitialized(status: RunStatus, settings: hag1987haaa.pebble.iron.domain.settings.AppSettings) {
+        val enabled = settings.enabledMidTypes
+        if (enabled.isEmpty()) return
+
+        // 1. セッションリストの構築
+        // ワークアウト開始時、お気に入りを0番目にした固定リストを作成する
+        if (sessionMidList.isEmpty() || sessionMidList.size != enabled.size || !sessionMidList.containsAll(enabled)) {
+            val lastId = settings.lastMidDataId
+            val startId = if (lastId != -1 && lastId in enabled) lastId else enabled.first()
+            
+            val startIdx = enabled.indexOf(startId).coerceAtLeast(0)
+            sessionMidList = enabled.drop(startIdx) + enabled.take(startIdx)
+            currentMidDataId = startId
+            Log.d("PebbleMessenger", "Session initialized with fixed order. Leading: $startId")
         }
 
-        val enabledMid = settings.enabledMidTypes
-        
-        // 計測中なら「お気に入り」を現在の表示対象として同期
-        if (status == RunStatus.ACTIVE || status == RunStatus.READY) {
-            currentMidDataId = settings.lastMidDataId
+        // 計測中に変なIDになっていたら、セッションの先頭（＝最後に見ていたもの）に同期し直す
+        if (currentMidDataId == -1 || (status == RunStatus.ACTIVE && currentMidDataId == 99)) {
+            currentMidDataId = sessionMidList.firstOrNull() ?: -1
         }
 
-        // 無効なIDの補正（リストにない項目を指していたら先頭へ）
-        if (currentMidDataId !in enabledMid && currentMidDataId != 99) {
-            currentMidDataId = enabledMid.firstOrNull() ?: -1
-        }
-        
-        if (currentGraphTypeId == -1 || currentGraphTypeId !in settings.enabledGraphTypes) {
+        if (currentGraphTypeId == -1) {
             currentGraphTypeId = settings.lastGraphTypeId
             if (currentGraphTypeId !in settings.enabledGraphTypes) {
                 currentGraphTypeId = settings.enabledGraphTypes.firstOrNull() ?: -1
@@ -154,23 +160,21 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
 
     private fun sendMidData(stats: RunStatistics) {
         val settings = KmpDependencies.appSettings
-        val enabledTypes = settings.enabledMidTypes
-        if (enabledTypes.isEmpty()) return
+        if (sessionMidList.isEmpty()) return
         
-        val basePages = enabledTypes.mapNotNull { typeId -> generateMidPageString(typeId, stats, settings) }
-        if (basePages.isEmpty()) return
-        
+        // セッション固定リストの順序を厳守してパケットを作成。
+        // 計測中に Android 側でリストの回転は二度と行わない。
+        val pages = sessionMidList.mapNotNull { typeId -> generateMidPageString(typeId, stats, settings) }
+        if (pages.isEmpty()) return
+
         val finalPages = if (stats.status == RunStatus.PAUSED) {
-            // 一時停止中は「サマリー（99）」をリストの先頭に固定
+            // 一時停止中はコックピットを「一時的な 0 番目」として差し込む
             val cockpitPage = generateMidPageString(99, stats, settings)
             if (cockpitPage != null) {
-                listOf(cockpitPage) + basePages.filter { !it.contains(",DETAIL,") }
-            } else basePages
+                listOf(cockpitPage) + pages.filter { !it.contains(",DETAIL,") }
+            } else pages
         } else {
-            // 計測中はお気に入り(settings.lastMidDataId)をリストの先頭に持ってくる
-            val favoriteId = settings.lastMidDataId
-            val favoriteIdx = enabledTypes.indexOf(favoriteId).coerceAtLeast(0)
-            basePages.drop(favoriteIdx) + basePages.take(favoriteIdx)
+            pages
         }
 
         val midDataString = finalPages.joinToString("|")
@@ -216,44 +220,24 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         }
     }
 
-    private fun calculateWindowedPace(stats: RunStatistics, windowSeconds: Long, isMetric: Boolean): String {
-        if (stats.route.size < 2) return "--:--"
-        val last = stats.route.last()
-        val targetTime = last.timestamp.epochSeconds - windowSeconds
-        
-        var distSum = 0.0
-        var timeSum = 0L
-        
-        for (i in stats.route.size - 1 downTo 1) {
-            val p1 = stats.route[i]
-            val p2 = stats.route[i-1]
-            
-            if (p2.timestamp.epochSeconds < targetTime) break
-            
-            distSum += hag1987haaa.pebble.iron.util.LocationUtils.calculateDistance(
-                p1.latitude, p1.longitude,
-                p2.latitude, p2.longitude
-            )
-            timeSum += (p1.timestamp.epochSeconds - p2.timestamp.epochSeconds)
-        }
-        
-        if (distSum <= 1.0 || timeSum <= 0) return "--:--"
-        return formatPace(distSum, timeSum, isMetric)
-    }
-
     override fun rotateMidData(stats: RunStatistics) {
-        val settings = KmpDependencies.appSettings
-        val enabled = settings.enabledMidTypes
-        if (enabled.isEmpty()) return
+        if (sessionMidList.isEmpty()) return
         
-        // ローテーション操作（SELECT）があった場合は、それをお気に入りとして即保存
-        val currentIdx = enabled.indexOf(settings.lastMidDataId).coerceAtLeast(0)
-        val nextIdx = (currentIdx + 1) % enabled.size
-        val nextId = enabled[nextIdx]
+        // Pebble でボタンが押された：Android はリスト順序を変えず、
+        // sessionMidList の中から「次の ID」を特定して currentMidDataId に記録するだけ
+        val currentIdx = sessionMidList.indexOf(currentMidDataId).coerceAtLeast(0)
+        val nextIdx = (currentIdx + 1) % sessionMidList.size
+        val nextId = sessionMidList[nextIdx]
         
-        settings.lastMidDataId = nextId
         currentMidDataId = nextId
-        settings.save()
+        
+        // 一時停止中でなければ、この ID を「次回の 0 番目」として保存
+        if (stats.status != RunStatus.PAUSED && nextId != 99) {
+            val settings = KmpDependencies.appSettings
+            settings.lastMidDataId = nextId
+            settings.save()
+            Log.d("PebbleMessenger", "Saved last seen ID: $nextId")
+        }
         
         sendMidData(stats)
     }
@@ -280,10 +264,10 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
             val enabled = settings.enabledGraphTypes
             if (enabled.isEmpty()) return@launch
             
-            val targetId = if (currentGraphTypeId in enabled) currentGraphTypeId else settings.lastGraphTypeId
-            val typeToSend = if (targetId in enabled) targetId else enabled[0]
+            val typeToSend = if (currentGraphTypeId in enabled) currentGraphTypeId else settings.lastGraphTypeId
+            val targetId = if (typeToSend in enabled) typeToSend else enabled[0]
             
-            val unifiedGraph = GraphDataGenerator.generateUnifiedGraph(stats, typeToSend)
+            val unifiedGraph = GraphDataGenerator.generateUnifiedGraph(stats, targetId)
             commandQueue.trySend(PebbleMessageRequest("GRAPH", mapOf(KEY_GRAPH_DATA to PebbleDictionaryItem.Text(unifiedGraph))))
         }
     }
@@ -297,7 +281,7 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         } else {
             val integerPart = value.toInt()
             val fractionalPart = ((value - integerPart.toDouble()) * 100).toInt().coerceIn(0, 99)
-            val ff = if (fractionalPart < 10) "0$fractionalPart" else "$fractionalPart"
+            val ff = if (fractionalPart < 10) "0$fractionalPart" else fractionalPart.toString()
             "$integerPart.$ff"
         }
     }
@@ -344,14 +328,29 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
         return (stepDiff.toDouble() / timeDiffSec.toDouble() * 60.0).toInt().coerceIn(0, 250)
     }
 
+    private fun calculateWindowedPace(stats: RunStatistics, windowSeconds: Long, isMetric: Boolean): String {
+        if (stats.route.size < 2) return "--:--"
+        val last = stats.route.last()
+        val targetTime = last.timestamp.epochSeconds - windowSeconds
+        var distSum = 0.0; var timeSum = 0L
+        for (i in stats.route.size - 1 downTo 1) {
+            val p1 = stats.route[i]; val p2 = stats.route[i-1]
+            if (p2.timestamp.epochSeconds < targetTime) break
+            distSum += hag1987haaa.pebble.iron.util.LocationUtils.calculateDistance(p1.latitude, p1.longitude, p2.latitude, p2.longitude)
+            timeSum += (p1.timestamp.epochSeconds - p2.timestamp.epochSeconds)
+        }
+        if (distSum <= 1.0 || timeSum <= 0) return "--:--"
+        return formatPace(distSum, timeSum, isMetric)
+    }
+
     override fun sendState(status: RunStatus) {
         val settings = KmpDependencies.appSettings
         
-        // 再開した瞬間にお気に入りへ復帰させる
-        if (status == RunStatus.ACTIVE || status == RunStatus.READY) {
-            currentMidDataId = settings.lastMidDataId
-        } else if (status == RunStatus.PAUSED) {
-            currentMidDataId = 99
+        // 状態が変わった（計測開始・準備・再開）際は、現在の設定に基づいてセッションリストをリセット
+        // これにより「前回最後に見ていた ID」が 0 番目に据えられる
+        if (status == RunStatus.ACTIVE || status == RunStatus.READY || status == RunStatus.PREPARING) {
+            sessionMidList = emptyList()
+            ensureSessionInitialized(status, settings)
         }
         
         val dict = mutableMapOf<UInt, PebbleDictionaryItem>(
@@ -359,30 +358,26 @@ class AndroidPebbleMessenger(private val context: Context) : PebbleMessenger {
             KEY_STATE to PebbleDictionaryItem.Int32(mapToPebbleState(status))
         )
         
-        // 状態パケットに、お気に入りを先頭にしたリストを同梱
         val stats = hag1987haaa.pebble.iron.domain.tracker.RunState.currentStats.value
-        val enabledTypes = settings.enabledMidTypes
-        if (enabledTypes.isNotEmpty()) {
-            val basePages = enabledTypes.mapNotNull { typeId -> generateMidPageString(typeId, stats, settings) }
-            if (basePages.isNotEmpty()) {
+        if (sessionMidList.isNotEmpty()) {
+            val pages = sessionMidList.mapNotNull { typeId -> generateMidPageString(typeId, stats, settings) }
+            if (pages.isNotEmpty()) {
                 val finalPages = if (status == RunStatus.PAUSED) {
                     val cockpitPage = generateMidPageString(99, stats, settings)
-                    if (cockpitPage != null) listOf(cockpitPage) + basePages.filter { !it.contains(",DETAIL,") } else basePages
+                    if (cockpitPage != null) listOf(cockpitPage) + pages.filter { !it.contains(",DETAIL,") } else pages
                 } else {
-                    val favoriteId = settings.lastMidDataId
-                    val favoriteIdx = enabledTypes.indexOf(favoriteId).coerceAtLeast(0)
-                    basePages.drop(favoriteIdx) + basePages.take(favoriteIdx)
+                    pages
                 }
                 dict[KEY_MID_DATA] = PebbleDictionaryItem.Text(finalPages.joinToString("|"))
             }
         }
         
-        commandQueue.trySend(PebbleMessageRequest("STATE_CHANGE", dict, retryCount = 5))
+        commandQueue.trySend(PebbleMessageRequest("STATE_CHANGE_WITH_DATA", dict, retryCount = 5))
     }
 
     override fun sendFullSync(stats: RunStatistics) {
         val settings = KmpDependencies.appSettings
-        syncIdsFromSettings(stats.status, settings)
+        ensureSessionInitialized(stats.status, settings)
         val dict = mapOf(
             KEY_CMD to PebbleDictionaryItem.Int32(5), 
             KEY_TIME to PebbleDictionaryItem.Text(stats.formattedTime),
