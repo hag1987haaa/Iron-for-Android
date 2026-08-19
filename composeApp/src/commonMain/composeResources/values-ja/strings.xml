@@ -211,6 +211,8 @@
 
     <string name="location_disclosure_title">位置情報の利用について</string>
     <string name="location_disclosure_text">このアプリは、ワークアウトのルートを記録するために、アプリが閉じているときや使用されていないときでも位置情報を収集します。\n\n収集されたデータは走行距離やペースの計算、および地図への表示のみに使用され、外部への共有や広告への利用は一切行いません。</string>
+    <string name="sensor_disclosure_title">外部心拍センサーの利用について</string>
+    <string name="sensor_disclosure_text">このアプリは、Bluetooth心拍計からの心拍データをバックグラウンドで維持し、ワークアウト中に継続して記録するために「身体センサー」の権限を使用します。\n\nこれにより、スマホがロックされた状態でも正確な心拍数を計測し続けることができます。</string>
     <string name="location_background_rationale_title">バックグラウンド位置情報の許可</string>
     <string name="location_background_rationale_text">スマホがロックされた状態でも、Pebbleウォッチからの操作だけでスムーズにGPS検索・ワークアウトを開始するために、位置情報の権限を「常に許可」に設定する必要があります。\n\nこの後の設定画面で、位置情報 ➔「常に許可」を選択してください。</string>
     <string name="location_background_button">設定を開く</string>

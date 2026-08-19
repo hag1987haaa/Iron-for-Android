@@ -211,6 +211,8 @@
 
     <string name="location_disclosure_title">Location Usage Disclosure</string>
     <string name="location_disclosure_text">This app collects location data to record your workout route even when the app is closed or not in use.\n\nCollected data is used only for calculating distance, pace, and displaying your route on the map. We never share your data with third parties or use it for advertising.</string>
+    <string name="sensor_disclosure_title">External Heart Rate Sensor Usage</string>
+    <string name="sensor_disclosure_text">This app uses the \"Body Sensor\" permission to maintain a connection with Bluetooth heart rate monitors and record your heart rate continuously during workouts.\n\nThis ensures that your heart rate is accurately tracked even when the phone is locked.</string>
     <string name="location_background_rationale_title">"Background Location (Always Allow)"</string>
     <string name="location_background_rationale_text">To start GPS search and workouts smoothly from your Pebble watch even when the phone is locked, you need to set location permission to \"Always allow\".\n\nPlease select \"Always allow\" in the next settings screen.</string>
     <string name="location_background_button">Open Settings</string>

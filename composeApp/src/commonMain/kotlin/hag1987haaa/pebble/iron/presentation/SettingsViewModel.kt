@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
 
@@ -240,6 +241,16 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.isBleHeartRateEnabled = enabled
         _isBleHeartRateEnabled.value = enabled
         settings.save()
+        
+        // 改善：スイッチをONにした瞬間に自動接続エンジンを始動させる
+        if (enabled) {
+            hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.triggerStatisticsUpdate()
+        }
+
+        // Compose の再描画を確実に促すために、明示的に StateFlow を更新
+        viewModelScope.launch {
+            _isBleHeartRateEnabled.emit(enabled)
+        }
     }
 
     fun updatePreferBleHeartRate(prefer: Boolean) {

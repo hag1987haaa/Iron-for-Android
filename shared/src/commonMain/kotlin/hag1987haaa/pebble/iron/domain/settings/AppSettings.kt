@@ -35,7 +35,7 @@ class AppSettings {
     var isMetric: Boolean = true
     var userWeightKg: Float = 70.0f
     var hasAskedHealthConnectOnboarding: Boolean = false
-    var appVersion: String = "1.0.0"
+    var appVersion: String = "2.0.6"
 
     /**
      * ウォッチ側に表示するグラフの順序と有効無効の設定
@@ -69,10 +69,10 @@ class AppSettings {
     var lastActivityType: String = ActivityType.RUNNING.name
 
     // 最後に使用した表示インデックス
-    var lastMidDataId: Int = -1
     var lastGraphTypeId: Int = -1
 
     // 最後に開いていたタブの状態
+    var lastMainTab: Int = 0
     var lastSettingsTabName: String = "PHONE"
     var lastHistoryViewModeName: String = "SCROLL"
 

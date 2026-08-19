@@ -25,11 +25,28 @@ object HealthUtils {
             return totalKcal.coerceAtLeast(0.0)
         }
 
-        // 2. METsベース + 傾斜補正
+        // 2. METsベース + 速度・傾斜補正
+        val speedKmh = if (durationSeconds > 0) (distanceMeters / 1000.0) / (durationSeconds / 3600.0) else 0.0
+        
         var mets = when (type) {
-            ActivityType.RUNNING -> 8.3
-            ActivityType.WALKING -> 3.5
-            ActivityType.CYCLING -> 8.0
+            ActivityType.RUNNING -> {
+                // ランニングのMETs推定式 (速度 km/h に基づく近似)
+                if (speedKmh < 6.0) 6.0
+                else if (speedKmh < 20.0) 0.75 * speedKmh + 2.3 // 8km/h->8.3, 12km/h->11.3
+                else 16.0 // 限界値
+            }
+            ActivityType.WALKING -> {
+                // ウォーキングのMETs推定式
+                if (speedKmh < 2.0) 2.0
+                else if (speedKmh < 8.0) 0.5 * speedKmh + 1.5 // 4km/h->3.5, 6km/h->4.5
+                else 5.5
+            }
+            ActivityType.CYCLING -> {
+                // サイクリングのMETs推定式
+                if (speedKmh < 15.0) 6.0
+                else if (speedKmh < 30.0) 0.4 * speedKmh + 0.0 // 20km/h->8.0, 25km/h->10.0
+                else 12.0
+            }
             ActivityType.HIKING -> 6.0
             ActivityType.KAYAKING -> 5.0
             ActivityType.ROWING -> 7.0

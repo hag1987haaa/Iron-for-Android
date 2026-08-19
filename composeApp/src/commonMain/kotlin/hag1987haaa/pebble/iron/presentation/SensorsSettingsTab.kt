@@ -20,7 +20,7 @@ import hag1987haaa.pebble.iron.KmpDependencies
 import hag1987haaa.pebble.iron.theme.IronColors
 
 @Composable
-fun SensorsSettingsTab(settingsViewModel: SettingsViewModel) {
+fun SensorsSettingsTab(settingsViewModel: SettingsViewModel, actions: AppActions) {
     val sensorViewModel: SensorViewModel = viewModel { SensorViewModel() }
     val foundDevices by sensorViewModel.foundDevices.collectAsState()
     val isScanning by sensorViewModel.isScanning.collectAsState()
@@ -40,7 +40,33 @@ fun SensorsSettingsTab(settingsViewModel: SettingsViewModel) {
                     Text(text = "Enable BLE Sensors", style = MaterialTheme.typography.titleMedium)
                     Text(text = "Allow Iron to use external heart rate monitors.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                 }
-                Switch(checked = isBleHrEnabled, onCheckedChange = { settingsViewModel.updateBleHeartRateEnabled(it) })
+                // ローカル状態を ViewModel に依存させすぎないようにし、
+                // 変更があった際のみ同期する方式に変更
+                var localSwitchState by remember { mutableStateOf(isBleHrEnabled) }
+                
+                // ViewModel の値が変わったらローカルに反映（外部からの変更対応）
+                LaunchedEffect(isBleHrEnabled) {
+                    localSwitchState = isBleHrEnabled
+                }
+
+                Switch(
+                    checked = localSwitchState, 
+                    onCheckedChange = { enabled -> 
+                        if (enabled) {
+                            localSwitchState = true
+                            actions.requestSensorPermissions { granted ->
+                                if (granted) {
+                                    settingsViewModel.updateBleHeartRateEnabled(true)
+                                } else {
+                                    localSwitchState = false
+                                }
+                            }
+                        } else {
+                            localSwitchState = false
+                            settingsViewModel.updateBleHeartRateEnabled(false)
+                        }
+                    }
+                )
             }
         }
 

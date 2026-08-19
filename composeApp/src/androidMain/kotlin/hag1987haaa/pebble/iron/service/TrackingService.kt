@@ -41,55 +41,80 @@ class TrackingService : Service() {
         wakeLock?.acquire()
         Log.d("TrackingService", "WakeLock acquired")
 
-        // ステータスの変化を監視して通知を自動更新 & 外部インテント送信
+        // ステータスと統計の変化を監視して通知を自動更新
         serviceScope.launch {
-            RunState.status.collect { status ->
-                // 1. 通知の更新
-                if (status != RunStatus.IDLE && status != RunStatus.FINISHED && status != RunStatus.RESULT) {
-                    val statusName = when (status) {
-                        RunStatus.PREPARING -> getString(R.string.status_preparing)
-                        RunStatus.READY -> getString(R.string.status_ready)
-                        RunStatus.ACTIVE -> getString(R.string.status_active)
-                        RunStatus.PAUSED -> getString(R.string.status_paused)
-                        else -> getString(R.string.app_name)
+            // 状態の変化を監視
+            launch {
+                RunState.status.collect { status ->
+                    updateNotificationByCurrentState()
+                    
+                    // 自動化アプリ向けインテントの送出
+                    if (KmpDependencies.appSettings.isAutomationEnabled) {
+                        val intent = Intent("hag1987haaa.pebble.iron.ACTION_STATE_CHANGED").apply {
+                            putExtra("state_name", status.name)
+                            putExtra("state_code", status.ordinal)
+                            addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+                        }
+                        sendBroadcast(intent)
                     }
-                    val statusStr = getString(R.string.notif_content_current_state, statusName)
-                    updateNotification(statusStr)
                 }
+            }
 
-                // 2. 自動化アプリ向けインテントの送出
-                if (KmpDependencies.appSettings.isAutomationEnabled) {
-                    val intent = Intent("hag1987haaa.pebble.iron.ACTION_STATE_CHANGED").apply {
-                        putExtra("state_name", status.name)
-                        putExtra("state_code", status.ordinal)
-                        addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+            // 統計データ（時間など）の変化を監視して、通知の内容を更新
+            launch {
+                RunState.currentStats.collect { stats ->
+                    // ACTIVE中、またはPAUSED中なら、経過時間を含めて通知を更新
+                    val status = RunState.status.value
+                    if (status == RunStatus.ACTIVE || status == RunStatus.PAUSED) {
+                        updateNotificationByCurrentState(stats.formattedTime)
                     }
-                    sendBroadcast(intent)
-                    Log.d("TrackingService", "Automation: Broadcasted STATE_CHANGED (${status.name})")
                 }
             }
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.action
-        Log.d("TrackingService", "onStartCommand: action=$action")
+    private fun updateNotificationByCurrentState(timeStr: String? = null) {
+        val status = RunState.status.value
+        if (status == RunStatus.IDLE || status == RunStatus.RESULT) return
 
-        // 修正：アクションの内容に基づいて、即座にフォアグラウンド化を試みる
-        if (action != null) {
-            val forceOngoing = action == "PREPARE" || action == "START" || action == "RESUME" || action == "PAUSE"
-            val initialStatusStr = when (action) {
-                "PREPARE" -> getString(R.string.status_preparing)
-                "START" -> getString(R.string.status_active)
-                "PAUSE" -> getString(R.string.status_paused)
-                "RESUME" -> getString(R.string.status_active)
-                "FINISH" -> getString(R.string.status_finished)
-                else -> getString(R.string.notif_content_tracking)
-            }
-            updateNotification(initialStatusStr, forceOngoing)
+        val statusName = when (status) {
+            RunStatus.PREPARING -> getString(R.string.status_preparing)
+            RunStatus.READY -> getString(R.string.status_ready)
+            RunStatus.ACTIVE -> getString(R.string.status_active)
+            RunStatus.PAUSED -> getString(R.string.status_paused)
+            else -> getString(R.string.app_name)
+        }
+
+        val contentText = if (timeStr != null) {
+            getString(R.string.notif_content_current_state, statusName) + " [$timeStr]"
+        } else {
+            getString(R.string.notif_content_current_state, statusName)
         }
         
+        updateNotification(contentText)
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val action = intent?.action
+        Log.d("TrackingService", "onStartCommand: action=$action, flags=$flags")
+
+        // OSによるメモリ不足からの再起動 (intent == null) 時の対策
         if (action == null) {
+            val status = RunState.status.value
+            if (status != RunStatus.IDLE && status != RunStatus.FINISHED && status != RunStatus.RESULT) {
+                // 計測中なら通知を再構築してフォアグラウンドを維持
+                val statusName = when (status) {
+                    RunStatus.PREPARING -> getString(R.string.status_preparing)
+                    RunStatus.READY -> getString(R.string.status_ready)
+                    RunStatus.ACTIVE -> getString(R.string.status_active)
+                    RunStatus.PAUSED -> getString(R.string.status_paused)
+                    else -> getString(R.string.app_name)
+                }
+                updateNotification(getString(R.string.notif_content_current_state, statusName), forceOngoing = true)
+            } else {
+                // アイドル状態ならサービスを終了
+                stopSelf()
+            }
             return START_STICKY
         }
 
@@ -308,12 +333,16 @@ class TrackingService : Service() {
         manager?.createNotificationChannel(NotificationChannel(channelId, getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_DEFAULT))
 
         val status = RunState.status.value
+        // アイドルや終了状態なら、通知を更新しようとせず、速やかにフォアグラウンドから抜ける準備をする
+        if (status == RunStatus.IDLE || status == RunStatus.RESULT) {
+            return
+        }
+
         val title = when(status) {
             RunStatus.ACTIVE -> getString(R.string.notif_status_active)
             RunStatus.PAUSED -> getString(R.string.notif_status_paused)
             RunStatus.PREPARING -> getString(R.string.notif_status_preparing)
             RunStatus.READY -> getString(R.string.notif_status_ready)
-            RunStatus.RESULT -> getString(R.string.notif_status_result)
             else -> getString(R.string.app_name)
         }
 
@@ -324,9 +353,10 @@ class TrackingService : Service() {
             .setContentText(content)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(isOngoing)
+            .setOnlyAlertOnce(true) // 重要：更新時に音やバイブを鳴らさない（Pebbleへの通知飛びを防ぐ）
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE) // サービスであることを明示
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE) // すぐに表示
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE))
             .build()
 
@@ -335,7 +365,9 @@ class TrackingService : Service() {
                 startForeground(
                     1, 
                     notification, 
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or 
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH
                 )
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)

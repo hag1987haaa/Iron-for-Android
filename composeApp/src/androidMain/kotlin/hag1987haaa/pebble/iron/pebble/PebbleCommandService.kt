@@ -22,7 +22,7 @@ class PebbleCommandService : BasePebbleListenerService() {
         var lastConnectedWatch: WatchIdentifier? = null
         private var lastCommandTime = 0L
         private var lastCommandVal = -1
-        private const val DEBOUNCE_MS = 1000L
+        private const val DEBOUNCE_MS = 200L
     }
 
     override fun onCreate() {
@@ -39,7 +39,14 @@ class PebbleCommandService : BasePebbleListenerService() {
         data: Map<UInt, PebbleDictionaryItem>,
         watch: WatchIdentifier
     ): ReceiveResult {
-        Log.d("PebbleCommand", "--- MESSAGE RECEIVED --- From: $watch")
+        // --- 画面オフ時のレスポンス改善対策 ---
+        // メッセージを受信した瞬間に短時間の WakeLock を取得し、CPUを確実に起こす
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        val wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Iron:CommandWakeLock")
+        // 3秒間のタイムアウト付きで取得。これにより処理が終われば自動で寝る
+        wakeLock.acquire(3000) 
+        
+        Log.d("PebbleCommand", "--- MESSAGE RECEIVED --- (WakeLock Acquired) From: $watch")
         
         lastConnectedWatch = watch
 
@@ -51,9 +58,9 @@ class PebbleCommandService : BasePebbleListenerService() {
                 if (typeIdx in types.indices) {
                     val newType = types[typeIdx]
                     Log.i("PebbleCommand", "Changing Activity Type to: $newType (Index: $typeIdx)")
+                    // 修正：engine.setActivityType 内で同期（sendState）まで完結させるため
+                    // ここでの追加の同期呼び出しは不要
                     KmpDependencies.trackerEngine.setActivityType(newType)
-                    // 変更を即座にウォッチに同期
-                    KmpDependencies.trackerEngine.triggerStatisticsUpdate()
                 }
             } catch (e: Exception) {
                 Log.e("PebbleCommand", "Failed to change Activity Type", e)
@@ -232,8 +239,9 @@ class PebbleCommandService : BasePebbleListenerService() {
                     }
                 }
             }
-            // 重要: コマンド処理後は、現在の最新状態(STATE)と統計を即座にウォッチに返信して同期させる
-            engine.triggerStatisticsUpdate()
+            // 修正：ここでは即座に同期しない。
+            // TrackingService 側で状態の変化を検知したタイミングで自動的に同期されるように変更、
+            // もしくはエンジン側の各メソッド（pause, resume等）が個別に送る。
         }
 
         return ReceiveResult.Ack
@@ -257,8 +265,15 @@ class PebbleCommandService : BasePebbleListenerService() {
         try {
             val intent = Intent(this, hag1987haaa.pebble.iron.service.TrackingService::class.java).apply {
                 this.action = action
+                // レスポンス改善：OS内のIntent配信優先度を「フォアグラウンド（最優先）」に設定
+                addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
             }
-            startForegroundService(intent)
+            // 終了・リセット系のコマンドは、フォアグラウンドサービスとして起動する必要はない
+            if (action == "STOP" || action == "RESET" || action == "SAVE" || action == "SAVE_TO_RESULT") {
+                startService(intent)
+            } else {
+                startForegroundService(intent)
+            }
         } catch (e: Exception) {
             Log.e("PebbleCommand", "Failed to start service for action $action", e)
         }

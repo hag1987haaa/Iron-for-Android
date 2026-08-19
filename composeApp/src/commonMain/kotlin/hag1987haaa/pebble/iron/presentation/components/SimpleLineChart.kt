@@ -56,9 +56,9 @@ fun SimpleLineChart(
             Text(text = title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
             
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Min: ${rawMin.toInt()}", fontSize = 10.sp, color = Color.Gray)
-                Text("Avg: ${avgVal.toInt()}", fontSize = 10.sp, color = Color.Gray)
-                Text("Max: ${rawMax.toInt()}", fontSize = 10.sp, color = Color.Gray)
+                Text("Min: ${formatVal(rawMin)}", fontSize = 10.sp, color = Color.Gray)
+                Text("Avg: ${formatVal(avgVal)}", fontSize = 10.sp, color = Color.Gray)
+                Text("Max: ${formatVal(rawMax)}", fontSize = 10.sp, color = Color.Gray)
             }
         }
         
@@ -112,9 +112,9 @@ fun SimpleLineChart(
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.End
                 ) {
-                    Text(text = effectiveMax.toInt().toString(), fontSize = 9.sp, color = Color.Gray)
-                    Text(text = ((effectiveMax + effectiveMin) / 2).toInt().toString(), fontSize = 9.sp, color = Color.Gray)
-                    Text(text = effectiveMin.toInt().toString(), fontSize = 9.sp, color = Color.Gray)
+                    Text(text = formatVal(effectiveMax), fontSize = 9.sp, color = Color.Gray)
+                    Text(text = formatVal((effectiveMax + effectiveMin) / 2), fontSize = 9.sp, color = Color.Gray)
+                    Text(text = formatVal(effectiveMin), fontSize = 9.sp, color = Color.Gray)
                 }
             }
             
@@ -158,8 +158,8 @@ fun SimpleBarChart(
         ) {
             Text(text = title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Avg: ${avgVal.toInt()}", fontSize = 10.sp, color = Color.Gray)
-                Text("Max: ${maxVal.toInt()}", fontSize = 10.sp, color = Color.Gray)
+                Text("Avg: ${formatVal(avgVal)}", fontSize = 10.sp, color = Color.Gray)
+                Text("Max: ${formatVal(maxVal)}", fontSize = 10.sp, color = Color.Gray)
             }
         }
         
@@ -197,7 +197,7 @@ fun SimpleBarChart(
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.End
                 ) {
-                    Text(text = maxVal.toInt().toString(), fontSize = 9.sp, color = Color.Gray)
+                    Text(text = formatVal(maxVal), fontSize = 9.sp, color = Color.Gray)
                     Text(text = "0", fontSize = 9.sp, color = Color.Gray)
                 }
             }
@@ -208,4 +208,10 @@ fun SimpleBarChart(
             }
         }
     }
+}
+
+private fun formatVal(v: Float): String {
+    return if (v >= 10f) v.toInt().toString()
+    else if (v == 0f) "0"
+    else ((v * 10).toInt() / 10.0).toString()
 }

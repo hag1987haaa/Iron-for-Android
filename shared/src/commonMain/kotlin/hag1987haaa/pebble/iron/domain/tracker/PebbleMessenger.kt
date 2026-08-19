@@ -7,9 +7,9 @@ interface PebbleMessenger {
     fun sendStatistics(stats: RunStatistics)
 
     /**
-     * 状態（STATE）の変化を通知する。状態が変わった時だけ送信する。
+     * 状態（STATE）の変化を通知する。
      */
-    fun sendState(status: RunStatus)
+    fun sendState(status: RunStatus, stats: RunStatistics)
 
     /**
      * 全ての最新情報を一括で同期する。Pebbleからのリクエスト（SYNC）への応答用。

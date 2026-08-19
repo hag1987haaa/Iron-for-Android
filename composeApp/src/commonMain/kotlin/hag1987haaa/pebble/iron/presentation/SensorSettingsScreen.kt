@@ -28,7 +28,7 @@ import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SensorSettingsScreen(onBack: () -> Unit) {
+fun SensorSettingsScreen(actions: AppActions, onBack: () -> Unit) {
     val sensorViewModel: SensorViewModel = viewModel { SensorViewModel() }
     val settingsViewModel: SettingsViewModel = viewModel { SettingsViewModel(KmpDependencies.appSettings) }
     
@@ -91,7 +91,18 @@ fun SensorSettingsScreen(onBack: () -> Unit) {
                                 Text("Use External BLE Sensor", style = MaterialTheme.typography.bodyLarge)
                                 Text("Connect to HR straps or other devices", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
                             }
-                            Switch(checked = bleHrEnabled, onCheckedChange = { settingsViewModel.updateBleHeartRateEnabled(it) })
+                            Switch(
+                                checked = bleHrEnabled, 
+                                onCheckedChange = { enabled -> 
+                                    if (enabled) {
+                                        actions.requestSensorPermissions { granted ->
+                                            if (granted) settingsViewModel.updateBleHeartRateEnabled(true)
+                                        }
+                                    } else {
+                                        settingsViewModel.updateBleHeartRateEnabled(false)
+                                    }
+                                }
+                            )
                         }
                         
                         if (bleHrEnabled) {

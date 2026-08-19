@@ -77,28 +77,31 @@ object AndroidDependencies {
         settings.hrSamplingInterval = prefs.getInt("hr_interval", 0)
         settings.lastActivityType = prefs.getString("last_activity_type", ActivityType.RUNNING.name) ?: ActivityType.RUNNING.name
         
-        // --- 妥当性チェック付きの初期化 ---
+        // 中段表示・グラフのIDを読み込み、未設定ならリストの先頭をデフォルトにする
         val lastMidId = prefs.getInt("last_mid_id", -1)
-        // もし保存されたIDが今の「表示項目」に含まれていなければ、リストの先頭をデフォルトにする
-        settings.lastMidDataId = if (lastMidId != -1 && lastMidId in settings.enabledMidTypes) {
+        val validatedMidId = if (lastMidId != -1 && lastMidId in settings.enabledMidTypes) {
             lastMidId
         } else {
             settings.enabledMidTypes.firstOrNull() ?: -1
         }
+        // settings.lastMidDataId は削除されたため、読み込みのみ行うか、必要ならローカル変数に留める
         
         val lastGraphId = prefs.getInt("last_graph_id", -1)
-        settings.lastGraphTypeId = if (lastGraphId != -1 && lastGraphId in settings.enabledGraphTypes) {
+        val validatedGraphId = if (lastGraphId != -1 && lastGraphId in settings.enabledGraphTypes) {
             lastGraphId
         } else {
             settings.enabledGraphTypes.firstOrNull() ?: -1
         }
-        // 修正された値を SharedPreferences にも即座に反映
+        settings.lastGraphTypeId = validatedGraphId
+
+        // 修正・確定された値を SharedPreferences にも即座に反映して「-1」を根絶する
         prefs.edit().apply {
-            putInt("last_mid_id", settings.lastMidDataId)
+            putInt("last_mid_id", validatedMidId)
             putInt("last_graph_id", settings.lastGraphTypeId)
             apply()
         }
 
+        settings.lastMainTab = prefs.getInt("last_main_tab", 0)
         settings.lastSettingsTabName = prefs.getString("last_settings_tab", "PHONE") ?: "PHONE"
         settings.lastHistoryViewModeName = prefs.getString("last_history_view", "SCROLL") ?: "SCROLL"
 
@@ -155,9 +158,10 @@ object AndroidDependencies {
                 // 心拍サンプリング間隔
                 putInt("hr_interval", settings.hrSamplingInterval)
                 putString("last_activity_type", settings.lastActivityType)
-                putInt("last_mid_id", settings.lastMidDataId)
+                // lastMidDataId は保存しない
                 putInt("last_graph_id", settings.lastGraphTypeId)
                 
+                putInt("last_main_tab", settings.lastMainTab)
                 putString("last_settings_tab", settings.lastSettingsTabName)
                 putString("last_history_view", settings.lastHistoryViewModeName)
 
@@ -188,7 +192,7 @@ object AndroidDependencies {
         val engine = RunTrackerEngine(
             locationTracker = AndroidLocationTracker(appContext),
             runRepository = repository,
-            pebbleMessenger = AndroidPebbleMessenger(appContext),
+            pebbleMessenger = AndroidPebbleMessenger(appContext, settings),
             appSettings = settings,
             bleHrManager = bleHeartRateManager,
             scope = MainScope()

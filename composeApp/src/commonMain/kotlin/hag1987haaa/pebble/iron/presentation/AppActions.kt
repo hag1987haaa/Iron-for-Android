@@ -23,4 +23,5 @@ interface AppActions {
     fun selectAutoExportFolder(format: String) // 自動エクスポート先フォルダ選択 (format: "gpx" or "tcx")
     fun openAutoExportFolder(format: String) // 自動エクスポート先フォルダを開く
     fun triggerAutoExport(run: RunActivity) // 自動エクスポートを実行
+    fun requestSensorPermissions(onResult: (Boolean) -> Unit) // 身体センサー・活動権限のリクエスト
 }

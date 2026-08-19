@@ -85,12 +85,9 @@ fun App(actions: AppActions) {
     MaterialTheme {
         NavHost(navController = navController, startDestination = "main") {
             composable("main?tab={tab}") { backStackEntry ->
-                val settings = KmpDependencies.appSettings
-                val initialTab = try {
-                    SettingsTab.valueOf(settings.lastSettingsTabName).ordinal
-                } catch (e: Exception) { 0 }
-
-                val tabIndex = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: initialTab
+                // 起動時は常に 0 (Run) をデフォルトにする。
+                // URLパラメータ（tab=1等）がある場合のみ、そちらを優先する。
+                val tabIndex = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: 0
 
                 MainScreen(
                     navController = navController,
@@ -149,6 +146,10 @@ fun MainScreen(
     val onTabSelected: (Int) -> Unit = { index ->
         if (currentTabIdx != index) {
             currentTabIdx = index
+            // メインタブの記憶を更新
+            KmpDependencies.appSettings.lastMainTab = index
+            KmpDependencies.appSettings.save()
+
             // メインタブの遷移時にサブタブの状態を壊さないようにする
             navController.navigate("main?tab=$index") {
                 // 連打ガード

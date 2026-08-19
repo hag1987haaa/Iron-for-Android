@@ -58,7 +58,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
                 when (currentTab) {
                     SettingsTab.PHONE -> PhoneSettingsTab(viewModel, actions)
                     SettingsTab.WATCH -> WatchSettingsTab(viewModel, actions)
-                    SettingsTab.SENSORS -> SensorsSettingsTab(viewModel)
+                    SettingsTab.SENSORS -> SensorsSettingsTab(viewModel, actions)
                 }
             }
         }
