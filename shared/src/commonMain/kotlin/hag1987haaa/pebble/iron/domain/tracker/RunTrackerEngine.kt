@@ -438,6 +438,9 @@ class RunTrackerEngine(
                                 lastNotifiedTimeCount = currentIntervalCount
                                 if (appSettings?.isAutoLaunchOnTimeNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
                                 pebbleMessenger?.sendNotification(1) // 1: 時間通知
+                            } else if (currentIntervalCount < lastNotifiedTimeCount) {
+                                // 設定変更によりインターバル回数が戻った場合、現在のカウントに同期させる
+                                lastNotifiedTimeCount = currentIntervalCount
                             }
                         }
 
@@ -451,6 +454,9 @@ class RunTrackerEngine(
                                 lastNotifiedDistanceKm = currentLapIdx
                                 if (appSettings?.isAutoLaunchOnDistanceNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
                                 pebbleMessenger?.sendNotification(0) // 0: 距離通知
+                            } else if (currentLapIdx < lastNotifiedDistanceKm) {
+                                // 設定変更等でしきい値が戻った場合、現在のインデックスに同期させる
+                                lastNotifiedDistanceKm = currentLapIdx
                             }
                         }
 

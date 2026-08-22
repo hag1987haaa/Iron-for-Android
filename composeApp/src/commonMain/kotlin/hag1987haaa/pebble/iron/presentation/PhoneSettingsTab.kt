@@ -1,5 +1,7 @@
 package hag1987haaa.pebble.iron.presentation
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,8 +20,9 @@ import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.domain.settings.LongPressMode
 import org.jetbrains.compose.resources.stringResource
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
+fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowSimulation: () -> Unit) {
     val userWeight by viewModel.userWeight.collectAsState()
     val isMetric by viewModel.isMetric.collectAsState()
     val isPrivacyMapEnabled by viewModel.isPrivacyMapModeEnabled.collectAsState()
@@ -123,7 +126,15 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
         }
         
         Spacer(Modifier.height(32.dp))
-        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = { /* Nothing */ },
+                    onLongClick = onShowSimulation
+                ),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(text = "Iron for Pebble", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.outline)
             Text(text = "Version ${KmpDependencies.appSettings.appVersion}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
         }
@@ -165,9 +176,9 @@ fun AutomationSettingsContent(viewModel: SettingsViewModel, actions: AppActions)
         }
         if (isLongPressEnabled) {
             Spacer(Modifier.height(12.dp))
-            LongPressButtonSetting(stringResource(Res.string.settings_longpress_up), upLongPressMode, stringResource(Res.string.settings_longpress_mode_music_prev), stringResource(Res.string.settings_longpress_mode_assistant), stringResource(Res.string.settings_longpress_mode_intent), stringResource(Res.string.settings_longpress_mode_none), { viewModel.updateUpLongPressMode(it) }, "ACTION_LONGPRESS_UP", isCmd50Enabled, { viewModel.updateCommand50Enabled(it) })
-            LongPressButtonSetting(stringResource(Res.string.settings_longpress_select), selectLongPressMode, stringResource(Res.string.settings_longpress_mode_music_play), stringResource(Res.string.settings_longpress_mode_assistant), stringResource(Res.string.settings_longpress_mode_intent), stringResource(Res.string.settings_longpress_mode_none), { viewModel.updateSelectLongPressMode(it) }, "ACTION_LONGPRESS_SELECT", isCmd51Enabled, { viewModel.updateCommand51Enabled(it) })
-            LongPressButtonSetting(stringResource(Res.string.settings_longpress_down), downLongPressMode, stringResource(Res.string.settings_longpress_mode_music_next), stringResource(Res.string.settings_longpress_mode_assistant), stringResource(Res.string.settings_longpress_mode_intent), stringResource(Res.string.settings_longpress_mode_none), { viewModel.updateDownLongPressMode(it) }, "ACTION_LONGPRESS_DOWN", isCmd52Enabled, { viewModel.updateCommand52Enabled(it) })
+            LongPressButtonSetting(stringResource(Res.string.settings_longpress_up), upLongPressMode, stringResource(Res.string.settings_longpress_mode_music_prev), stringResource(Res.string.settings_longpress_mode_assistant), stringResource(Res.string.settings_longpress_mode_intent), stringResource(Res.string.settings_longpress_mode_none), { viewModel.updateUpLongPressMode(it) }, "ACTION_LONGPRESS_UP", isCmd50Enabled, { viewModel.updateCommand50Enabled(it) }, actions)
+            LongPressButtonSetting(stringResource(Res.string.settings_longpress_select), selectLongPressMode, stringResource(Res.string.settings_longpress_mode_music_play), stringResource(Res.string.settings_longpress_mode_assistant), stringResource(Res.string.settings_longpress_mode_intent), stringResource(Res.string.settings_longpress_mode_none), { viewModel.updateSelectLongPressMode(it) }, "ACTION_LONGPRESS_SELECT", isCmd51Enabled, { viewModel.updateCommand51Enabled(it) }, actions)
+            LongPressButtonSetting(stringResource(Res.string.settings_longpress_down), downLongPressMode, stringResource(Res.string.settings_longpress_mode_music_next), stringResource(Res.string.settings_longpress_mode_assistant), stringResource(Res.string.settings_longpress_mode_intent), stringResource(Res.string.settings_longpress_mode_none), { viewModel.updateDownLongPressMode(it) }, "ACTION_LONGPRESS_DOWN", isCmd52Enabled, { viewModel.updateCommand52Enabled(it) }, actions)
         }
         HorizontalDivider(Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -179,11 +190,34 @@ fun AutomationSettingsContent(viewModel: SettingsViewModel, actions: AppActions)
             }
             Switch(checked = isAutoEnabled, onCheckedChange = { viewModel.updateAutomationEnabled(it) })
         }
+        if (isAutoEnabled) {
+            val stateIntentName = "hag1987haaa.pebble.iron.ACTION_STATE_CHANGED"
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f),
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.padding(start = 32.dp).fillMaxWidth().clickable { actions.copyToClipboard(stateIntentName) }
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(8.dp))
+                        Text(text = stateIntentName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Extras: state_name (IDLE, ACTIVE, PAUSED, etc.), state_code (0-6)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun LongPressButtonSetting(label: String, currentMode: LongPressMode, musicLabel: String, assistantLabel: String, intentLabel: String, noneLabel: String, onModeChanged: (LongPressMode) -> Unit, intentAction: String, isIntentEnabled: Boolean, onIntentEnabledChanged: (Boolean) -> Unit) {
+fun LongPressButtonSetting(label: String, currentMode: LongPressMode, musicLabel: String, assistantLabel: String, intentLabel: String, noneLabel: String, onModeChanged: (LongPressMode) -> Unit, intentAction: String, isIntentEnabled: Boolean, onIntentEnabledChanged: (Boolean) -> Unit, actions: AppActions) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(text = label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onModeChanged(LongPressMode.MUSIC) }) {
@@ -196,9 +230,31 @@ fun LongPressButtonSetting(label: String, currentMode: LongPressMode, musicLabel
             RadioButton(selected = currentMode == LongPressMode.INTENT, onClick = { onModeChanged(LongPressMode.INTENT) }); Text(text = intentLabel, style = MaterialTheme.typography.bodyMedium)
         }
         if (currentMode == LongPressMode.INTENT) {
-            Surface(color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f), shape = MaterialTheme.shapes.small, modifier = Modifier.padding(start = 32.dp).fillMaxWidth()) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
-                    Text(stringResource(Res.string.settings_auto_enable_label), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f)); Switch(checked = isIntentEnabled, onCheckedChange = onIntentEnabledChanged, modifier = Modifier.scale(0.7f))
+            val fullIntentName = "hag1987haaa.pebble.iron.$intentAction"
+            Column(modifier = Modifier.padding(start = 32.dp).fillMaxWidth()) {
+                Surface(color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f), shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
+                        Text(stringResource(Res.string.settings_auto_enable_label), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f)); Switch(checked = isIntentEnabled, onCheckedChange = onIntentEnabledChanged, modifier = Modifier.scale(0.7f))
+                    }
+                }
+                if (isIntentEnabled) {
+                    Spacer(Modifier.height(4.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f),
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth().clickable { actions.copyToClipboard(fullIntentName) }
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                            Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = fullIntentName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
         }

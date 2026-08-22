@@ -98,6 +98,9 @@ fun App(actions: AppActions) {
                     },
                     onShowLicenses = {
                         navController.navigate("licenses")
+                    },
+                    onShowSimulation = {
+                        navController.navigate("map_simulation")
                     }
                 )
             }
@@ -127,6 +130,11 @@ fun App(actions: AppActions) {
                     navController.popBackStack()
                 })
             }
+            composable("map_simulation") {
+                MapSimulationScreen(onBack = {
+                    navController.popBackStack()
+                })
+            }
         }
     }
 }
@@ -138,7 +146,8 @@ fun MainScreen(
     actions: AppActions, 
     initialTab: Int = 0, 
     onRunSelected: (Long) -> Unit, 
-    onShowLicenses: () -> Unit
+    onShowLicenses: () -> Unit,
+    onShowSimulation: () -> Unit
 ) {
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(KmpDependencies.appSettings) }
     var currentTabIdx by rememberSaveable { mutableIntStateOf(initialTab) }
@@ -207,7 +216,7 @@ fun MainScreen(
             when (currentTabIdx) {
                 0 -> RunScreen(actions)
                 1 -> HistoryScreen(actions, onRunSelected = onRunSelected)
-                2 -> SettingsScreen(actions = actions, onShowLicenses = onShowLicenses)
+                2 -> SettingsScreen(actions = actions, onShowLicenses = onShowLicenses, onShowSimulation = onShowSimulation)
             }
         }
     }

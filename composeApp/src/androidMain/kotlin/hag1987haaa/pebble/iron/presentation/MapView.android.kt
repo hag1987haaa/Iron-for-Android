@@ -128,7 +128,13 @@ actual fun PlatformMapView(
                 if (geoPoints.isNotEmpty()) {
                     val lastIdx = selectedIndex ?: (geoPoints.size - 1)
                     val targetPoint = geoPoints[lastIdx]
-                    val bearing = points[lastIdx].bearing?.toFloat() ?: 0f
+                    
+                    // 改善：方位計算ロジック
+                    val bearing = if (selectedIndex != null) {
+                        points[lastIdx].bearing?.toFloat() ?: 0f
+                    } else {
+                        calculateStableBearing(points, lastIdx)
+                    }
 
                     // 初回GPS捕捉時、またはズームが低すぎる場合に自動拡大
                     if (view.zoomLevelDouble < 10.0 && selectedIndex == null) {
@@ -208,6 +214,48 @@ private fun createDirectionIcon(context: Context): BitmapDrawable {
     canvas.drawPath(path, paint)
     
     return BitmapDrawable(context.resources, bitmap)
+}
+
+private fun calculateStableBearing(points: List<LocationPoint>, currentIndex: Int): Float {
+    if (currentIndex < 0 || points.isEmpty()) return 0f
+    val current = points[currentIndex]
+
+    // 1. 速度によるフィルタリング (0.5 m/s ≒ 1.8 km/h 未満は「停止中」とみなして方位を更新しない)
+    val speed = current.speed ?: 0.0
+    if (speed < 0.5 && currentIndex > 0) {
+        // 過去の地点を遡って、最後に移動していた時の方位を探す
+        for (i in (currentIndex - 1) downTo 0) {
+            val p = points[i]
+            if ((p.speed ?: 0.0) >= 0.5) {
+                // 移動していた地点の生の方位、またはさらにその時点でのベクトル方位を返す
+                return p.bearing?.toFloat() ?: calculateStableBearing(points, i)
+            }
+        }
+    }
+
+    // 2. ベクトル計算 (直近 5〜10m 程度の移動から向きを算出)
+    var prevForVector: LocationPoint? = null
+    for (i in (currentIndex - 1) downTo 0) {
+        val p = points[i]
+        val dist = hag1987haaa.pebble.iron.util.LocationUtils.calculateDistance(
+            current.latitude, current.longitude,
+            p.latitude, p.longitude
+        )
+        if (dist > 8.0) { // 8m 程度のスパンがあれば方位が安定する
+            prevForVector = p
+            break
+        }
+    }
+
+    if (prevForVector != null) {
+        return hag1987haaa.pebble.iron.util.LocationUtils.calculateBearing(
+            prevForVector.latitude, prevForVector.longitude,
+            current.latitude, current.longitude
+        ).toFloat()
+    }
+
+    // 3. フォールバック: GPS生の方位データ（あれば）
+    return current.bearing?.toFloat() ?: 0f
 }
 
 private fun createPointIcon(context: Context, color: Int): BitmapDrawable {

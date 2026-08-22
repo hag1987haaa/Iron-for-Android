@@ -24,4 +24,5 @@ interface AppActions {
     fun openAutoExportFolder(format: String) // 自動エクスポート先フォルダを開く
     fun triggerAutoExport(run: RunActivity) // 自動エクスポートを実行
     fun requestSensorPermissions(onResult: (Boolean) -> Unit) // 身体センサー・活動権限のリクエスト
+    fun copyToClipboard(text: String, label: String = "Intent Action") // クリップボードへのコピー
 }

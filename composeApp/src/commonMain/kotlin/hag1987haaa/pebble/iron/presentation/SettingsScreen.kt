@@ -19,7 +19,7 @@ enum class SettingsTab {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
+fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit, onShowSimulation: () -> Unit) {
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(KmpDependencies.appSettings) }
     val currentTab by viewModel.currentTab.collectAsState()
 
@@ -56,7 +56,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit) {
             // 各タブの内容を表示
             Box(modifier = Modifier.weight(1f)) {
                 when (currentTab) {
-                    SettingsTab.PHONE -> PhoneSettingsTab(viewModel, actions)
+                    SettingsTab.PHONE -> PhoneSettingsTab(viewModel, actions, onShowSimulation)
                     SettingsTab.WATCH -> WatchSettingsTab(viewModel, actions)
                     SettingsTab.SENSORS -> SensorsSettingsTab(viewModel, actions)
                 }

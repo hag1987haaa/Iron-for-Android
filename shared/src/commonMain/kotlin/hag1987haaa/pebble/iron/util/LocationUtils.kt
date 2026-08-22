@@ -26,5 +26,25 @@ object LocationUtils {
         return EARTH_RADIUS_METERS * c
     }
 
+    /**
+     * 2点間の方位を計算する (北=0, 東=90, 南=180, 西=270)
+     */
+    fun calculateBearing(
+        lat1: Double, lon1: Double,
+        lat2: Double, lon2: Double
+    ): Double {
+        val phi1 = lat1.toRadians()
+        val phi2 = lat2.toRadians()
+        val lambda1 = lon1.toRadians()
+        val lambda2 = lon2.toRadians()
+
+        val y = sin(lambda2 - lambda1) * cos(phi2)
+        val x = cos(phi1) * sin(phi2) - sin(phi1) * cos(phi2) * cos(lambda2 - lambda1)
+        
+        val bearing = atan2(y, x)
+        return (bearing.toDegrees() + 360.0) % 360.0
+    }
+
     private fun Double.toRadians(): Double = this * PI / 180.0
+    private fun Double.toDegrees(): Double = this * 180.0 / PI
 }

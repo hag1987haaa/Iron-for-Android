@@ -35,7 +35,7 @@ class AppSettings {
     var isMetric: Boolean = true
     var userWeightKg: Float = 70.0f
     var hasAskedHealthConnectOnboarding: Boolean = false
-    var appVersion: String = "2.0.6"
+    var appVersion: String = "2.0.7"
 
     /**
      * ウォッチ側に表示するグラフの順序と有効無効の設定

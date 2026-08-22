@@ -396,6 +396,13 @@ class MainActivity : ComponentActivity() {
                     showSensorDisclosure = true
                 }
             }
+
+            override fun copyToClipboard(text: String, label: String) {
+                val clipboard = getSystemService(android.content.ClipboardManager::class.java)
+                val clip = android.content.ClipData.newPlainText(label, text)
+                clipboard?.setPrimaryClip(clip)
+                Toast.makeText(this@MainActivity, "Copied: $text", Toast.LENGTH_SHORT).show()
+            }
         }
 
         setContent {
@@ -639,6 +646,7 @@ fun AppAndroidPreview() {
         override fun openAutoExportFolder(format: String) {}
         override fun triggerAutoExport(run: RunActivity) {}
         override fun requestSensorPermissions(onResult: (Boolean) -> Unit) {}
+        override fun copyToClipboard(text: String, label: String) {}
     }
     App(actions)
 }
