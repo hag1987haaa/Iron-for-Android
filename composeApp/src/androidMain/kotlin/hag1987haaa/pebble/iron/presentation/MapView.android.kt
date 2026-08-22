@@ -129,9 +129,9 @@ actual fun PlatformMapView(
                     val lastIdx = selectedIndex ?: (geoPoints.size - 1)
                     val targetPoint = geoPoints[lastIdx]
                     
-                    // 改善：方位計算ロジック
+                    // 改善：方位計算ロジック (360 - bearing で回転方向を反転させて同期)
                     val bearing = if (selectedIndex != null) {
-                        points[lastIdx].bearing?.toFloat() ?: 0f
+                        (360f - (points[lastIdx].bearing?.toFloat() ?: 0f)) % 360f
                     } else {
                         calculateStableBearing(points, lastIdx)
                     }
@@ -153,6 +153,7 @@ actual fun PlatformMapView(
                             // 現在地アイコン（矢印状）
                             icon = createDirectionIcon(view.context)
                             rotation = bearing
+                            isFlat = true // 地図の回転に同期させる
                         }
                     })
 
@@ -220,20 +221,20 @@ private fun calculateStableBearing(points: List<LocationPoint>, currentIndex: In
     if (currentIndex < 0 || points.isEmpty()) return 0f
     val current = points[currentIndex]
 
-    // 1. 速度によるフィルタリング (0.5 m/s ≒ 1.8 km/h 未満は「停止中」とみなして方位を更新しない)
+    // 1. 速度によるフィルタリング (0.1 m/s ≒ 0.36 km/h 未満は「停止中」とみなして方位を更新しない)
     val speed = current.speed ?: 0.0
-    if (speed < 0.5 && currentIndex > 0) {
+    if (speed < 0.1 && currentIndex > 0) {
         // 過去の地点を遡って、最後に移動していた時の方位を探す
         for (i in (currentIndex - 1) downTo 0) {
             val p = points[i]
-            if ((p.speed ?: 0.0) >= 0.5) {
+            if ((p.speed ?: 0.0) >= 0.1) {
                 // 移動していた地点の生の方位、またはさらにその時点でのベクトル方位を返す
                 return p.bearing?.toFloat() ?: calculateStableBearing(points, i)
             }
         }
     }
 
-    // 2. ベクトル計算 (直近 5〜10m 程度の移動から向きを算出)
+    // 2. ベクトル計算 (直近 5m 程度の移動から向きを算出)
     var prevForVector: LocationPoint? = null
     for (i in (currentIndex - 1) downTo 0) {
         val p = points[i]
@@ -241,17 +242,19 @@ private fun calculateStableBearing(points: List<LocationPoint>, currentIndex: In
             current.latitude, current.longitude,
             p.latitude, p.longitude
         )
-        if (dist > 8.0) { // 8m 程度のスパンがあれば方位が安定する
+        if (dist > 5.0) { // 5m 程度のスパンがあれば方位が安定する
             prevForVector = p
             break
         }
     }
 
     if (prevForVector != null) {
-        return hag1987haaa.pebble.iron.util.LocationUtils.calculateBearing(
+        val rawBearing = hag1987haaa.pebble.iron.util.LocationUtils.calculateBearing(
             prevForVector.latitude, prevForVector.longitude,
             current.latitude, current.longitude
         ).toFloat()
+        // 鏡像修正: 360 - rawBearing で反時計回りを時計回りに反転
+        return (360f - rawBearing) % 360f
     }
 
     // 3. フォールバック: GPS生の方位データ（あれば）

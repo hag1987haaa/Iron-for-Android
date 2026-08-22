@@ -1,37 +1,26 @@
-# Implementation Plan - Pebble Resolution Simulator (Secret Mode)
+# Implementation Plan - Map Arrow Direction Polarity Fix
 
-Pebbleの解像度（144x168, 200x228, 180x180, 260x260）に応じたマップ表示をテストするための隠し画面を実装します。
+アローが「東西は正しいが南北が逆」という鏡像状態を修正するため、回転の極性を反転させます。
 
 ## User Review Required
 
-> [!NOTE]
-> **隠しトリガー**: 設定タブの「Version xxx」テキストを長押しすることで遷移します。
+> [!IMPORTANT]
+> **修正のロジック**:
+> 現在の実装では、回転が反時計回りに解釈されているため、`360 - 計算方位` を適用します。これにより、南北・東西のすべての方向が正しく一致するようになります。
 >
-> **解像度シミュレーション**: 画面上に各解像度の矩形領域を作成し、その中に `PlatformMapView` を描画します。これにより、ズーム感や視認性を実機を想定して確認できます。
->
-> **バックジェスチャー**: 標準のシステム戻る操作で設定画面に復帰します。
+> **一貫性の確保**:
+> リアルタイムの追従時だけでなく、履歴のシーク中（過去の点を選択中）のアローについても、同じ方位修正を適用します。
 
 ## Proposed Changes
 
-### Component: Presentation (New Screen)
+### Component: Map Rendering (Android)
 
-#### [NEW] [MapSimulationScreen.kt](file:///C:/Users/1987n/AndroidStudioProjects/TrackerKMPforPebble/composeApp/src/commonMain/kotlin/hag1987haaa/pebble/iron/presentation/MapSimulationScreen.kt)
-- 各解像度のプレビュー枠を表示する画面を新規作成します。
-
-### Component: Navigation (App)
-
-#### [MODIFY] [App.kt](file:///C:/Users/1987n/AndroidStudioProjects/TrackerKMPforPebble/composeApp/src/commonMain/kotlin/hag1987haaa/pebble/iron/App.kt)
-- `NavHost` に `"map_simulation"` ルートを追加します。
-- `SettingsScreen` および `MainScreen` 経由で遷移先を渡せるように調整します。
-
-### Component: Settings UI (Trigger)
-
-#### [MODIFY] [PhoneSettingsTab.kt](file:///C:/Users/1987n/AndroidStudioProjects/TrackerKMPforPebble/composeApp/src/commonMain/kotlin/hag1987haaa/pebble/iron/presentation/PhoneSettingsTab.kt)
-- バージョン表示テキストに `combinedClickable` を実装し、長押しイベントを `onShowSimulation` アクションに紐付けます。
+#### [MODIFY] [MapView.android.kt](file:///C:/Users/1987n/AndroidStudioProjects/TrackerKMPforPebble/composeApp/src/androidMain/kotlin/hag1987haaa/pebble/iron/presentation/MapView.android.kt)
+- `calculateStableBearing` の戻り値を `(360 - raw) % 360` に変更。
+- `update` ブロック内の GPS 方位使用箇所にも `360 - bearing` を適用。
 
 ## Verification Plan
 
 ### Manual Verification
-1.  **隠し画面の起動**: 設定タブの一番下にあるバージョン番号を長押しし、シミュレーション画面が開くことを確認。
-2.  **解像度の確認**: 144, 200, 180, 260 の各サイズでマップが表示されていることを確認。
-3.  **戻る操作**: バックジェスチャーで正しく設定画面に戻ることを確認。
+1.  **全方位の確認**: 北、東、南、西のそれぞれに移動した際、アローが常に進行方向を正しく指すことを確認。
+2.  **履歴確認**: 履歴画面でシークバーを動かした際のアローの向きも正しいことを確認。
