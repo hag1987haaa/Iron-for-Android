@@ -399,6 +399,10 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                             } else { run.route }
 
                             val isMetric = KmpDependencies.appSettings.isMetric
+                            val trueAvgSpeed = if (run.durationSeconds > 0) {
+                                (run.distanceMeters / run.durationSeconds).toFloat() * (if (isMetric) 3.6f else 2.23694f)
+                            } else 0f
+
                             SimpleLineChart(
                                 title = if (isDistanceBased) {
                                     if (isMetric) stringResource(Res.string.detail_chart_speed_dist_metric)
@@ -408,7 +412,8 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                     else stringResource(Res.string.detail_chart_speed_time_imperial)
                                 },
                                 data = displayRoute.map { it.speed?.toFloat()?.let { s -> if (isMetric) s * 3.6f else s * 2.23694f } ?: 0f }.downsample(100),
-                                color = Color(0xFF2196F3)
+                                color = Color(0xFF2196F3),
+                                avgOverride = trueAvgSpeed
                             )
                             
                             // カロリーグラフの計算：今後の新しいワークアウトで、保存された地点データ(speed/HR等)を元に正しく算出する。
@@ -485,7 +490,8 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                 data = displayRoute.mapNotNull { it.heartRate?.toFloat() }.downsample(100),
                                 color = Color(0xFFE91E63),
                                 minScale = 0f,
-                                maxScale = 200f
+                                maxScale = 200f,
+                                avgOverride = run.avgHeartRate?.toFloat()
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             actionButtons()

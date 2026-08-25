@@ -20,7 +20,8 @@ fun SimpleLineChart(
     modifier: Modifier = Modifier,
     color: Color = Color.Red,
     minScale: Float? = null,
-    maxScale: Float? = null
+    maxScale: Float? = null,
+    avgOverride: Float? = null
 ) {
     var rawMin = if (data.isEmpty()) 0f else {
         var min = data[0]
@@ -41,7 +42,7 @@ fun SimpleLineChart(
     val effectiveMin = minScale?.let { if (rawMin < it) rawMin else it } ?: rawMin
     val effectiveMax = maxScale?.let { if (rawMax > it) rawMax else it } ?: rawMax
     
-    val avgVal = if (data.isEmpty()) 0f else {
+    val avgVal = avgOverride ?: if (data.isEmpty()) 0f else {
         var sum = 0f
         for (v in data) sum += v
         sum / data.size
@@ -134,7 +135,8 @@ fun SimpleBarChart(
     title: String,
     data: List<Float>,
     modifier: Modifier = Modifier,
-    color: Color = Color.Red
+    color: Color = Color.Red,
+    avgOverride: Float? = null
 ) {
     val maxVal = if (data.isEmpty()) 0f else {
         var max = data[0]
@@ -144,7 +146,7 @@ fun SimpleBarChart(
         max
     }
     
-    val avgVal = if (data.isEmpty()) 0f else {
+    val avgVal = avgOverride ?: if (data.isEmpty()) 0f else {
         var sum = 0f
         for (v in data) sum += v
         sum / data.size
@@ -211,7 +213,15 @@ fun SimpleBarChart(
 }
 
 private fun formatVal(v: Float): String {
-    return if (v >= 10f) v.toInt().toString()
-    else if (v == 0f) "0"
-    else ((v * 10).toInt() / 10.0).toString()
+    return when {
+        v == 0f -> "0"
+        v >= 100f -> v.toInt().toString() // 心拍数などは整数のほうが見やすい
+        else -> {
+            // 小数点2桁まで表示 (速度、ペース、高度、距離など)
+            val integerPart = v.toInt()
+            val fractionalPart = ((v - integerPart) * 100).toInt().let { if (it < 0) -it else it }.coerceIn(0, 99)
+            val ff = if (fractionalPart < 10) "0$fractionalPart" else fractionalPart.toString()
+            "$integerPart.$ff"
+        }
+    }
 }

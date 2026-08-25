@@ -1,26 +1,28 @@
-# Implementation Plan - Map Arrow Direction Polarity Fix
+# Implementation Plan - Detailed Workout Statistics Fix
 
-アローが「東西は正しいが南北が逆」という鏡像状態を修正するため、回転の極性を反転させます。
+ワークアウト詳細画面のグラフ上部に表示される平均値（Avg）が、全体の統計値と一致しない問題を修正します。
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **修正のロジック**:
-> 現在の実装では、回転が反時計回りに解釈されているため、`360 - 計算方位` を適用します。これにより、南北・東西のすべての方向が正しく一致するようになります。
->
-> **一貫性の確保**:
-> リアルタイムの追従時だけでなく、履歴のシーク中（過去の点を選択中）のアローについても、同じ方位修正を適用します。
+> **平均速度の定義**: これまではグラフ描画用に間引かれた100点の単純平均を表示していましたが、修正後は「総距離 ÷ 総時間」から算出される真の平均速度を表示します。これにより、ユーザーの計算結果と一致するようになります。
 
 ## Proposed Changes
 
-### Component: Map Rendering (Android)
+### Component: Presentation Components
 
-#### [MODIFY] [MapView.android.kt](file:///C:/Users/1987n/AndroidStudioProjects/TrackerKMPforPebble/composeApp/src/androidMain/kotlin/hag1987haaa/pebble/iron/presentation/MapView.android.kt)
-- `calculateStableBearing` の戻り値を `(360 - raw) % 360` に変更。
-- `update` ブロック内の GPS 方位使用箇所にも `360 - bearing` を適用。
+#### [MODIFY] [SimpleLineChart.kt](file:///C:/Users/1987n/AndroidStudioProjects/TrackerKMPforPebble/composeApp/src/commonMain/kotlin/hag1987haaa/pebble/iron/presentation/components/SimpleLineChart.kt)
+- `SimpleLineChart` コンポーネントに `avgOverride: Float? = null` パラメータを追加。
+- 渡された場合は、計算値の代わりにその値を表示。
+
+### Component: Presentation Screens
+
+#### [MODIFY] [DetailScreen.kt](file:///C:/Users/1987n/AndroidStudioProjects/TrackerKMPforPebble/composeApp/src/commonMain/kotlin/hag1987haaa/pebble/iron/presentation/DetailScreen.kt)
+- 速度グラフ呼び出し時に、`avgOverride` として「真の平均速度」を計算して渡す。
+- 心拍数グラフ呼び出し時に、保存済みの `avgHeartRate` を渡す。
 
 ## Verification Plan
 
 ### Manual Verification
-1.  **全方位の確認**: 北、東、南、西のそれぞれに移動した際、アローが常に進行方向を正しく指すことを確認。
-2.  **履歴確認**: 履歴画面でシークバーを動かした際のアローの向きも正しいことを確認。
+1.  **平均速度の確認**: ユーザーから報告のあったデータ（6.16km, 47:35）において、Avg が約 7.7 (または 7.8) と表示されることを確認。
+2.  **他グラフの確認**: 心拍数などの Avg も全体の統計と整合性が取れていることを確認。
