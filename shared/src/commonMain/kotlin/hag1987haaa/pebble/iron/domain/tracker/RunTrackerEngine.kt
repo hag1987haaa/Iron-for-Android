@@ -253,6 +253,7 @@ class RunTrackerEngine(
         RunState.updateStats(_statistics.value)
         RunState.setStatus(RunStatus.PREPARING)
         pebbleMessenger?.launchWatchApp(); pebbleMessenger?.sendState(RunStatus.PREPARING, _statistics.value)
+        pebbleMessenger?.sendGraphData(_statistics.value)
         trackingJob = locationTracker.startTracking().onEach { handleNewLocation(it) }.launchIn(scope)
     }
 
@@ -274,6 +275,7 @@ class RunTrackerEngine(
         // その後にグローバル状態を更新（これによりService側の同期が最新データを掴む）
         RunState.setStatus(RunStatus.ACTIVE)
         pebbleMessenger?.sendState(RunStatus.ACTIVE, _statistics.value)
+        pebbleMessenger?.sendGraphData(_statistics.value)
         startTimer()
     }
 
@@ -301,6 +303,7 @@ class RunTrackerEngine(
         // その後にグローバル状態を更新
         RunState.setStatus(RunStatus.ACTIVE)
         pebbleMessenger?.sendState(RunStatus.ACTIVE, _statistics.value)
+        pebbleMessenger?.sendGraphData(_statistics.value)
 
         startTimer()
     }
