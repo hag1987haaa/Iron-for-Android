@@ -1,13 +1,20 @@
 package hag1987haaa.pebble.iron.pebble
 
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.Uri
+import android.os.Build
 import android.util.Log
+import androidx.core.content.ContextCompat
+import io.rebble.pebblekit2.client.DefaultPebbleInfoRetriever
 import io.rebble.pebblekit2.client.DefaultPebbleSender
 import io.rebble.pebblekit2.common.model.PebbleDictionaryItem
 import io.rebble.pebblekit2.common.model.TransmissionResult
 import io.rebble.pebblekit2.common.model.WatchIdentifier
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.firstOrNull
 import hag1987haaa.pebble.iron.domain.tracker.RunStatistics
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
 import hag1987haaa.pebble.iron.domain.tracker.PebbleMessenger
@@ -117,9 +124,16 @@ class AndroidPebbleMessenger(
                 if (success && results != null && results.isNotEmpty()) {
                     PebbleCommandService.lastConnectedWatch = results.keys.first()
                 }
+                
+                if (success) {
+                    Log.d("PebbleMessenger", "Send Success: [$tag]")
+                } else {
+                    Log.e("PebbleMessenger", "Send Failed: [$tag] Targets=$targets, Results=$results")
+                }
                 success
             }
         } catch (e: Exception) {
+            Log.e("PebbleMessenger", "Send Error: [$tag] ${e.message}")
             cachedSender = null
             false
         }
@@ -423,6 +437,187 @@ class AndroidPebbleMessenger(
         scope.launch {
             val targets = PebbleCommandService.lastConnectedWatch?.let { listOf(it) } ?: emptyList()
             try { getSender().startAppOnTheWatch(WATCHAPP_UUID, targets) } catch (e: Exception) {}
+        }
+    }
+
+    override fun requestWatchInfo() {
+        Log.d("PebbleMessenger", "Requesting watch info...")
+        scope.launch {
+            // 1. PebbleInfoRetriever を使用して接続済みウォッチを取得 (PebbleKit 2 推奨方法)
+            // ログによると、ここで platform="emery" 等の情報が取れている
+            try {
+                val infoRetriever = DefaultPebbleInfoRetriever(context)
+                val watchesList = infoRetriever.getConnectedWatches().firstOrNull()
+                
+                if (!watchesList.isNullOrEmpty()) {
+                    val watch = watchesList.first()
+                    Log.d("PebbleMessenger", "Found connected watch: $watch")
+                    
+                    // リフレクションを使用して内部フィールドから情報を抽出
+                    val platformStr = try {
+                        val field = watch.javaClass.getDeclaredField("platform")
+                        field.isAccessible = true
+                        field.get(watch)?.toString()
+                    } catch (_: Exception) { null }
+
+                    val watchName = try {
+                        val field = watch.javaClass.getDeclaredField("name")
+                        field.isAccessible = true
+                        field.get(watch)?.toString()
+                    } catch (_: Exception) { "" }
+
+                    // 送信先 (WatchIdentifier) も自動復旧を試みる
+                    if (PebbleCommandService.lastConnectedWatch == null) {
+                        try {
+                            val idField = watch.javaClass.getDeclaredField("id")
+                            idField.isAccessible = true
+                            (idField.get(watch) as? WatchIdentifier)?.let {
+                                PebbleCommandService.lastConnectedWatch = it
+                                Log.i("PebbleMessenger", "Recovered lastConnectedWatch from retriever: $it")
+                            }
+                        } catch (_: Exception) {
+                            try {
+                                val idMethod = watch.javaClass.getMethod("getId")
+                                (idMethod.invoke(watch) as? WatchIdentifier)?.let {
+                                    PebbleCommandService.lastConnectedWatch = it
+                                    Log.i("PebbleMessenger", "Recovered lastConnectedWatch via method: $it")
+                                }
+                            } catch (_: Exception) {}
+                        }
+                    }
+
+                    if (platformStr != null || !watchName.isNullOrEmpty()) {
+                        val identifiedModel = when {
+                            platformStr?.contains("emery", ignoreCase = true) == true -> "Pebble Time 2"
+                            platformStr?.contains("chalk", ignoreCase = true) == true -> "Pebble Time Round"
+                            platformStr?.contains("diorite", ignoreCase = true) == true -> "Pebble 2"
+                            platformStr?.contains("basalt", ignoreCase = true) == true -> "Pebble Time / Time Steel"
+                            platformStr?.contains("aplite", ignoreCase = true) == true -> "Pebble Classic / Steel"
+                            watchName?.contains("Round 2", ignoreCase = true) == true -> "Pebble Round 2"
+                            else -> {
+                                when {
+                                    watchName?.contains("Time 2", ignoreCase = true) == true -> "Pebble Time 2"
+                                    watchName?.contains("Round", ignoreCase = true) == true -> "Pebble Time Round"
+                                    watchName?.contains("Time", ignoreCase = true) == true -> "Pebble Time"
+                                    watchName?.contains("Pebble 2", ignoreCase = true) == true -> "Pebble 2"
+                                    else -> "Pebble Watch (${platformStr ?: watchName})"
+                                }
+                            }
+                        }
+                        
+                        Log.i("PebbleMessenger", "Identified Model: $identifiedModel")
+                        settings.pebblePlatform = identifiedModel
+                        settings.save()
+                        return@launch
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("PebbleMessenger", "InfoRetriever extraction failed: ${e.message}")
+            }
+
+            // 2. Content Provider から詳細情報を取得 (フォールバック)
+            val pebblePackages = listOf("io.rebble.cobble", "com.getpebble.android", "coredevices.coreapp")
+            for (pkg in pebblePackages) {
+                val uris = listOf(
+                    Uri.parse("content://$pkg/connected_watch"),
+                    Uri.parse("content://$pkg.provider/connected_watch"),
+                    Uri.parse("content://$pkg.pebble/connected_watch")
+                )
+                
+                for (uri in uris) {
+                    try {
+                        val cursor = context.contentResolver.query(uri, null, null, null, null)
+                        cursor?.use { c ->
+                            if (c.moveToFirst()) {
+                                // デバッグ用に全てのカラム名をログに出力
+                                val cols = c.columnNames.joinToString(", ")
+                                Log.i("PebbleMessenger", "Provider found at $uri. Columns: $cols")
+
+                                val nameIdx = c.getColumnIndex("name")
+                                val modelIdx = c.getColumnIndex("model")
+                                val platformIdx = c.getColumnIndex("platform")
+                                val hwIdx = c.getColumnIndex("hardware")
+                                
+                                val watchName = if (nameIdx != -1) c.getString(nameIdx) else ""
+                                val modelId = when {
+                                    modelIdx != -1 -> c.getInt(modelIdx)
+                                    platformIdx != -1 -> c.getInt(platformIdx)
+                                    hwIdx != -1 -> c.getInt(hwIdx)
+                                    else -> -1
+                                }
+                                
+                                Log.i("PebbleMessenger", "Watch Data from Provider: name='$watchName', modelId=$modelId")
+
+                                if (modelId != -1 || watchName.isNotEmpty()) {
+                                    val platformName = when (modelId) {
+                                        1 -> "Pebble Classic / Steel"
+                                        2 -> "Pebble Time / Time Steel"
+                                        3 -> "Pebble Time Round"
+                                        4 -> "Pebble 2"
+                                        5 -> "Pebble Time 2"
+                                        6 -> "Pebble Round 2"
+                                        else -> {
+                                            when {
+                                                watchName.contains("Round 2", ignoreCase = true) -> "Pebble Round 2"
+                                                watchName.contains("Time Round", ignoreCase = true) || watchName.contains("Chalk", ignoreCase = true) -> "Pebble Time Round"
+                                                watchName.contains("Time 2", ignoreCase = true) || watchName.contains("Emery", ignoreCase = true) -> "Pebble Time 2"
+                                                watchName.contains("Time", ignoreCase = true) || watchName.contains("Basalt", ignoreCase = true) -> "Pebble Time / Time Steel"
+                                                watchName.contains("Pebble 2", ignoreCase = true) || watchName.contains("Diorite", ignoreCase = true) -> "Pebble 2"
+                                                watchName.contains("Classic", ignoreCase = true) || watchName.contains("Aplite", ignoreCase = true) -> "Pebble Classic / Steel"
+                                                else -> if (watchName.isNotEmpty()) "Pebble Watch ($watchName)" else "Unknown Pebble"
+                                            }
+                                        }
+                                    }
+                                    
+                                    Log.i("PebbleMessenger", "Identified Platform via Provider: $platformName")
+                                    settings.pebblePlatform = platformName
+                                    settings.save()
+                                    return@launch
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+
+            // 3. 最終手段: レガシーな Broadcast (SEND_FW_VERSION)
+            try {
+                val intent = Intent("com.getpebble.action.app.SEND_FW_VERSION")
+                for (p in pebblePackages) {
+                    intent.setPackage(p)
+                    context.sendBroadcast(intent)
+                }
+                
+                val filter = IntentFilter("com.getpebble.action.app.RECEIVE_FW_VERSION")
+                val receiver = object : android.content.BroadcastReceiver() {
+                    override fun onReceive(ctx: Context?, intent: Intent?) {
+                        if (intent == null) return
+                        val platform = intent.getIntExtra("platform", -1)
+                        if (platform != -1) {
+                            val platformName = when (platform) {
+                                1 -> "Pebble Classic / Steel"
+                                2 -> "Pebble Time / Time Steel"
+                                3 -> "Pebble Time Round"
+                                4 -> "Pebble 2"
+                                5 -> "Pebble Time 2"
+                                6 -> "Pebble Round 2"
+                                else -> "Pebble Watch (ID: $platform)"
+                            }
+                            Log.i("PebbleMessenger", "Broadcast info received: $platformName")
+                            settings.pebblePlatform = platformName
+                            settings.save()
+                            try { context.unregisterReceiver(this) } catch (_: Exception) {}
+                        }
+                    }
+                }
+                
+                ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
+                delay(8000)
+                try { context.unregisterReceiver(receiver) } catch (_: Exception) {}
+                
+            } catch (e: Exception) {
+                Log.e("PebbleMessenger", "Broadcast request failed", e)
+            }
         }
     }
 

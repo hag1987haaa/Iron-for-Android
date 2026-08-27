@@ -43,4 +43,6 @@ interface PebbleMessenger {
     fun sendNotification(type: Int)
 
     fun launchWatchApp()
+
+    fun requestWatchInfo()
 }

@@ -35,7 +35,13 @@ class AppSettings {
     var isMetric: Boolean = true
     var userWeightKg: Float = 70.0f
     var hasAskedHealthConnectOnboarding: Boolean = false
-    var appVersion: String = "2.0.9"
+    var appVersion: String = "2.1.0"
+    
+    private val _pebblePlatform = MutableStateFlow<String?>(value = null)
+    val pebblePlatformFlow: StateFlow<String?> = _pebblePlatform.asStateFlow()
+    var pebblePlatform: String?
+        get() = _pebblePlatform.value
+        set(value) { _pebblePlatform.value = value }
 
     /**
      * ウォッチ側に表示するグラフの順序と有効無効の設定

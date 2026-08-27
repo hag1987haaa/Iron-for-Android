@@ -110,6 +110,9 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     val isPrivacyMapModeEnabled: StateFlow<Boolean> = settings.isPrivacyMapModeEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), settings.isPrivacyMapModeEnabled)
 
+    val pebblePlatform: StateFlow<String?> = settings.pebblePlatformFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), settings.pebblePlatform)
+
     fun updateMusicControlEnabled(enabled: Boolean) {
         settings.isMusicControlEnabled = enabled
         _isMusicControlEnabled.value = enabled

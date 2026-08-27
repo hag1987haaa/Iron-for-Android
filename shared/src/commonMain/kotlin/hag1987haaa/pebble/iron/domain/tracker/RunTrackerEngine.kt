@@ -101,6 +101,11 @@ class RunTrackerEngine(
     private var totalAccumulatedSteps: Int = 0
     private var lastNotifiedDistanceKm: Int = 0
     private var lastNotifiedTimeCount: Int = 0
+
+    // 設定変更を検知するための記憶用
+    private var lastTimeStep: Int = -1
+    private var lastDistStep: Float = -1.0f
+
     private var autoConnectJob: Job? = null
 
     // 心拍データ管理用
@@ -246,22 +251,53 @@ class RunTrackerEngine(
     fun launchWatchApp() { pebbleMessenger?.launchWatchApp() }
 
     fun prepare() {
-        if (RunState.status.value == RunStatus.RESULT || RunState.status.value == RunStatus.IDLE) clearWorkoutData()
+        // 新しいワークアウトの準備に入る際は、以前の状態が何であれ必ずデータをクリアする
+        clearWorkoutData()
+
         if (trackingJob != null) return
         startSmartAutoConnect()
+        
+        // ステータスを準備中に更新
         _statistics.update { it.copy(status = RunStatus.PREPARING) }
         RunState.updateStats(_statistics.value)
         RunState.setStatus(RunStatus.PREPARING)
-        pebbleMessenger?.launchWatchApp(); pebbleMessenger?.sendState(RunStatus.PREPARING, _statistics.value)
+        resetTimeoutTimer()
+        
+        pebbleMessenger?.launchWatchApp()
+        pebbleMessenger?.requestWatchInfo()
+        pebbleMessenger?.sendState(RunStatus.PREPARING, _statistics.value)
         pebbleMessenger?.sendGraphData(_statistics.value)
+        
         trackingJob = locationTracker.startTracking().onEach { handleNewLocation(it) }.launchIn(scope)
     }
 
     private fun clearWorkoutData() {
-        isStartPending = false; timeoutJob?.cancel(); timeoutJob = null; trackingJob?.cancel(); trackingJob = null; timerJob?.cancel(); timerJob = null
-        _statistics.value = RunStatistics(activityType = _statistics.value.activityType)
-        RunState.updateStats(_statistics.value); lastProcessedLocation = null; lastRawLocation = null; rawLocationWindow.clear(); fullRoute.clear()
+        // 全てのジョブとトラッキングを停止
+        timeoutJob?.cancel(); timeoutJob = null
+        trackingJob?.cancel(); trackingJob = null
+        timerJob?.cancel(); timerJob = null
+        locationTracker.stopTracking()
+        
+        // 統計データを初期化（現在のアクティビティ種別のみを維持してリセット）
+        _statistics.update { current ->
+            RunStatistics(activityType = current.activityType)
+        }
+        RunState.updateStats(_statistics.value)
+        
+        // 位置情報・経路データを初期化
+        lastProcessedLocation = null; lastRawLocation = null
+        rawLocationWindow.clear(); fullRoute.clear()
+        
+        // 歩数・通知カウンタ・心拍ソース等の内部状態を完全に初期化
+        isStartPending = false
+        lastIncomingSteps = -1; totalAccumulatedSteps = 0
+        lastNotifiedDistanceKm = 0; lastNotifiedTimeCount = 0
+        lastTimeStep = -1; lastDistStep = -1.0f
         lastHrTimestamp = 0L; lastBpmValue = null
+        lastBleValueChangeTimestamp = 0L; lastBleBpm = null
+        
+        // BLEセンサーを閉じる
+        bleHrManager?.close()
     }
 
     fun start() {
@@ -405,13 +441,9 @@ class RunTrackerEngine(
     fun sendTouchConfig(enabled: Boolean) { pebbleMessenger?.sendTouchConfig(enabled) }
 
     private fun reset() {
-        timeoutJob?.cancel(); trackingJob?.cancel(); timerJob?.cancel(); locationTracker.stopTracking()
-        _statistics.value = RunStatistics(activityType = _statistics.value.activityType)
-        RunState.updateStats(_statistics.value); RunState.setStatus(RunStatus.IDLE); pebbleMessenger?.sendState(RunStatus.IDLE, _statistics.value)
-        lastProcessedLocation = null; lastRawLocation = null; rawLocationWindow.clear(); fullRoute.clear()
-        lastHrTimestamp = 0L; lastBpmValue = null; lastIncomingSteps = -1; totalAccumulatedSteps = 0
-        lastNotifiedDistanceKm = 0; lastNotifiedTimeCount = 0
-        bleHrManager?.close() 
+        clearWorkoutData()
+        RunState.setStatus(RunStatus.IDLE)
+        pebbleMessenger?.sendState(RunStatus.IDLE, _statistics.value)
     }
 
     private fun startTimer() {
@@ -424,6 +456,10 @@ class RunTrackerEngine(
                 if (_statistics.value.status != RunStatus.ACTIVE) continue
 
                 reEvaluateHeartRateSource()
+
+                var triggerTimeNotif = false
+                var triggerDistNotif = false
+
                 _statistics.update { stats ->
                     // 更新中にもう一度ステータスを確認（アトミック性の確保）
                     if (stats.status != RunStatus.ACTIVE) return@update stats
@@ -431,47 +467,80 @@ class RunTrackerEngine(
                     val nextSeconds = stats.totalSeconds + 1
                     val weight = appSettings?.userWeightKg ?: 70.0f
                     val currentCalories = HealthUtils.calculateCalories(stats.activityType, weight, nextSeconds, stats.totalDistanceMeters, stats.totalElevationGain, if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null)
-                    stats.copy(totalSeconds = nextSeconds, calories = currentCalories).also { s ->
+                    
+                    val updatedStats = stats.copy(totalSeconds = nextSeconds, calories = currentCalories)
+
+                    // --- 通知判定 (判定のみ行い、副作用は外で実行) ---
+                    val timeStep = appSettings?.notificationTimeSeconds ?: 0
+                    if (timeStep > 0) {
+                        val currentIntervalCount = (nextSeconds / timeStep).toInt()
                         
-                        // --- 時間通知判定 ---
-                        val timeStep = appSettings?.notificationTimeSeconds ?: 0
-                        if (timeStep > 0) {
-                            val currentIntervalCount = (nextSeconds / timeStep).toInt()
-                            if (currentIntervalCount > lastNotifiedTimeCount) {
-                                lastNotifiedTimeCount = currentIntervalCount
-                                if (appSettings?.isAutoLaunchOnTimeNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
-                                pebbleMessenger?.sendNotification(1) // 1: 時間通知
-                            } else if (currentIntervalCount < lastNotifiedTimeCount) {
-                                // 設定変更によりインターバル回数が戻った場合、現在のカウントに同期させる
-                                lastNotifiedTimeCount = currentIntervalCount
-                            }
+                        // 設定変更の検知
+                        if (lastTimeStep != -1 && lastTimeStep != timeStep) {
+                            // 設定が変わった直後は、現在のカウントに同期させて通知はスキップする
+                            lastNotifiedTimeCount = currentIntervalCount
                         }
+                        lastTimeStep = timeStep
 
-                        // --- 距離通知判定 (タイマー側へ集約) ---
-                        val distStep = appSettings?.notificationDistanceStep ?: 0.0f
-                        if (distStep > 0.0f) {
-                            val unitMeters = if (appSettings?.isMetric == true) 1000.0 else 1609.344
-                            val threshold = distStep * unitMeters
-                            val currentLapIdx = (s.totalDistanceMeters / threshold).toInt()
-                            if (currentLapIdx > lastNotifiedDistanceKm) {
-                                lastNotifiedDistanceKm = currentLapIdx
-                                if (appSettings?.isAutoLaunchOnDistanceNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
-                                pebbleMessenger?.sendNotification(0) // 0: 距離通知
-                            } else if (currentLapIdx < lastNotifiedDistanceKm) {
-                                // 設定変更等でしきい値が戻った場合、現在のインデックスに同期させる
-                                lastNotifiedDistanceKm = currentLapIdx
-                            }
+                        if (currentIntervalCount > lastNotifiedTimeCount) {
+                            triggerTimeNotif = true
+                        } else if (currentIntervalCount < lastNotifiedTimeCount) {
+                            lastNotifiedTimeCount = currentIntervalCount
                         }
-
-                        // --- 定期的なグラフデータ更新 (10秒おき) ---
-                        if (nextSeconds % 10 == 0L) {
-                            pebbleMessenger?.sendGraphData(s)
-                        }
-
-                        pebbleMessenger?.sendStatistics(s)
-                        RunState.updateStats(s)
                     }
+
+                    val distStep = appSettings?.notificationDistanceStep ?: 0.0f
+                    if (distStep > 0.0f) {
+                        val unitMeters = if (appSettings?.isMetric == true) 1000.0 else 1609.344
+                        val threshold = distStep * unitMeters
+                        val currentLapIdx = (updatedStats.totalDistanceMeters / threshold).toInt()
+
+                        // 設定変更の検知
+                        if (lastDistStep != -1.0f && lastDistStep != distStep) {
+                            // 設定が変わった直後は同期のみ
+                            lastNotifiedDistanceKm = currentLapIdx
+                        }
+                        lastDistStep = distStep
+
+                        if (currentLapIdx > lastNotifiedDistanceKm) {
+                            triggerDistNotif = true
+                        } else if (currentLapIdx < lastNotifiedDistanceKm) {
+                            lastNotifiedDistanceKm = currentLapIdx
+                        }
+                    }
+
+                    updatedStats
                 }
+
+                val s = _statistics.value
+                if (s.status != RunStatus.ACTIVE) continue
+
+                // --- 副作用の実行 (updateブロックの外で確実に1回) ---
+                if (triggerTimeNotif) {
+                    val timeStep = appSettings?.notificationTimeSeconds ?: 0
+                    lastNotifiedTimeCount = (s.totalSeconds / timeStep).toInt()
+                    println("RunTrackerEngine: Triggering Time Notification at ${s.totalSeconds}s")
+                    if (appSettings?.isAutoLaunchOnTimeNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
+                    pebbleMessenger?.sendNotification(1) // 1: 時間通知
+                }
+
+                if (triggerDistNotif) {
+                    val distStep = appSettings?.notificationDistanceStep ?: 0.0f
+                    val unitMeters = if (appSettings?.isMetric == true) 1000.0 else 1609.344
+                    val threshold = distStep * unitMeters
+                    lastNotifiedDistanceKm = (s.totalDistanceMeters / threshold).toInt()
+                    println("RunTrackerEngine: Triggering Distance Notification at ${s.totalDistanceMeters}m")
+                    if (appSettings?.isAutoLaunchOnDistanceNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
+                    pebbleMessenger?.sendNotification(0) // 0: 距離通知
+                }
+
+                // --- 定期的なグラフデータ更新 (10秒おき) ---
+                if (s.totalSeconds % 10 == 0L) {
+                    pebbleMessenger?.sendGraphData(s)
+                }
+
+                pebbleMessenger?.sendStatistics(s)
+                RunState.updateStats(s)
             }
         }
     }
@@ -485,6 +554,7 @@ class RunTrackerEngine(
             else if (RunState.status.value == RunStatus.PREPARING) {
                 _statistics.update { it.copy(status = RunStatus.READY) }
                 RunState.setStatus(RunStatus.READY); pebbleMessenger?.sendState(RunStatus.READY, _statistics.value)
+                resetTimeoutTimer()
             }
         }
         if (RunState.status.value != RunStatus.ACTIVE) return

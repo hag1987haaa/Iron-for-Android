@@ -30,6 +30,7 @@ class TrackingService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var wakeLock: PowerManager.WakeLock? = null
+    private var lastNotifContent: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -90,8 +91,12 @@ class TrackingService : Service() {
         } else {
             getString(R.string.notif_content_current_state, statusName)
         }
+
+        // 表示内容が変わっていない場合は更新をスキップ（秒間数回の冗長な更新を防ぐ）
+        if (contentText == lastNotifContent) return
+        lastNotifContent = contentText
         
-        updateNotification(contentText)
+        updateNotification(contentText, forceOngoing = (timeStr == null))
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

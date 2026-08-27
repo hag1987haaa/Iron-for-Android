@@ -58,34 +58,51 @@ class MainActivity : ComponentActivity() {
     private var showBatteryOptimizationDialog by mutableStateOf(false)
     private var sensorPermissionCallback: ((Boolean) -> Unit)? = null
 
+    // 権限リクエストの無限ループを防止するためのフラグ
+    private var isRequestingPermissions = false
+    private var lastRequestedPermissions: Set<String> = emptySet()
+
     private val requestPermissionLauncher = registerForActivityResult<Array<String>, Map<String, Boolean>>(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
-        Log.d("MainActivity", "Permission results: $results")
-        // センサー権限リクエストの結果を判定
-        val sensorPermissions = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) sensorPermissions.add(Manifest.permission.ACTIVITY_RECOGNITION)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) sensorPermissions.add(Manifest.permission.BODY_SENSORS)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) sensorPermissions.add(Manifest.permission.BODY_SENSORS_BACKGROUND)
-        
-        val anySensorRequested = sensorPermissions.any { results.containsKey(it) }
-        if (anySensorRequested) {
-            // BLE心拍計のスイッチをONにするためには、BODY_SENSORS または ACTIVITY_RECOGNITION のいずれかがあればOKとする
-            val bodySensorsGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS) == PackageManager.PERMISSION_GRANTED || (results[Manifest.permission.BODY_SENSORS] == true)
-            val activityGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED || (results[Manifest.permission.ACTIVITY_RECOGNITION] == true)
-            } else true
+        // スタックオーバーフローを物理的に回避するため、すべての後続処理をメインループの次に回す。
+        // これにより、OSから同期的にコールバックが返された場合でも、呼び出しスタックが積み重ならない。
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            isRequestingPermissions = false
+            Log.d("MainActivity", "Permission results (async): $results")
             
-            val isSuccess = bodySensorsGranted || activityGranted
+            // センサー権限リクエストの結果を判定
+            val sensorPermissions = mutableListOf<String>()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) sensorPermissions.add(Manifest.permission.ACTIVITY_RECOGNITION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) sensorPermissions.add(Manifest.permission.BODY_SENSORS)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) sensorPermissions.add(Manifest.permission.BODY_SENSORS_BACKGROUND)
             
-            Log.d("MainActivity", "Sensor success: $isSuccess (BODY=$bodySensorsGranted, ACTIVITY=$activityGranted)")
-            
-            sensorPermissionCallback?.invoke(isSuccess)
-            sensorPermissionCallback = null
-        }
+            val anySensorRequested = sensorPermissions.any { results.containsKey(it) }
+            if (anySensorRequested) {
+                val bodySensorsGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS) == PackageManager.PERMISSION_GRANTED || (results[Manifest.permission.BODY_SENSORS] == true)
+                val activityGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED || (results[Manifest.permission.ACTIVITY_RECOGNITION] == true)
+                } else true
+                
+                val isSuccess = bodySensorsGranted || activityGranted
+                sensorPermissionCallback?.invoke(isSuccess)
+                sensorPermissionCallback = null
+            }
 
-        // 常に権限チェーンのチェックは継続する（他の権限のため）
-        startPermissionChain()
+            // 成功した場合のみ自動で次へ進む。
+            // 拒否された場合はループを止める（ユーザーの操作を待つ）。
+            if (results.isNotEmpty() && results.values.all { it }) {
+                startPermissionChain()
+            } else {
+                Log.w("MainActivity", "Permissions denied or empty results. Chain stopped.")
+                // ただし位置情報が許可されているならバックグラウンドのステップへは進めて良い
+                val locationGranted = results[Manifest.permission.ACCESS_FINE_LOCATION] == true || 
+                                     ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                if (locationGranted) {
+                    checkBackgroundLocationStep()
+                }
+            }
+        }
     }
 
     private val healthPermissionLauncher = registerForActivityResult(
@@ -423,6 +440,8 @@ class MainActivity : ComponentActivity() {
                                     ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
                                 }
                                 if (missing.isNotEmpty()) {
+                                    isRequestingPermissions = true
+                                    lastRequestedPermissions = missing.toSet()
                                     requestPermissionLauncher.launch(missing.toTypedArray())
                                 } else {
                                     startPermissionChain()
@@ -477,10 +496,19 @@ class MainActivity : ComponentActivity() {
                                 val sensorPermissions = mutableListOf<String>()
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) sensorPermissions.add(Manifest.permission.ACTIVITY_RECOGNITION)
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) sensorPermissions.add(Manifest.permission.BODY_SENSORS)
-                                // Note: BODY_SENSORS_BACKGROUND は一括リクエストに含めるとOSに拒否されるため除外
                                 
-                                // 重要: ここでシステムのリクエスト画面をキックする
-                                requestPermissionLauncher.launch(sensorPermissions.toTypedArray())
+                                val missing = sensorPermissions.filter {
+                                    ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
+                                }
+                                
+                                if (missing.isNotEmpty()) {
+                                    isRequestingPermissions = true
+                                    lastRequestedPermissions = missing.toSet()
+                                    requestPermissionLauncher.launch(missing.toTypedArray())
+                                } else {
+                                    sensorPermissionCallback?.invoke(true)
+                                    sensorPermissionCallback = null
+                                }
                             }) {
                                 Text(stringResource(Res.string.ok_button))
                             }
@@ -533,39 +561,60 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            permissions.add(Manifest.permission.ACTIVITY_RECOGNITION)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissions.add(Manifest.permission.BLUETOOTH_SCAN)
             permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
         }
-        // 身体センサーと身体活動は「必須（起動時）」から外し、必要な時だけ求めるようにする
+        // 身体センサーもワークアウト開始時の安定性のために初期権限に含める（これはランタイム権限）
+        permissions.add(Manifest.permission.BODY_SENSORS)
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            permissions.add(Manifest.permission.FOREGROUND_SERVICE_LOCATION)
-            permissions.add(Manifest.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE)
-            // Note: FOREGROUND_SERVICE_HEALTH は BODY_SENSORS が許可されたタイミングで機能するように考慮
-        }
+        
+        // 注: FOREGROUND_SERVICE_HEALTH 等はマニフェスト宣言のみでOK（ランタイム権限ではない）なため、
+        // ここでのリスト追加からは除外します
+        
         return permissions
     }
 
     private fun startPermissionChain() {
+        if (isRequestingPermissions) {
+            Log.d("MainActivity", "Permission request already in progress, skipping startPermissionChain")
+            return
+        }
+
         val allRequired = getRequiredPermissions()
         val missingPermissions = allRequired.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
+        }.toSet()
 
         if (missingPermissions.isNotEmpty()) {
+            // 同じ権限セットを連続して要求しようとしている場合は、無限ループ防止のため停止
+            if (missingPermissions == lastRequestedPermissions) {
+                Log.w("MainActivity", "Detected repeated request for the same permissions: $missingPermissions. Breaking loop.")
+                return
+            }
+
             // 位置情報が未許可の場合（最優先）
             if (missingPermissions.contains(Manifest.permission.ACCESS_FINE_LOCATION)) {
-                showLocationDisclosure = true
+                if (!showLocationDisclosure) {
+                    showLocationDisclosure = true
+                }
                 return
             }
             
             // その他の必須権限（BT, 通知等）
+            Log.d("MainActivity", "Launching permission request for: $missingPermissions")
+            isRequestingPermissions = true
+            lastRequestedPermissions = missingPermissions
             requestPermissionLauncher.launch(missingPermissions.toTypedArray())
         } else {
             // 前景権限が全て揃ったら次へ
+            lastRequestedPermissions = emptySet()
             checkBackgroundLocationStep()
         }
     }
