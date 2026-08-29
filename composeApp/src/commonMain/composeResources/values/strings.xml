@@ -301,4 +301,7 @@
     <string name="settings_auto_export_folder_open">Open Folder</string>
 
     <string name="ok_button">OK</string>
+    <string name="settings_section_lower_data">Lower Section Items</string>
+    <string name="settings_lower_data_desc">Select and reorder metrics &amp; graphs displayed in the bottom section.</string>
+    <string name="settings_graph_prefix">Graph: </string>
 </resources>

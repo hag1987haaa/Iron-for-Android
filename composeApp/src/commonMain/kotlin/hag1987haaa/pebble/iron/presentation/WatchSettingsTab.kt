@@ -23,12 +23,12 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
     val isAutoLaunchDistEnabled by viewModel.isAutoLaunchDistEnabled.collectAsState()
     val isAutoLaunchTimeEnabled by viewModel.isAutoLaunchTimeEnabled.collectAsState()
     val enabledMidItems by viewModel.enabledMidTypes.collectAsState()
-    val enabledGraphs by viewModel.enabledGraphTypes.collectAsState()
+    val enabledLowerItems by viewModel.enabledLowerTypes.collectAsState()
     val isMetric by viewModel.isMetric.collectAsState()
 
     var isNotifExpanded by remember { mutableStateOf(false) }
     var isMidDataExpanded by remember { mutableStateOf(false) }
-    var isGraphsExpanded by remember { mutableStateOf(false) }
+    var isLowerDataExpanded by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
 
@@ -41,9 +41,10 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
         ExpandableSubSection(stringResource(Res.string.settings_section_mid_data), isMidDataExpanded, { isMidDataExpanded = !isMidDataExpanded }) {
             MidDataSettingsContent(enabledMidItems, viewModel)
         }
-        ExpandableSubSection(stringResource(Res.string.settings_section_graphs), isGraphsExpanded, { isGraphsExpanded = !isGraphsExpanded }) {
-            GraphSettingsContent(enabledGraphs, viewModel)
+        ExpandableSubSection(stringResource(Res.string.settings_section_lower_data), isLowerDataExpanded, { isLowerDataExpanded = !isLowerDataExpanded }) {
+            LowerDataSettingsContent(enabledLowerItems, viewModel)
         }
+
 
         // 2. 心拍サンプリング設定
         Spacer(Modifier.height(24.dp))
@@ -220,6 +221,59 @@ fun GraphSettingsContent(enabledGraphs: List<Int>, viewModel: SettingsViewModel)
             disabledGraphs.forEach { (typeId, name) ->
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { val newList = enabledGraphs.toMutableList(); newList.add(typeId); viewModel.updateGraphSettings(newList) }) { Icon(Icons.Default.AddCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+                    Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun LowerDataSettingsContent(enabledLowerItems: List<Int>, viewModel: SettingsViewModel) {
+    Column(modifier = Modifier.padding(8.dp)) {
+        Text(text = stringResource(Res.string.settings_lower_data_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        
+        val allItems = listOf(
+            // グラフ項目（ウォッチ互換性のため現在グラフ表示のみ選択可能）
+            100 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_pace),
+            101 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_dist),
+            102 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_steps),
+            103 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_alt),
+            104 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_hr),
+            105 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_cal)
+        )
+        
+        val validEnabledItems = enabledLowerItems.mapNotNull { typeId ->
+            val found = allItems.find { it.first == typeId }
+            if (found != null) typeId to found.second else null
+        }
+        
+        validEnabledItems.forEachIndexed { index, (typeId, name) ->
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { 
+                    val newList = enabledLowerItems.toMutableList()
+                    val actualIndex = newList.indexOf(typeId)
+                    if (actualIndex != -1) { newList.removeAt(actualIndex); viewModel.updateLowerDataSettings(newList) }
+                }) { Icon(Icons.Default.RemoveCircle, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
+                Text(text = name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                IconButton(onClick = { 
+                    val newList = enabledLowerItems.toMutableList(); val actualIndex = newList.indexOf(typeId)
+                    if (actualIndex > 0) { val t = newList[actualIndex]; newList[actualIndex] = newList[actualIndex-1]; newList[actualIndex-1] = t; viewModel.updateLowerDataSettings(newList) }
+                }, enabled = index > 0) { Icon(Icons.Default.ArrowUpward, null, modifier = Modifier.size(20.dp)) }
+                IconButton(onClick = { 
+                    val newList = enabledLowerItems.toMutableList(); val actualIndex = newList.indexOf(typeId)
+                    if (actualIndex != -1 && actualIndex < enabledLowerItems.size - 1) { val t = newList[actualIndex]; newList[actualIndex] = newList[actualIndex+1]; newList[actualIndex+1] = t; viewModel.updateLowerDataSettings(newList) }
+                }, enabled = index < validEnabledItems.size - 1) { Icon(Icons.Default.ArrowDownward, null, modifier = Modifier.size(20.dp)) }
+            }
+        }
+        
+        val disabledItems = allItems.filter { item -> enabledLowerItems.none { it == item.first } }
+        if (disabledItems.isNotEmpty()) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            disabledItems.forEach { (typeId, name) ->
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { val newList = enabledLowerItems.toMutableList(); newList.add(typeId); viewModel.updateLowerDataSettings(newList) }) { Icon(Icons.Default.AddCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
                     Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
                 }
             }

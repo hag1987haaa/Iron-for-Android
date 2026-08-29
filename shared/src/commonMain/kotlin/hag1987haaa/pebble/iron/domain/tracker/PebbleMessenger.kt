@@ -1,5 +1,7 @@
 package hag1987haaa.pebble.iron.domain.tracker
 
+import hag1987haaa.pebble.iron.domain.model.LocationPoint
+
 interface PebbleMessenger {
     /**
      * 定期的な統計情報（時間、距離、心拍数など）を送信する
@@ -41,6 +43,51 @@ interface PebbleMessenger {
      * @param type 0: 距離ベース(長), 1: 時間ベース(短x2)
      */
     fun sendNotification(type: Int)
+
+    /**
+     * 下段の表示データ文字列を送信する
+     */
+    fun sendLowerData(lowerDataString: String)
+
+    /**
+     * 中段の表示項目IDを送信する
+     */
+    fun sendMidId(id: Int)
+
+    /**
+     * 下段の表示項目IDを送信する
+     */
+    fun sendLowerId(id: Int)
+
+    /**
+     * マップの表示状態を送信する
+     */
+    fun sendMapState(isActive: Boolean)
+
+    /**
+     * マップ描画用のデータチャンクを送信する
+     */
+    fun sendMapChunk(data: ByteArray, chunkIdx: Int, totalChunks: Int)
+
+    /**
+     * 現在の中段表示項目IDを設定する（ウォッチからの同期用）
+     */
+    fun setCurrentMidId(id: Int)
+
+    /**
+     * 現在の下段表示項目IDを設定する（ウォッチからの同期用）
+     */
+    fun setCurrentLowerId(id: Int)
+
+    /**
+     * マップの表示状態を設定する（ウォッチからの同期用）
+     */
+    fun setMapState(isActive: Boolean)
+
+    /**
+     * マップデータを送信する（経路情報を元にビットマップ生成・RLEエンコード・分割送信を一括で行う）
+     */
+    fun sendMap(points: List<LocationPoint>, width: Int, height: Int)
 
     fun launchWatchApp()
 

@@ -74,7 +74,7 @@ data class RunStatistics(
 class RunTrackerEngine(
     private val locationTracker: LocationTracker,
     private val runRepository: RunRepository? = null,
-    private val pebbleMessenger: PebbleMessenger? = null,
+    val pebbleMessenger: PebbleMessenger? = null,
     private val appSettings: AppSettings? = null,
     private val bleHrManager: BleHeartRateManager? = null,
     private val scope: CoroutineScope
@@ -439,6 +439,10 @@ class RunTrackerEngine(
     fun rotateGraphType() { pebbleMessenger?.rotateGraphType(_statistics.value) }
     fun rotateMidData() { pebbleMessenger?.rotateMidData(_statistics.value) }
     fun sendTouchConfig(enabled: Boolean) { pebbleMessenger?.sendTouchConfig(enabled) }
+
+    fun setCurrentMidId(id: Int) { pebbleMessenger?.setCurrentMidId(id) }
+    fun setCurrentLowerId(id: Int) { pebbleMessenger?.setCurrentLowerId(id) }
+    fun setMapState(isActive: Boolean) { pebbleMessenger?.setMapState(isActive) }
 
     private fun reset() {
         clearWorkoutData()

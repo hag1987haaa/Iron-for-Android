@@ -301,4 +301,7 @@
     <string name="settings_auto_export_folder_open">フォルダを開く</string>
 
     <string name="ok_button">OK</string>
+    <string name="settings_section_lower_data">下段の表示項目</string>
+    <string name="settings_lower_data_desc">下段に表示する項目（数値・グラフ）と表示順を設定します。</string>
+    <string name="settings_graph_prefix">グラフ: </string>
 </resources>

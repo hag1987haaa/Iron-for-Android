@@ -49,6 +49,9 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _enabledMidTypes = MutableStateFlow(settings.enabledMidTypes)
     val enabledMidTypes: StateFlow<List<Int>> = _enabledMidTypes.asStateFlow()
 
+    private val _enabledLowerTypes = MutableStateFlow(settings.enabledLowerTypes)
+    val enabledLowerTypes: StateFlow<List<Int>> = _enabledLowerTypes.asStateFlow()
+
     private val _isMetric = MutableStateFlow(settings.isMetric)
     val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
 
@@ -187,6 +190,12 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     fun updateMidDataSettings(newTypes: List<Int>) {
         settings.enabledMidTypes = newTypes
         _enabledMidTypes.value = newTypes
+        settings.save()
+    }
+
+    fun updateLowerDataSettings(newTypes: List<Int>) {
+        settings.enabledLowerTypes = newTypes
+        _enabledLowerTypes.value = newTypes
         settings.save()
     }
 

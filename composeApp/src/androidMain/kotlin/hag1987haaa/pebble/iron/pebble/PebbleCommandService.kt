@@ -12,6 +12,7 @@ import io.rebble.pebblekit2.common.model.ReceiveResult
 import hag1987haaa.pebble.iron.AndroidDependencies
 import hag1987haaa.pebble.iron.KmpDependencies
 import hag1987haaa.pebble.iron.domain.model.ActivityType
+import hag1987haaa.pebble.iron.domain.model.AppEventID
 import hag1987haaa.pebble.iron.domain.settings.LongPressMode
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
 import java.util.UUID
@@ -23,6 +24,16 @@ class PebbleCommandService : BasePebbleListenerService() {
         private var lastCommandTime = 0L
         private var lastCommandVal = -1
         private const val DEBOUNCE_MS = 200L
+
+        private const val KEY_CMD = 10000u
+        private const val KEY_HR = 10007u
+        private const val KEY_MEDIA_CMD = 10008u
+        private const val KEY_STEPS = 10010u
+        private const val KEY_ACTIVITY_TYPE = 10012u
+        private const val KEY_MID_ID = 10015u
+        private const val KEY_LOWER_ID = 10016u
+        private const val KEY_EVENT = 10018u
+        private const val KEY_MAP_STATE = 10022u
     }
 
     override fun onCreate() {
@@ -40,211 +51,257 @@ class PebbleCommandService : BasePebbleListenerService() {
         watch: WatchIdentifier
     ): ReceiveResult {
         // --- 画面オフ時のレスポンス改善対策 ---
-        // メッセージを受信した瞬間に短時間の WakeLock を取得し、CPUを確実に起こす
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         val wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Iron:CommandWakeLock")
-        // 3秒間のタイムアウト付きで取得。これにより処理が終われば自動で寝る
         wakeLock.acquire(3000) 
         
-        Log.d("PebbleCommand", "--- MESSAGE RECEIVED --- (WakeLock Acquired) From: $watch")
-        
+        Log.d("PebbleCommand", "--- MESSAGE RECEIVED --- From: $watch")
         lastConnectedWatch = watch
 
-        // 1. ワークアウト種別の変更 (Activity Type Key = 10012)
-        val typeIdx = data[10012u]?.let { parsePebbleItemToInt(it) }
-        if (typeIdx != null) {
+        val engine = KmpDependencies.trackerEngine
+
+        // 1. 同期項目の処理 (Activity Type, HR, Steps, Mid/Lower ID, Map State)
+        
+        // Activity Type (10012)
+        data[KEY_ACTIVITY_TYPE]?.let { parsePebbleItemToInt(it) }?.let { typeIdx ->
             try {
                 val types = ActivityType.entries
                 if (typeIdx in types.indices) {
                     val newType = types[typeIdx]
-                    Log.i("PebbleCommand", "Changing Activity Type to: $newType (Index: $typeIdx)")
-                    // 修正：engine.setActivityType 内で同期（sendState）まで完結させるため
-                    // ここでの追加の同期呼び出しは不要
-                    KmpDependencies.trackerEngine.setActivityType(newType)
+                    Log.i("PebbleCommand", "Changing Activity Type to: $newType")
+                    engine.setActivityType(newType)
                 }
             } catch (e: Exception) {
                 Log.e("PebbleCommand", "Failed to change Activity Type", e)
             }
         }
 
-        // 2. 心拍数・歩数データ処理 (デバウンス対象外 - 常時受け付ける)
-        val hrItem = data[10007u] ?: data[100u]
-        val hr = hrItem?.let { parsePebbleItemToInt(it) }
-        if (hr != null) {
+        // Heart Rate (10007 or 100)
+        (data[KEY_HR] ?: data[100u])?.let { parsePebbleItemToInt(it) }?.let { hr ->
             Log.i("PebbleCommand", "Data: Heart Rate ($hr)")
-            KmpDependencies.trackerEngine.addHeartRate(hr, source = "PEBBLE")
+            engine.addHeartRate(hr, source = "PEBBLE")
         }
 
-        val stepsItem = data[10010u]
-        val steps = stepsItem?.let { parsePebbleItemToInt(it) }
-        if (steps != null) {
+        // Steps (10010)
+        data[KEY_STEPS]?.let { parsePebbleItemToInt(it) }?.let { steps ->
             Log.i("PebbleCommand", "Data: Steps ($steps)")
-            KmpDependencies.trackerEngine.updateSteps(steps)
+            engine.updateSteps(steps)
         }
 
-        // 2. メディアコマンドの処理 (KEY_MEDIA_CMD = 10008 - デバウンス対象外)
-        val mediaCmdItem = data[10008u]
-        val mediaCmd = mediaCmdItem?.let { parsePebbleItemToInt(it) }
-        if (mediaCmd != null) {
-            if (KmpDependencies.appSettings.isMusicControlEnabled) {
-                Log.i("PebbleCommand", "Media Command Received: $mediaCmd")
-                sendMediaKey(mediaCmd)
-            } else {
-                Log.w("PebbleCommand", "Media Command ignored (Feature Disabled in settings)")
-            }
+        // Mid ID (10015)
+        data[KEY_MID_ID]?.let { parsePebbleItemToInt(it) }?.let { midId ->
+            Log.i("PebbleCommand", "Sync: Mid ID ($midId)")
+            engine.setCurrentMidId(midId)
         }
 
-        // 3. ボタンコマンドの処理 (KEY_CMD = 10000 または 0)
-        val cmdItem = data[10000u] ?: data[0u]
-        val cmd = cmdItem?.let { parsePebbleItemToInt(it) }
+        // Lower ID (10016)
+        data[KEY_LOWER_ID]?.let { parsePebbleItemToInt(it) }?.let { lowerId ->
+            Log.i("PebbleCommand", "Sync: Lower ID ($lowerId)")
+            engine.setCurrentLowerId(lowerId)
+        }
 
-        if (cmd != null) {
-            val currentTime = System.currentTimeMillis()
-            // 同じコマンドが短時間に連続した場合は無視する (長押しによる連打対策)
-            if (cmd == lastCommandVal && ((currentTime - lastCommandTime) < DEBOUNCE_MS)) {
-                Log.w("PebbleCommand", "Ignoring repeated command: $cmd (debounce)")
-                return ReceiveResult.Ack
-            }
-            
-            lastCommandTime = currentTime
-            lastCommandVal = cmd
+        // Map State (10022)
+        data[KEY_MAP_STATE]?.let { parsePebbleItemToInt(it) }?.let { mapState ->
+            val isActive = mapState == 1
+            Log.i("PebbleCommand", "Sync: Map State ($isActive)")
+            engine.setMapState(isActive)
+        }
 
-            Log.i("PebbleCommand", "Execute Command: $cmd")
-            val engine = KmpDependencies.trackerEngine
-            val currentStatus = engine.statistics.value.status
+        // 2. イベント・コマンドの処理
+        var handledByEvent = false
+        
+        // KEY_EVENT (10018) を最優先で評価
+        val eventId = data[KEY_EVENT]?.let { parsePebbleItemToInt(it) }?.let { AppEventID.fromId(it) }
+        if (eventId != null && eventId != AppEventID.EVENT_NONE) {
+            Log.i("PebbleCommand", "Handling AppEvent: $eventId")
+            handleAppEvent(eventId)
+            handledByEvent = true
+        }
 
-            when (cmd) {
-                1 -> { // UP ボタン: アクションの進行 (開始 / 一時停止 / 再開)
-                    when (currentStatus) {
-                        RunStatus.IDLE -> sendCommandToService("PREPARE")
-                        RunStatus.PREPARING, RunStatus.READY -> sendCommandToService("START")
-                        RunStatus.ACTIVE -> sendCommandToService("PAUSE")
-                        RunStatus.PAUSED -> sendCommandToService("RESUME")
-                        else -> Log.w("PebbleCommand", "UP ignored in $currentStatus")
-                    }
-                }
-                2 -> { // SELECT ボタン
-                    if (currentStatus == RunStatus.PAUSED) {
-                        Log.i("PebbleCommand", "FINISH command received via SELECT (Cmd 2)")
-                        sendCommandToService("FINISH")
-                    } else if (currentStatus == RunStatus.ACTIVE) {
-                        Log.i("PebbleCommand", "Rotate Mid Data via SELECT (Cmd 2)")
-                        engine.rotateMidData()
-                    }
-                }
-                0 -> { // SELECT ボタン (待機中): 設定モード
-                    Log.i("PebbleCommand", "Settings mode requested (Cmd 0)")
-                    // 将来的な設定画面実装用
-                }
-                7 -> { // UP ボタン (状態5): ワークアウトの保存
-                    if (currentStatus == RunStatus.FINISHED) {
-                        Log.i("PebbleCommand", "SAVE command received (Cmd 7)")
-                        sendCommandToService("SAVE_TO_RESULT")
-                    }
-                }
-                8 -> { // DOWN ボタン (状態5): ワークアウトの破棄
-                    if (currentStatus == RunStatus.FINISHED) {
-                        Log.i("PebbleCommand", "DISCARD command received (Cmd 8)")
-                        sendCommandToService("RESET")
-                    }
-                }
-                9 -> { // SELECT ボタン (状態6): リザルト画面終了 -> IDLE
-                    if (currentStatus == RunStatus.RESULT) {
-                        Log.i("PebbleCommand", "RESET FROM RESULT received (Cmd 9)")
-                        sendCommandToService("RESET")
-                    }
-                }
-                6 -> { // DOWN ボタン: グラフ切り替え
-                    engine.rotateGraphType()
-                }
-                5 -> { // 同期リクエスト
-                    engine.triggerStatisticsUpdate()
-                }
-                50, 51, 52 -> {
-                    // ボタン長押しアクションの処理
-                    val settings = KmpDependencies.appSettings
-                    if (settings.isLongPressEnabled) {
-                        val mode = when (cmd) {
-                            50 -> settings.upLongPressMode
-                            51 -> settings.selectLongPressMode
-                            52 -> settings.downLongPressMode
-                            else -> LongPressMode.MUSIC
-                        }
-
-                        when (mode) {
-                            LongPressMode.MUSIC -> {
-                                // ① ミュージックコントロール
-                                val mediaCmd = when (cmd) {
-                                    50 -> 3 // Up Long -> Previous
-                                    51 -> 1 // Select Long -> Play/Pause
-                                    52 -> 2 // Down Long -> Next
-                                    else -> -1
-                                }
-                                if (mediaCmd != -1) {
-                                    Log.i("PebbleCommand", "Long Press Media: $mediaCmd")
-                                    sendMediaKey(mediaCmd)
-                                }
-                            }
-                            LongPressMode.ASSISTANT -> {
-                                // ② アシスタントを呼び出す (Google Assistant / Gemini)
-                                Log.i("PebbleCommand", "Long Press Assistant: Triggering Voice Command via Trampoline")
-                                try {
-                                    // 画面を強制的に点灯させてバックグラウンド制限を回避しやすくする
-                                    val pm = getSystemService(POWER_SERVICE) as PowerManager
-                                    val wakeLock = pm.newWakeLock(
-                                        PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-                                        "Iron:AssistantWakeup"
-                                    )
-                                    wakeLock.acquire(3000) // 3秒間点灯
-
-                                    // 直接アシスタントを呼ぶのではなく、Ironの中継画面を立ち上げる
-                                    val trampolineIntent = Intent(this, AssistantTrampolineActivity::class.java).apply {
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                                    }
-                                    startActivity(trampolineIntent)
-                                } catch (e: Exception) {
-                                    Log.e("PebbleCommand", "Failed to launch assistant", e)
-                                }
-                            }
-                            LongPressMode.INTENT -> {
-                                // ③ カスタムIntentの送信
-                                if (settings.isAutomationEnabled) {
-                                    val isEnabled = when(cmd) {
-                                        50 -> settings.isCommand50Enabled
-                                        51 -> settings.isCommand51Enabled
-                                        52 -> settings.isCommand52Enabled
-                                        else -> false
-                                    }
-                                    
-                                    if (isEnabled) {
-                                        val action = when(cmd) {
-                                            50 -> "hag1987haaa.pebble.iron.ACTION_LONGPRESS_UP"
-                                            51 -> "hag1987haaa.pebble.iron.ACTION_LONGPRESS_SELECT"
-                                            52 -> "hag1987haaa.pebble.iron.ACTION_LONGPRESS_DOWN"
-                                            else -> ""
-                                        }
-                                        Log.i("PebbleCommand", "Automation: Broadcasting intent $action")
-                                        val intent = Intent(action).apply {
-                                            setPackage(null) // システム全体に放送
-                                            addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
-                                        }
-                                        sendBroadcast(intent)
-                                    }
-                                }
-                            }
-                            LongPressMode.NONE -> {
-                                Log.d("PebbleCommand", "Long Press ignored (Mode: NONE)")
-                            }
-                        }
-                    }
+        // KEY_EVENT が処理されなかった場合のみ、従来のキーを評価する (後方互換)
+        if (!handledByEvent) {
+            // メディアコマンド (10008)
+            data[KEY_MEDIA_CMD]?.let { parsePebbleItemToInt(it) }?.let { mediaCmd ->
+                if (KmpDependencies.appSettings.isMusicControlEnabled) {
+                    Log.i("PebbleCommand", "Media Command Received: $mediaCmd")
+                    sendMediaKey(mediaCmd)
                 }
             }
-            // 修正：ここでは即座に同期しない。
-            // TrackingService 側で状態の変化を検知したタイミングで自動的に同期されるように変更、
-            // もしくはエンジン側の各メソッド（pause, resume等）が個別に送る。
+
+            // ボタンコマンド (10000 or 0)
+            (data[KEY_CMD] ?: data[0u])?.let { parsePebbleItemToInt(it) }?.let { cmd ->
+                val currentTime = System.currentTimeMillis()
+                if (cmd == lastCommandVal && ((currentTime - lastCommandTime) < DEBOUNCE_MS)) {
+                    Log.w("PebbleCommand", "Ignoring repeated command: $cmd (debounce)")
+                } else {
+                    lastCommandTime = currentTime
+                    lastCommandVal = cmd
+                    Log.i("PebbleCommand", "Execute Legacy Command: $cmd")
+                    handleLegacyCommand(cmd)
+                }
+            }
         }
 
         return ReceiveResult.Ack
+    }
+
+    private fun handleAppEvent(event: AppEventID) {
+        val engine = KmpDependencies.trackerEngine
+        val status = engine.statistics.value.status
+        
+        when (event) {
+            AppEventID.EVENT_BUTTON_UP_CLICK -> {
+                if (status == RunStatus.FINISHED) handleLegacyCommand(7) // SAVE
+                else handleLegacyCommand(1) // START/PAUSE/RESUME
+            }
+            AppEventID.EVENT_BUTTON_SELECT_CLICK -> {
+                if (status == RunStatus.RESULT) handleLegacyCommand(9) // RESET FROM RESULT
+                else handleLegacyCommand(2) // ROTATE MID / FINISH
+            }
+            AppEventID.EVENT_BUTTON_DOWN_CLICK -> {
+                if (status == RunStatus.FINISHED) handleLegacyCommand(8) // DISCARD
+                else handleLegacyCommand(6) // ROTATE GRAPH
+            }
+            AppEventID.EVENT_BUTTON_UP_LONG -> handleLegacyCommand(50)
+            AppEventID.EVENT_BUTTON_SELECT_LONG -> handleLegacyCommand(51)
+            AppEventID.EVENT_BUTTON_DOWN_LONG -> handleLegacyCommand(52)
+            
+            AppEventID.EVENT_TOUCH_DOUBLE_TAP -> sendMediaKey(1) // Play/Pause
+            AppEventID.EVENT_TOUCH_SWIPE_LEFT -> sendMediaKey(2)  // Next
+            AppEventID.EVENT_TOUCH_SWIPE_RIGHT -> sendMediaKey(3) // Prev
+            AppEventID.EVENT_TOUCH_SWIPE_UP -> sendMediaKey(4)    // Vol Up
+            AppEventID.EVENT_TOUCH_SWIPE_DOWN -> sendMediaKey(5)  // Vol Down
+            else -> {}
+        }
+    }
+
+    private fun handleLegacyCommand(cmd: Int) {
+        val engine = KmpDependencies.trackerEngine
+        val currentStatus = engine.statistics.value.status
+
+        when (cmd) {
+            1 -> { // UP ボタン
+                when (currentStatus) {
+                    RunStatus.IDLE -> sendCommandToService("PREPARE")
+                    RunStatus.PREPARING, RunStatus.READY -> sendCommandToService("START")
+                    RunStatus.ACTIVE -> sendCommandToService("PAUSE")
+                    RunStatus.PAUSED -> sendCommandToService("RESUME")
+                    else -> Log.w("PebbleCommand", "UP ignored in $currentStatus")
+                }
+            }
+            2 -> { // SELECT ボタン
+                if (currentStatus == RunStatus.PAUSED) {
+                    Log.i("PebbleCommand", "FINISH command received via SELECT (Cmd 2)")
+                    sendCommandToService("FINISH")
+                } else if (currentStatus == RunStatus.ACTIVE) {
+                    Log.i("PebbleCommand", "Rotate Mid Data via SELECT (Cmd 2)")
+                    engine.rotateMidData()
+                }
+            }
+            0 -> { // SELECT ボタン (待機中): 設定モード
+                Log.i("PebbleCommand", "Settings mode requested (Cmd 0)")
+            }
+            7 -> { // UP ボタン (状態5): ワークアウトの保存
+                if (currentStatus == RunStatus.FINISHED) {
+                    Log.i("PebbleCommand", "SAVE command received (Cmd 7)")
+                    sendCommandToService("SAVE_TO_RESULT")
+                }
+            }
+            8 -> { // DOWN ボタン (状態5): ワークアウトの破棄
+                if (currentStatus == RunStatus.FINISHED) {
+                    Log.i("PebbleCommand", "DISCARD command received (Cmd 8)")
+                    sendCommandToService("RESET")
+                }
+            }
+            9 -> { // SELECT ボタン (状態6): リザルト画面終了 -> IDLE
+                if (currentStatus == RunStatus.RESULT) {
+                    Log.i("PebbleCommand", "RESET FROM RESULT received (Cmd 9)")
+                    sendCommandToService("RESET")
+                }
+            }
+            6 -> { // DOWN ボタン: グラフ切り替え
+                engine.rotateGraphType()
+            }
+            5 -> { // 同期リクエスト
+                engine.triggerStatisticsUpdate()
+            }
+            50, 51, 52 -> {
+                handleLongPress(cmd)
+            }
+        }
+    }
+
+    private fun handleLongPress(cmd: Int) {
+        val settings = KmpDependencies.appSettings
+        if (!settings.isLongPressEnabled) return
+
+        val mode = when (cmd) {
+            50 -> settings.upLongPressMode
+            51 -> settings.selectLongPressMode
+            52 -> settings.downLongPressMode
+            else -> LongPressMode.MUSIC
+        }
+
+        when (mode) {
+            LongPressMode.MUSIC -> {
+                val mediaCmd = when (cmd) {
+                    50 -> 3 // Up Long -> Previous
+                    51 -> 1 // Select Long -> Play/Pause
+                    52 -> 2 // Down Long -> Next
+                    else -> -1
+                }
+                if (mediaCmd != -1) {
+                    Log.i("PebbleCommand", "Long Press Media: $mediaCmd")
+                    sendMediaKey(mediaCmd)
+                }
+            }
+            LongPressMode.ASSISTANT -> {
+                Log.i("PebbleCommand", "Long Press Assistant Triggered")
+                try {
+                    val pm = getSystemService(POWER_SERVICE) as PowerManager
+                    val wakeLock = pm.newWakeLock(
+                        PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                        "Iron:AssistantWakeup"
+                    )
+                    wakeLock.acquire(3000)
+
+                    val trampolineIntent = Intent(this, AssistantTrampolineActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
+                    startActivity(trampolineIntent)
+                } catch (e: Exception) {
+                    Log.e("PebbleCommand", "Failed to launch assistant", e)
+                }
+            }
+            LongPressMode.INTENT -> {
+                if (settings.isAutomationEnabled) {
+                    val isEnabled = when(cmd) {
+                        50 -> settings.isCommand50Enabled
+                        51 -> settings.isCommand51Enabled
+                        52 -> settings.isCommand52Enabled
+                        else -> false
+                    }
+                    
+                    if (isEnabled) {
+                        val action = when(cmd) {
+                            50 -> "hag1987haaa.pebble.iron.ACTION_LONGPRESS_UP"
+                            51 -> "hag1987haaa.pebble.iron.ACTION_LONGPRESS_SELECT"
+                            52 -> "hag1987haaa.pebble.iron.ACTION_LONGPRESS_DOWN"
+                            else -> ""
+                        }
+                        Log.i("PebbleCommand", "Automation: Broadcasting intent $action")
+                        val intent = Intent(action).apply {
+                            setPackage(null) 
+                            addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+                        }
+                        sendBroadcast(intent)
+                    }
+                }
+            }
+            LongPressMode.NONE -> {
+                Log.d("PebbleCommand", "Long Press ignored (Mode: NONE)")
+            }
+        }
     }
 
     private fun parsePebbleItemToInt(item: PebbleDictionaryItem): Int? {

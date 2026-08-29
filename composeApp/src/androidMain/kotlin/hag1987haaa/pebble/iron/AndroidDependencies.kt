@@ -66,6 +66,8 @@ object AndroidDependencies {
         // Mid Data 設定の読み込み
         val midTypesStr = prefs.getString("mid_types", "0,4,1,5,10") ?: "0,4,1,5,10"
         settings.enabledMidTypes = midTypesStr.split(",").filter { it.isNotEmpty() }.map { it.toInt() }
+        val lowerTypesStr = prefs.getString("lower_types", "100,101,102,103,104,105") ?: "100,101,102,103,104,105"
+        settings.enabledLowerTypes = lowerTypesStr.split(",").filter { it.isNotEmpty() }.map { it.toInt() }
         settings.isMetric = prefs.getBoolean("is_metric", true)
         
         // 自動エクスポート設定
@@ -78,14 +80,23 @@ object AndroidDependencies {
         settings.lastActivityType = prefs.getString("last_activity_type", ActivityType.RUNNING.name) ?: ActivityType.RUNNING.name
         
         // 中段表示・グラフのIDを読み込み、未設定ならリストの先頭をデフォルトにする
+        // 中段・下段表示のIDを読み込み、未設定ならリストの先頭をデフォルトにする
         val lastMidId = prefs.getInt("last_mid_id", -1)
         val validatedMidId = if (lastMidId != -1 && lastMidId in settings.enabledMidTypes) {
             lastMidId
         } else {
             settings.enabledMidTypes.firstOrNull() ?: -1
         }
-        // settings.lastMidDataId は削除されたため、読み込みのみ行うか、必要ならローカル変数に留める
-        
+        settings.lastMidId = validatedMidId
+
+        val lastLowerId = prefs.getInt("last_lower_id", -1)
+        val validatedLowerId = if (lastLowerId != -1 && lastLowerId in settings.enabledLowerTypes) {
+            lastLowerId
+        } else {
+            settings.enabledLowerTypes.firstOrNull() ?: -1
+        }
+        settings.lastLowerId = validatedLowerId
+
         val lastGraphId = prefs.getInt("last_graph_id", -1)
         val validatedGraphId = if (lastGraphId != -1 && lastGraphId in settings.enabledGraphTypes) {
             lastGraphId
@@ -94,9 +105,9 @@ object AndroidDependencies {
         }
         settings.lastGraphTypeId = validatedGraphId
 
-        // 修正・確定された値を SharedPreferences にも即座に反映して「-1」を根絶する
         prefs.edit().apply {
-            putInt("last_mid_id", validatedMidId)
+            putInt("last_mid_id", settings.lastMidId)
+            putInt("last_lower_id", settings.lastLowerId)
             putInt("last_graph_id", settings.lastGraphTypeId)
             apply()
         }
@@ -145,8 +156,9 @@ object AndroidDependencies {
                 putBoolean("auto_launch_dist", settings.isAutoLaunchOnDistanceNotificationEnabled)
                 putBoolean("auto_launch_time", settings.isAutoLaunchOnTimeNotificationEnabled)
                 
-                // Mid Data 設定の保存
+                // Mid / Lower Data 設定の保存
                 putString("mid_types", settings.enabledMidTypes.joinToString(","))
+                putString("lower_types", settings.enabledLowerTypes.joinToString(","))
                 putBoolean("is_metric", settings.isMetric)
                 
                 // 自動エクスポート設定の保存
@@ -158,7 +170,8 @@ object AndroidDependencies {
                 // 心拍サンプリング間隔
                 putInt("hr_interval", settings.hrSamplingInterval)
                 putString("last_activity_type", settings.lastActivityType)
-                // lastMidDataId は保存しない
+                putInt("last_mid_id", settings.lastMidId)
+                putInt("last_lower_id", settings.lastLowerId)
                 putInt("last_graph_id", settings.lastGraphTypeId)
                 
                 putInt("last_main_tab", settings.lastMainTab)

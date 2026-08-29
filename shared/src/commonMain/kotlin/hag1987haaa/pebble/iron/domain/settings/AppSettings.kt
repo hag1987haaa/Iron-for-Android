@@ -32,6 +32,9 @@ class AppSettings {
      * 0: Pace, 1: Distance, 2: Steps, 3: Altitude, 4: HR, 5: Calories, 7: Avg Pace, 8: Speed, 9: Clock, 10: Gain, 11: Cadence, 99: Cockpit
      */
     var enabledMidTypes: List<Int> = listOf(0, 4, 1, 5, 10)
+    var enabledLowerTypes: List<Int> = listOf(100, 101, 102, 103, 104, 105)
+    var lastMidId: Int = -1
+    var lastLowerId: Int = -1
     var isMetric: Boolean = true
     var userWeightKg: Float = 70.0f
     var hasAskedHealthConnectOnboarding: Boolean = false
