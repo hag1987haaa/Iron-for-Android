@@ -605,10 +605,9 @@ class AndroidPebbleMessenger(
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.LTGRAY)
 
-        if (points.isEmpty()) return@withContext bitmap
+        val currentPoint = points.lastOrNull() ?: return@withContext bitmap
 
         // 1. 中心の決定 (最新の地点を画像の中央にする)
-        val currentPoint = points.last()
         val centerLat = currentPoint.latitude
         val centerLon = currentPoint.longitude
         

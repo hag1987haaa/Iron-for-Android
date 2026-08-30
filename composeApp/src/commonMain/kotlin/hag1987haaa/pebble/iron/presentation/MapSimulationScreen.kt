@@ -32,6 +32,11 @@ fun MapSimulationScreen(onBack: () -> Unit) {
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(KmpDependencies.appSettings) }
     val pebblePlatform by viewModel.pebblePlatform.collectAsState()
     val stats by RunState.currentStats.collectAsState()
+    val displayPoints = if (stats.route.isNotEmpty()) {
+        stats.route
+    } else {
+        stats.currentLocation?.let { listOf(it) } ?: emptyList()
+    }
     val scrollState = rememberScrollState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -73,7 +78,7 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                             onLongClick = {
                                 Log.d("MapSimulation", "Card long clicked! Starting map send...")
                                 val (w, h) = getMapSizeForPlatform(pebblePlatform)
-                                messenger?.sendMap(stats.route, w, h)
+                                messenger?.sendMap(displayPoints, w, h)
                                 scope.launch {
                                     snackbarHostState.showSnackbar("Sending Map to $pebblePlatform...")
                                 }
@@ -108,11 +113,11 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                 height = 168,
                 mapWidth = 144,
                 mapHeight = 128,
-                points = stats.route,
+                points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Classic") == true,
                 isMonochrome = true,
                 onSendMap = { w, h ->
-                    messenger?.sendMap(stats.route, w, h)
+                    messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Classic/Steel!") }
                 }
             )
@@ -123,12 +128,12 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                 height = 168,
                 mapWidth = 144,
                 mapHeight = 128,
-                points = stats.route,
+                points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Time") == true && 
                              pebblePlatform?.contains("Round") == false && 
                              pebblePlatform?.contains("2") == false,
                 onSendMap = { w, h ->
-                    messenger?.sendMap(stats.route, w, h)
+                    messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time!") }
                 }
             )
@@ -140,10 +145,10 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                 mapWidth = 260,
                 mapHeight = 198,
                 isRound = true,
-                points = stats.route,
+                points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Round 2") == true,
                 onSendMap = { w, h ->
-                    messenger?.sendMap(stats.route, w, h)
+                    messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Round 2!") }
                 }
             )
@@ -155,10 +160,10 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                 mapWidth = 180,
                 mapHeight = 136,
                 isRound = true,
-                points = stats.route,
+                points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Round") == true && pebblePlatform?.contains("Round 2") == false,
                 onSendMap = { w, h ->
-                    messenger?.sendMap(stats.route, w, h)
+                    messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time Round!") }
                 }
             )
@@ -169,11 +174,11 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                 height = 168,
                 mapWidth = 144,
                 mapHeight = 128,
-                points = stats.route,
+                points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Pebble 2") == true,
                 isMonochrome = true,
                 onSendMap = { w, h ->
-                    messenger?.sendMap(stats.route, w, h)
+                    messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble 2!") }
                 }
             )
@@ -184,10 +189,10 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                 height = 228,
                 mapWidth = 200,
                 mapHeight = 176,
-                points = stats.route,
+                points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Time 2") == true,
                 onSendMap = { w, h ->
-                    messenger?.sendMap(stats.route, w, h)
+                    messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time 2!") }
                 }
             )

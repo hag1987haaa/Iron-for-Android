@@ -30,6 +30,7 @@ data class RunStatistics(
     val heartRates: List<Int> = emptyList(),
     val totalElevationGain: Double = 0.0,
     val route: List<LocationPoint> = emptyList(),
+    val currentLocation: LocationPoint? = null,
     val hasGpsFix: Boolean = false,
     val status: RunStatus = RunStatus.IDLE,
     val hrSource: String = "PEBBLE",
@@ -553,13 +554,15 @@ class RunTrackerEngine(
         if (RunState.status.value == RunStatus.IDLE) return
         lastRawLocation = location
         if (!_statistics.value.hasGpsFix) {
-            _statistics.update { it.copy(hasGpsFix = true) }
+            _statistics.update { it.copy(hasGpsFix = true, currentLocation = location) }
             if (isStartPending) start()
             else if (RunState.status.value == RunStatus.PREPARING) {
-                _statistics.update { it.copy(status = RunStatus.READY) }
+                _statistics.update { it.copy(status = RunStatus.READY, currentLocation = location) }
                 RunState.setStatus(RunStatus.READY); pebbleMessenger?.sendState(RunStatus.READY, _statistics.value)
                 resetTimeoutTimer()
             }
+        } else {
+            _statistics.update { it.copy(currentLocation = location) }
         }
         if (RunState.status.value != RunStatus.ACTIVE) return
         rawLocationWindow.add(location); if (rawLocationWindow.size > windowSize) rawLocationWindow.removeAt(0)

@@ -266,7 +266,7 @@ fun RunScreen(actions: AppActions) {
             ) {
                 if (!isMapFullScreen) {
                     RouteMapView(
-                        points = stats.route,
+                        points = if (stats.route.isNotEmpty()) stats.route else (stats.currentLocation?.let { listOf(it) } ?: emptyList()),
                         modifier = Modifier.fillMaxSize(),
                         isPrivacyMode = isPrivacyMode,
                         isAutoCenter = isAutoCenter,
@@ -422,7 +422,7 @@ fun RunScreen(actions: AppActions) {
         if (isMapFullScreen) {
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 RouteMapView(
-                    points = stats.route,
+                    points = if (stats.route.isNotEmpty()) stats.route else (stats.currentLocation?.let { listOf(it) } ?: emptyList()),
                     modifier = Modifier.fillMaxSize(),
                     isPrivacyMode = isPrivacyMode,
                     isAutoCenter = isAutoCenter,
