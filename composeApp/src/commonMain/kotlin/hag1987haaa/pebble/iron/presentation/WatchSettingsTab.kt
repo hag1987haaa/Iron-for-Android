@@ -235,7 +235,25 @@ fun LowerDataSettingsContent(enabledLowerItems: List<Int>, viewModel: SettingsVi
         Text(text = stringResource(Res.string.settings_lower_data_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
         
         val allItems = listOf(
-            // グラフ項目（ウォッチ互換性のため現在グラフ表示のみ選択可能）
+            // 数値項目
+            0 to stringResource(Res.string.settings_mid_item_pace),
+            14 to stringResource(Res.string.settings_mid_item_pace_1m),
+            15 to stringResource(Res.string.settings_mid_item_pace_2m),
+            16 to stringResource(Res.string.settings_mid_item_pace_5m),
+            17 to stringResource(Res.string.settings_mid_item_pace_10m),
+            7 to stringResource(Res.string.settings_mid_item_avg_pace),
+            1 to stringResource(Res.string.settings_mid_item_dist),
+            2 to stringResource(Res.string.settings_mid_item_steps),
+            3 to stringResource(Res.string.settings_mid_item_alt),
+            4 to stringResource(Res.string.settings_mid_item_hr),
+            12 to stringResource(Res.string.settings_mid_item_hr_ble),
+            13 to stringResource(Res.string.settings_mid_item_hr_watch),
+            5 to stringResource(Res.string.settings_mid_item_cal),
+            8 to stringResource(Res.string.settings_mid_item_speed),
+            9 to stringResource(Res.string.settings_mid_item_clock),
+            10 to stringResource(Res.string.settings_mid_item_gain),
+            11 to stringResource(Res.string.settings_mid_item_cadence),
+            // グラフ項目
             100 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_pace),
             101 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_dist),
             102 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_steps),

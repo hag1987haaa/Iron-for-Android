@@ -20,22 +20,38 @@ class HealthConnectManager(private val context: Context) {
         return HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
     }
 
-    // 権限セットを定義（書き込み権限のみに制限）
-    val permissions = setOf(
+    // 基本書き込み権限
+    private val basePermissions = setOf(
         HealthPermission.getWritePermission(ExerciseSessionRecord::class),
         HealthPermission.getWritePermission(HeartRateRecord::class),
         HealthPermission.getWritePermission(StepsRecord::class),
         HealthPermission.getWritePermission(DistanceRecord::class),
         HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getWritePermission(ElevationGainedRecord::class),
-        // 運動ルート権限 (Android 14+ で詳細なマップ表示に必須)
-        "android.permission.health.WRITE_EXERCISE_ROUTE",
-        "android.permission.health.WRITE_ELEVATION_GAINED",
+    )
+
+    // 全権限（運動ルート権限を含む）
+    val permissions = basePermissions + setOf(
+        "android.permission.health.WRITE_EXERCISE_ROUTE"
     )
 
     suspend fun hasAllPermissions(): Boolean {
-        val granted = healthConnectClient.permissionController.getGrantedPermissions()
-        return granted.containsAll(permissions)
+        return try {
+            val granted = healthConnectClient.permissionController.getGrantedPermissions()
+            granted.containsAll(basePermissions)
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Failed to check permissions", e)
+            false
+        }
+    }
+
+    private suspend fun hasRoutePermission(): Boolean {
+        return try {
+            val granted = healthConnectClient.permissionController.getGrantedPermissions()
+            granted.contains("android.permission.health.WRITE_EXERCISE_ROUTE")
+        } catch (_: Exception) {
+            false
+        }
     }
 
     suspend fun writeRunActivity(run: RunActivity): String? {
@@ -46,18 +62,24 @@ class HealthConnectManager(private val context: Context) {
             val endTime = (run.endTime ?: run.startTime).toJavaInstant()
             val zoneOffset = ZoneOffset.systemDefault().rules.getOffset(startTime)
 
-            // 1. 運動ルートの作成
-            val exerciseRoute = if (run.route.isNotEmpty()) {
-                ExerciseRoute(
-                    route = run.route.map {
-                        ExerciseRoute.Location(
-                            time = it.timestamp.toJavaInstant(),
-                            latitude = it.latitude,
-                            longitude = it.longitude,
-                            altitude = it.altitude?.let { a -> Length.meters(a) }
-                        )
-                    }
-                )
+            // 1. 運動ルートの作成（ルート権限がある場合のみ付与し、未許可でもセッション保存をブロックしない）
+            val canWriteRoute = hasRoutePermission()
+            val exerciseRoute = if (canWriteRoute && run.route.isNotEmpty()) {
+                try {
+                    ExerciseRoute(
+                        route = run.route.map {
+                            ExerciseRoute.Location(
+                                time = it.timestamp.toJavaInstant(),
+                                latitude = it.latitude,
+                                longitude = it.longitude,
+                                altitude = it.altitude?.let { a -> Length.meters(a) }
+                            )
+                        }
+                    )
+                } catch (e: Exception) {
+                    Log.w("HealthConnect", "Failed to construct ExerciseRoute: ${e.message}")
+                    null
+                }
             } else null
 
             // 2. エクササイズセッションの作成

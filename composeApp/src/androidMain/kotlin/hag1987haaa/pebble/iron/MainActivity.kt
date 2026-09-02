@@ -179,9 +179,23 @@ class MainActivity : ComponentActivity() {
             override fun finishTracking() = sendCommand("FINISH")
             
             override fun saveTracking() {
-                // UI側での保存処理を簡略化。
-                // 実際の保存処理（DB/Health Connect）は TrackingService 側で行うことで二重保存を防止する。
                 sendCommand("SAVE_TO_RESULT")
+                // フォアグラウンドのUI層からも保存直後のHealth Connect自動書き込みを確実にトリガー
+                lifecycleScope.launch {
+                    try {
+                        kotlinx.coroutines.delay(500) // サービスのDB保存完了をわずかに待機
+                        val latestRuns = KmpDependencies.runRepository.getAllRunsWithDetails()
+                        val lastRun = latestRuns.firstOrNull()
+                        if (lastRun != null && lastRun.healthConnectId == null) {
+                            Log.i("MainActivity", "Auto-syncing workout ${lastRun.id} to Health Connect from UI layer...")
+                            syncWithHealthConnect(lastRun) { success ->
+                                Log.i("MainActivity", "Auto-sync result for run ${lastRun.id}: $success")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Auto-sync on saveTracking failed", e)
+                    }
+                }
             }
 
             override fun discardTracking() = sendCommand("STOP")

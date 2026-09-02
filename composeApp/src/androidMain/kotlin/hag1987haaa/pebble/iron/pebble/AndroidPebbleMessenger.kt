@@ -611,8 +611,8 @@ class AndroidPebbleMessenger(
         val centerLat = currentPoint.latitude
         val centerLon = currentPoint.longitude
         
-        // 2. ズームレベルの設定 (半径約500m表示のため 14 に設定)
-        val zoom = 14
+        // 2. ズームレベルの設定 (半径約200m表示のため 16 に拡大設定)
+        val zoom = 16
         val n = Math.pow(2.0, zoom.toDouble())
 
         // メルカトル投影での世界座標ピクセル (256pxタイル基準)
@@ -679,16 +679,49 @@ class AndroidPebbleMessenger(
         }
         canvas.drawPath(path, paint)
 
-        // 5. 現在地（中心点）を強調
+        // 5. 進行方向（方位）の計算
+        val bearing = if (points.size >= 2) {
+            val last = points.last()
+            val prev = points[points.size - 2]
+            last.bearing?.toFloat() ?: run {
+                val lat1 = Math.toRadians(prev.latitude)
+                val lat2 = Math.toRadians(last.latitude)
+                val dLon = Math.toRadians(last.longitude - prev.longitude)
+                val y = Math.sin(dLon) * Math.cos(lat2)
+                val x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon)
+                ((Math.toDegrees(Math.atan2(y, x)) + 360.0) % 360.0).toFloat()
+            }
+        } else {
+            points.firstOrNull()?.bearing?.toFloat() ?: 0f
+        }
+
+        // 6. 現在地・進行方向アロー（矢印）の描画
+        val cx = width / 2f
+        val cy = height / 2f
+
+        canvas.save()
+        canvas.rotate(bearing, cx, cy)
+
+        val arrowPath = android.graphics.Path().apply {
+            moveTo(cx, cy - 9f)        // 先端
+            lineTo(cx + 7f, cy + 9f)   // 右後
+            lineTo(cx, cy + 4f)        // 中央くぼみ
+            lineTo(cx - 7f, cy + 9f)   // 左後
+            close()
+        }
+
+        // 矢印の内部塗りつぶし（鮮やかな青）
         paint.style = Paint.Style.FILL
         paint.color = Color.BLUE
-        canvas.drawCircle(width / 2f, height / 2f, 6f, paint)
-        
-        // 中心点に白枠をつけて視認性向上
+        canvas.drawPath(arrowPath, paint)
+
+        // 矢印の白枠線（コントラスト確保）
         paint.style = Paint.Style.STROKE
         paint.color = Color.WHITE
         paint.strokeWidth = 2f
-        canvas.drawCircle(width / 2f, height / 2f, 6f, paint)
+        canvas.drawPath(arrowPath, paint)
+
+        canvas.restore()
 
         bitmap
     }
@@ -702,19 +735,50 @@ class AndroidPebbleMessenger(
         val result = ByteArray(width * height)
         for (i in pixels.indices) {
             val color = pixels[i]
+            val rRaw = Color.red(color)
+            val gRaw = Color.green(color)
+            val bRaw = Color.blue(color)
+
             if (isMonochrome) {
-                // 輝度計算 (Y = 0.299R + 0.587G + 0.114B)
-                val r = Color.red(color)
-                val g = Color.green(color)
-                val b = Color.blue(color)
-                val luminance = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
-                // しきい値 140 で白黒判定（少し明るめにして地図の白地を強調）
-                result[i] = if (luminance > 140) 0b11111111.toByte() else 0b11000000.toByte()
+                // ルート（赤系統）や道路（暗い線）を黒に、背景を白にクッキリ二値化
+                val isRedRoute = (rRaw > 160 && gRaw < 100 && bRaw < 100)
+                val isBlueMarker = (bRaw > 160 && rRaw < 100)
+                val luminance = (0.299 * rRaw + 0.587 * gRaw + 0.114 * bRaw).toInt()
+                
+                result[i] = if (isRedRoute || isBlueMarker || luminance < 170) {
+                    0b11000000.toByte() // Black
+                } else {
+                    0b11111111.toByte() // White
+                }
             } else {
-                val r = (Color.red(color) shr 6) and 0x03
-                val g = (Color.green(color) shr 6) and 0x03
-                val b = (Color.blue(color) shr 6) and 0x03
-                result[i] = (0b11000000 or (r shl 4) or (g shl 2) or b).toByte()
+                // 1. ルート線（赤系統）を最優先で強調
+                if (rRaw > 180 && gRaw < 80 && bRaw < 80) {
+                    result[i] = 0b11110000.toByte() // Red
+                }
+                // 2. 現在地マーカー・選択地点（青系統）
+                else if (bRaw > 170 && rRaw < 110) {
+                    result[i] = 0b11000011.toByte() // Blue
+                }
+                // 3. 幹線道路・高速（黄色・オレンジ系統）
+                else if (rRaw > 200 && gRaw > 150 && bRaw < 130) {
+                    result[i] = 0b11111000.toByte() // Chrome Yellow
+                }
+                // 4. 一般道路（グレー系統）
+                else if (Math.abs(rRaw - gRaw) < 25 && Math.abs(gRaw - bRaw) < 25 && rRaw in 150..225) {
+                    result[i] = 0b11101010.toByte() // Light Gray (Road)
+                }
+                // 5. 水域・川・海（水色系統）
+                else if (bRaw > 200 && gRaw > 180 && rRaw < 180) {
+                    result[i] = 0b11011111.toByte() // Baby Blue Eyes (Water)
+                }
+                // 6. 緑地・公園（緑系統）
+                else if (gRaw > 200 && rRaw in 180..235 && bRaw in 180..235) {
+                    result[i] = 0b11101110.toByte() // Mint Green
+                }
+                // 7. それ以外（文字・建物の微細ノイズ・薄い地色）はすべてクリーンな純白に統一してRLE圧縮率を最大化！
+                else {
+                    result[i] = 0b11111111.toByte() // Pure White (Background)
+                }
             }
         }
         return result
