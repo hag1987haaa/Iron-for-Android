@@ -13,6 +13,7 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polyline
 import org.osmdroid.views.overlay.Marker
 import android.graphics.Color
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -110,13 +111,54 @@ actual fun PlatformMapView(
             if (points.isNotEmpty()) {
                 val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
 
-                // 1. ルート線
-                val line = Polyline().apply {
-                    setPoints(geoPoints)
-                    color = Color.RED
-                    width = 8f
+                // 1. ルート線 (通常区間は赤実線、一時停止区間はグレー破線)
+                val PAUSE_GAP_MS = 10_000L
+                val currentSegment = mutableListOf<GeoPoint>()
+
+                points.forEachIndexed { i, pt ->
+                    val geoPoint = GeoPoint(pt.latitude, pt.longitude)
+                    
+                    if (i > 0) {
+                        val prevPt = points[i - 1]
+                        val timeDiffMs = pt.timestamp.toEpochMilliseconds() - prevPt.timestamp.toEpochMilliseconds()
+                        val isPauseGap = pt.isSegmentStart || timeDiffMs >= PAUSE_GAP_MS
+
+                        if (isPauseGap) {
+                            // 直前の通常セグメントを描画
+                            if (currentSegment.size >= 2) {
+                                view.overlays.add(Polyline().apply {
+                                    setPoints(currentSegment.toList())
+                                    color = Color.RED
+                                    width = 8f
+                                })
+                            }
+                            
+                            // 一時停止中の移動区間をグレー破線で描画 (直前の地点 -> 再開地点)
+                            if (currentSegment.isNotEmpty()) {
+                                val lastGeo = currentSegment.last()
+                                val pauseLine = Polyline().apply {
+                                    setPoints(listOf(lastGeo, geoPoint))
+                                    color = Color.GRAY
+                                    width = 6f
+                                    outlinePaint.pathEffect = DashPathEffect(floatArrayOf(15f, 15f), 0f)
+                                }
+                                view.overlays.add(pauseLine)
+                            }
+                            
+                            currentSegment.clear()
+                        }
+                    }
+                    currentSegment.add(geoPoint)
                 }
-                view.overlays.add(line)
+
+                // 最後のセグメントを描画
+                if (currentSegment.size >= 2) {
+                    view.overlays.add(Polyline().apply {
+                        setPoints(currentSegment)
+                        color = Color.RED
+                        width = 8f
+                    })
+                }
 
                 // 2. スタートマーカー
                 view.overlays.add(Marker(view).apply {
@@ -166,26 +208,32 @@ actual fun PlatformMapView(
                     }
                 }
 
-                // 3. 1kmごとのラップマーカー
+                // 3. 1kmごとのラップマーカー (一時停止区間の移動距離は除外して実走距離のみ積算)
                 var accumulatedDistance = 0.0
-                var lastPoint: GeoPoint? = null
                 var nextLapDistance = 1000.0
 
-                geoPoints.forEach { point ->
-                    if (lastPoint != null) {
-                        accumulatedDistance += lastPoint!!.distanceToAsDouble(point)
-                        if (accumulatedDistance >= nextLapDistance) {
-                            val lapNumber = (nextLapDistance / 1000).toInt()
-                            view.overlays.add(Marker(view).apply {
-                                position = point
-                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                icon = createNumberIcon(view.context, lapNumber)
-                                title = "$lapNumber km"
-                            })
-                            nextLapDistance += 1000.0
+                points.forEachIndexed { i, pt ->
+                    if (i > 0) {
+                        val prevPt = points[i - 1]
+                        val timeDiffMs = pt.timestamp.toEpochMilliseconds() - prevPt.timestamp.toEpochMilliseconds()
+                        val isPauseGap = pt.isSegmentStart || timeDiffMs >= PAUSE_GAP_MS
+                        
+                        if (!isPauseGap) {
+                            val prevGeo = GeoPoint(prevPt.latitude, prevPt.longitude)
+                            val curGeo = GeoPoint(pt.latitude, pt.longitude)
+                            accumulatedDistance += prevGeo.distanceToAsDouble(curGeo)
+                            if (accumulatedDistance >= nextLapDistance) {
+                                val lapNumber = (nextLapDistance / 1000).toInt()
+                                view.overlays.add(Marker(view).apply {
+                                    position = curGeo
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    icon = createNumberIcon(view.context, lapNumber)
+                                    title = "$lapNumber km"
+                                })
+                                nextLapDistance += 1000.0
+                            }
                         }
                     }
-                    lastPoint = point
                 }
             }
             view.invalidate()

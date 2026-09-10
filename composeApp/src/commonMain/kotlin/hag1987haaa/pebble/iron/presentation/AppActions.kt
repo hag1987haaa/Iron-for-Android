@@ -13,7 +13,7 @@ interface AppActions {
     fun saveTracking()     // 保存
     fun discardTracking()  // 破棄
     fun resetTracking()    // アプリ状態をリセット
-    fun syncWithHealthConnect(run: RunActivity, onComplete: (Boolean) -> Unit) // 手動で Health Connect へ同期
+    fun syncWithHealthConnect(run: RunActivity, onComplete: (success: Boolean, errorMessage: String?) -> Unit) // 手動で Health Connect へ同期
     fun deleteRunRecord(id: Long) // 履歴から削除 (Health Connect連動)
     fun requestHealthPermissions() // Health Connect 権限リクエスト
     fun shareRunData(run: RunActivity, format: String) // ファイルを共有 (format: "gpx" or "tcx")

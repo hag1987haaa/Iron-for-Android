@@ -85,6 +85,26 @@ interface PebbleMessenger {
     fun setMapState(isActive: Boolean)
 
     /**
+     * マップが表示中かどうか
+     */
+    val isMapActive: Boolean get() = false
+
+    /**
+     * マップズームイン指示
+     */
+    fun zoomInMap() {}
+
+    /**
+     * マップズームアウト指示
+     */
+    fun zoomOutMap() {}
+
+    /**
+     * マップ現在地センタリング指示
+     */
+    fun recenterMap() {}
+
+    /**
      * マップデータを送信する（経路情報を元にビットマップ生成・RLEエンコード・分割送信を一括で行う）
      */
     fun sendMap(points: List<LocationPoint>, width: Int, height: Int)
@@ -92,4 +112,6 @@ interface PebbleMessenger {
     fun launchWatchApp()
 
     fun requestWatchInfo()
+
+    suspend fun getMapPreviewRgba(points: List<LocationPoint>, width: Int, height: Int, isMonochrome: Boolean): IntArray? = null
 }

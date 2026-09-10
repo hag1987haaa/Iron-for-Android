@@ -6,34 +6,60 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
 import androidx.health.connect.client.records.metadata.Metadata as HealthMetadata
-import androidx.health.connect.client.units.*
+import androidx.health.connect.client.units.Energy
+import androidx.health.connect.client.units.Length
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 import kotlinx.datetime.toJavaInstant
 import java.time.ZoneOffset
 
+sealed class HealthSyncResult {
+    data class Success(val recordId: String) : HealthSyncResult()
+    data class PermissionDenied(val missingPermissions: List<String>) : HealthSyncResult()
+    data class Error(val message: String, val throwable: Throwable? = null) : HealthSyncResult()
+}
+
 class HealthConnectManager(private val context: Context) {
 
-    private val healthConnectClient by lazy { HealthConnectClient.getOrCreate(context) }
-    
-    fun isSdkAvailable(): Boolean {
+    private val healthConnectClient: HealthConnectClient by lazy {
+        HealthConnectClient.getOrCreate(context)
+    }
+
+    fun isAvailable(): Boolean {
         return HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
     }
 
-    // 基本書き込み権限
-    private val basePermissions = setOf(
-        HealthPermission.getWritePermission(ExerciseSessionRecord::class),
-        HealthPermission.getWritePermission(HeartRateRecord::class),
-        HealthPermission.getWritePermission(StepsRecord::class),
-        HealthPermission.getWritePermission(DistanceRecord::class),
-        HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class),
-        HealthPermission.getWritePermission(ElevationGainedRecord::class),
+    // 個別権限の定義
+    val sessionPermission = HealthPermission.getWritePermission(ExerciseSessionRecord::class)
+    val distancePermission = HealthPermission.getWritePermission(DistanceRecord::class)
+    val heartRatePermission = HealthPermission.getWritePermission(HeartRateRecord::class)
+    val caloriesPermission = HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class)
+    val stepsPermission = HealthPermission.getWritePermission(StepsRecord::class)
+    val elevationPermission = HealthPermission.getWritePermission(ElevationGainedRecord::class)
+    val routePermission = "android.permission.health.WRITE_EXERCISE_ROUTE"
+
+    // 基本書き込み権限セット
+    val basePermissions = setOf(
+        sessionPermission,
+        distancePermission,
+        heartRatePermission,
+        caloriesPermission,
+        stepsPermission,
+        elevationPermission
     )
 
     // 全権限（運動ルート権限を含む）
-    val permissions = basePermissions + setOf(
-        "android.permission.health.WRITE_EXERCISE_ROUTE"
-    )
+    val permissions = basePermissions + setOf(routePermission)
+
+    suspend fun hasSessionPermission(): Boolean {
+        return try {
+            val granted = healthConnectClient.permissionController.getGrantedPermissions()
+            granted.contains(sessionPermission)
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Failed to check session permission", e)
+            false
+        }
+    }
 
     suspend fun hasAllPermissions(): Boolean {
         return try {
@@ -45,25 +71,27 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 
-    private suspend fun hasRoutePermission(): Boolean {
-        return try {
-            val granted = healthConnectClient.permissionController.getGrantedPermissions()
-            granted.contains("android.permission.health.WRITE_EXERCISE_ROUTE")
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    suspend fun writeRunActivity(run: RunActivity): String? {
+    suspend fun writeRunActivityResult(run: RunActivity): HealthSyncResult {
         try {
-            if (!hasAllPermissions()) return null
+            val granted = try {
+                healthConnectClient.permissionController.getGrantedPermissions()
+            } catch (e: Exception) {
+                Log.e("HealthConnect", "Failed to get granted permissions", e)
+                return HealthSyncResult.Error("Failed to check permissions: ${e.message}", e)
+            }
+
+            // 必須のセッション権限チェック (セッションすら許可されていない場合は即座に中断)
+            if (!granted.contains(sessionPermission)) {
+                Log.w("HealthConnect", "Write aborted: Exercise Session permission is not granted.")
+                return HealthSyncResult.PermissionDenied(listOf(sessionPermission))
+            }
 
             val startTime = run.startTime.toJavaInstant()
             val endTime = (run.endTime ?: run.startTime).toJavaInstant()
             val zoneOffset = ZoneOffset.systemDefault().rules.getOffset(startTime)
 
-            // 1. 運動ルートの作成（ルート権限がある場合のみ付与し、未許可でもセッション保存をブロックしない）
-            val canWriteRoute = hasRoutePermission()
+            // 1. 運動ルートの作成 (ルート権限が付与されている場合のみ付与)
+            val canWriteRoute = granted.contains(routePermission)
             val exerciseRoute = if (canWriteRoute && run.route.isNotEmpty()) {
                 try {
                     ExerciseRoute(
@@ -109,89 +137,111 @@ class HealthConnectManager(private val context: Context) {
                 exerciseRoute = exerciseRoute,
             )
 
-            // 2.5 獲得標高データの作成
-            val elevationGainedRecord = run.elevationGain?.let {
-                if (it <= 0) return@let null
-                ElevationGainedRecord(
+            val records = mutableListOf<Record>(sessionRecord)
+
+            // 2.5 獲得標高データの作成 (権限がある場合のみ)
+            if (granted.contains(elevationPermission)) {
+                val elevationGainedRecord = run.elevationGain?.let {
+                    if (it <= 0) return@let null
+                    ElevationGainedRecord(
+                        startTime = startTime,
+                        startZoneOffset = zoneOffset,
+                        endTime = endTime,
+                        endZoneOffset = zoneOffset,
+                        elevation = Length.meters(it),
+                        metadata = HealthMetadata(clientRecordId = "iron_elev_$startTimeMillis")
+                    )
+                }
+                elevationGainedRecord?.let { records.add(it) }
+            }
+
+            // 3. 距離データの作成 (権限がある場合のみ)
+            if (granted.contains(distancePermission)) {
+                val distanceRecord = DistanceRecord(
                     startTime = startTime,
                     startZoneOffset = zoneOffset,
                     endTime = endTime,
                     endZoneOffset = zoneOffset,
-                    elevation = Length.meters(it),
-                    metadata = HealthMetadata(clientRecordId = "iron_elev_$startTimeMillis")
+                    distance = Length.meters(run.distanceMeters),
+                    metadata = HealthMetadata(clientRecordId = "iron_dist_$startTimeMillis")
                 )
+                records.add(distanceRecord)
             }
 
-            // 3. 距離データの作成
-            val distanceRecord = DistanceRecord(
-                startTime = startTime,
-                startZoneOffset = zoneOffset,
-                endTime = endTime,
-                endZoneOffset = zoneOffset,
-                distance = Length.meters(run.distanceMeters),
-                metadata = HealthMetadata(clientRecordId = "iron_dist_$startTimeMillis")
-            )
-
-            // 4. 心拍数データの作成
-            val samples = run.route.asSequence().mapNotNull { point ->
-                val bpm = point.heartRate?.toLong()
-                if (bpm != null && bpm > 0) {
-                    HeartRateRecord.Sample(
-                        time = point.timestamp.toJavaInstant(),
-                        beatsPerMinute = bpm
+            // 4. 心拍数データの作成 (権限がある場合のみ)
+            if (granted.contains(heartRatePermission)) {
+                val samples = run.route.asSequence().mapNotNull { point ->
+                    val bpm = point.heartRate?.toLong()
+                    if (bpm != null && bpm > 0) {
+                        HeartRateRecord.Sample(
+                            time = point.timestamp.toJavaInstant(),
+                            beatsPerMinute = bpm
+                        )
+                    } else null
+                }.toList()
+                val heartRateRecord = if (samples.isNotEmpty()) {
+                    HeartRateRecord(
+                        startTime = startTime,
+                        startZoneOffset = zoneOffset,
+                        endTime = endTime,
+                        endZoneOffset = zoneOffset,
+                        samples = samples,
+                        metadata = HealthMetadata(clientRecordId = "iron_hr_$startTimeMillis")
                     )
                 } else null
-            }.toList()
-            val heartRateRecord = if (samples.isNotEmpty()) {
-                HeartRateRecord(
-                    startTime = startTime,
-                    startZoneOffset = zoneOffset,
-                    endTime = endTime,
-                    endZoneOffset = zoneOffset,
-                    samples = samples,
-                    metadata = HealthMetadata(clientRecordId = "iron_hr_$startTimeMillis")
-                )
-            } else null
-
-            // 5. カロリーデータの作成 (運動による消費カロリーとして記録)
-            val caloriesRecord = run.calories?.let {
-                ActiveCaloriesBurnedRecord(
-                    startTime = startTime,
-                    startZoneOffset = zoneOffset,
-                    endTime = endTime,
-                    endZoneOffset = zoneOffset,
-                    energy = Energy.kilocalories(it),
-                    metadata = HealthMetadata(clientRecordId = "iron_cal_$startTimeMillis")
-                )
+                heartRateRecord?.let { records.add(it) }
             }
 
-            // 6. 歩数データの作成
-            val stepsRecord = run.steps?.let {
-                if (it <= 0) return@let null
-                StepsRecord(
-                    count = it.toLong(),
-                    startTime = startTime,
-                    startZoneOffset = zoneOffset,
-                    endTime = endTime,
-                    endZoneOffset = zoneOffset,
-                    metadata = HealthMetadata(clientRecordId = "iron_steps_$startTimeMillis")
-                )
+            // 5. カロリーデータの作成 (権限がある場合のみ)
+            if (granted.contains(caloriesPermission)) {
+                val caloriesRecord = run.calories?.let {
+                    ActiveCaloriesBurnedRecord(
+                        startTime = startTime,
+                        startZoneOffset = zoneOffset,
+                        endTime = endTime,
+                        endZoneOffset = zoneOffset,
+                        energy = Energy.kilocalories(it),
+                        metadata = HealthMetadata(clientRecordId = "iron_cal_$startTimeMillis")
+                    )
+                }
+                caloriesRecord?.let { records.add(it) }
             }
 
-            val records = mutableListOf<Record>(sessionRecord, distanceRecord)
-            heartRateRecord?.let { records.add(it) }
-            caloriesRecord?.let { records.add(it) }
-            stepsRecord?.let { records.add(it) }
-            elevationGainedRecord?.let { records.add(it) }
-            
+            // 6. 歩数データの作成 (権限がある場合のみ)
+            if (granted.contains(stepsPermission)) {
+                val stepsRecord = run.steps?.let {
+                    if (it <= 0) return@let null
+                    StepsRecord(
+                        count = it.toLong(),
+                        startTime = startTime,
+                        startZoneOffset = zoneOffset,
+                        endTime = endTime,
+                        endZoneOffset = zoneOffset,
+                        metadata = HealthMetadata(clientRecordId = "iron_steps_$startTimeMillis")
+                    )
+                }
+                stepsRecord?.let { records.add(it) }
+            }
+
             Log.d("HealthConnect", "Inserting ${records.size} records for session: ${run.name ?: "Workout"}")
             val response = healthConnectClient.insertRecords(records)
             val firstId = response.recordIdsList.firstOrNull()
             Log.d("HealthConnect", "Insert successful. First Record ID: $firstId")
-            return firstId
+            return if (firstId != null) {
+                HealthSyncResult.Success(firstId)
+            } else {
+                HealthSyncResult.Error("Health Connect returned empty record ID")
+            }
         } catch (e: Exception) {
             Log.e("HealthConnect", "Write failed with details: ${e.message}", e)
-            return null
+            return HealthSyncResult.Error(e.message ?: "Health Connect write failed", e)
+        }
+    }
+
+    suspend fun writeRunActivity(run: RunActivity): String? {
+        return when (val result = writeRunActivityResult(run)) {
+            is HealthSyncResult.Success -> result.recordId
+            else -> null
         }
     }
 

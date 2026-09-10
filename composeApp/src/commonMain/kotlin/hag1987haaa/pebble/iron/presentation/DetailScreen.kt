@@ -293,7 +293,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                                                 val updatedRun = viewModel.getRunDetails(runId)
                                                                 runActivity = updatedRun
                                                                 updatedRun?.let { runObj ->
-                                                                    actions.syncWithHealthConnect(runObj) { }
+                                                                    actions.syncWithHealthConnect(runObj) { _, _ -> }
                                                                     actions.triggerAutoExport(runObj)
                                                                 }
                                                             }
@@ -500,17 +500,23 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                 Spacer(modifier = Modifier.height(32.dp))
                                 var isSyncing by remember { mutableStateOf(false) }
                                 var syncMessage by remember { mutableStateOf<String?>(null) }
+                                var syncErrorMessage by remember { mutableStateOf<String?>(null) }
                                 val isSynced = run.healthConnectId != null
 
                                 Button(
                                     onClick = {
                                         isSyncing = true
-                                        actions.syncWithHealthConnect(run) { success ->
+                                        syncErrorMessage = null
+                                        actions.syncWithHealthConnect(run) { success, errorMsg ->
                                             isSyncing = false
                                             if (success) {
                                                 syncMessage = "Synced"
+                                                syncErrorMessage = null
                                                 viewModel.viewModelScope.launch { viewModel.getRunDetails(runId)?.let { runActivity = it } }
-                                            } else { syncMessage = "Failed" }
+                                            } else {
+                                                syncMessage = "Failed"
+                                                syncErrorMessage = errorMsg
+                                            }
                                         }
                                     },
                                     enabled = !isSyncing,
@@ -528,6 +534,22 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                 syncMessage?.let {
                                     val msg = if (it == "Synced") stringResource(Res.string.detail_synced) else stringResource(Res.string.detail_sync_failed)
                                     Text(text = msg, style = MaterialTheme.typography.labelSmall, color = if (it == "Synced") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+                                }
+                                syncErrorMessage?.let { err ->
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = err,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    if (err.contains("Permission", ignoreCase = true)) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        TextButton(
+                                            onClick = { actions.requestHealthPermissions() }
+                                        ) {
+                                            Text(text = "Grant Permissions in Settings", style = MaterialTheme.typography.labelMedium)
+                                        }
+                                    }
                                 }
                             }
                             Spacer(modifier = Modifier.height(32.dp))

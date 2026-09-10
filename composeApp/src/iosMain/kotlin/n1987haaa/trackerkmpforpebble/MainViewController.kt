@@ -17,7 +17,7 @@ fun MainViewController() = ComposeUIViewController {
         override fun saveTracking() {}
         override fun discardTracking() {}
         override fun resetTracking() {}
-        override fun syncWithHealthConnect(run: RunActivity, onComplete: (Boolean) -> Unit) {}
+        override fun syncWithHealthConnect(run: RunActivity, onComplete: (Boolean, String?) -> Unit) {}
         override fun deleteRunRecord(id: Long) {}
         override fun requestHealthPermissions() {}
         override fun shareRunData(run: RunActivity, format: String) {}

@@ -28,6 +28,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
+import hag1987haaa.pebble.iron.health.HealthSyncResult
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.tracker.RunState
@@ -188,7 +189,7 @@ class MainActivity : ComponentActivity() {
                         val lastRun = latestRuns.firstOrNull()
                         if (lastRun != null && lastRun.healthConnectId == null) {
                             Log.i("MainActivity", "Auto-syncing workout ${lastRun.id} to Health Connect from UI layer...")
-                            syncWithHealthConnect(lastRun) { success ->
+                            syncWithHealthConnect(lastRun) { success, _ ->
                                 Log.i("MainActivity", "Auto-sync result for run ${lastRun.id}: $success")
                             }
                         }
@@ -201,10 +202,18 @@ class MainActivity : ComponentActivity() {
             override fun discardTracking() = sendCommand("STOP")
             override fun resetTracking() = sendCommand("RESET")
 
-            override fun syncWithHealthConnect(run: RunActivity, onComplete: (Boolean) -> Unit) {
+            override fun syncWithHealthConnect(run: RunActivity, onComplete: (Boolean, String?) -> Unit) {
                 lifecycleScope.launch {
                     try {
                         val manager = AndroidDependencies.healthConnectManager
+                        val sdkStatus = HealthConnectClient.getSdkStatus(this@MainActivity)
+                        if (sdkStatus != HealthConnectClient.SDK_AVAILABLE) {
+                            val msg = "Health Connect is not available on this device ($sdkStatus)"
+                            Log.w("MainActivity", msg)
+                            onComplete(false, msg)
+                            return@launch
+                        }
+
                         run.healthConnectId?.let {
                             try {
                                 manager.deleteRunActivity(run)
@@ -212,19 +221,27 @@ class MainActivity : ComponentActivity() {
                             } catch (_: Exception) {}
                         }
 
-                        val hcId = manager.writeRunActivity(run)
-                        if (hcId != null) {
-                            val runId = run.id
-                            if (runId != 0L) {
-                                KmpDependencies.runRepository.updateHealthConnectId(runId, hcId)
+                        when (val result = manager.writeRunActivityResult(run)) {
+                            is HealthSyncResult.Success -> {
+                                val runId = run.id
+                                if (runId != 0L) {
+                                    KmpDependencies.runRepository.updateHealthConnectId(runId, result.recordId)
+                                }
+                                onComplete(true, null)
                             }
-                            onComplete(true)
-                        } else {
-                            onComplete(false)
+                            is HealthSyncResult.PermissionDenied -> {
+                                val msg = "Permission not granted: Exercise Session required"
+                                Log.w("MainActivity", msg)
+                                onComplete(false, msg)
+                            }
+                            is HealthSyncResult.Error -> {
+                                Log.e("MainActivity", "HC write failed: ${result.message}", result.throwable)
+                                onComplete(false, result.message)
+                            }
                         }
-                    } catch (_: Exception) {
-                        Log.e("MainActivity", "Manual HC sync failed")
-                        onComplete(false)
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Manual HC sync failed", e)
+                        onComplete(false, e.localizedMessage ?: "Unknown error")
                     }
                 }
             }
@@ -698,7 +715,7 @@ fun AppAndroidPreview() {
         override fun saveTracking() {}
         override fun discardTracking() {}
         override fun resetTracking() {}
-        override fun syncWithHealthConnect(run: RunActivity, onComplete: (Boolean) -> Unit) {}
+        override fun syncWithHealthConnect(run: RunActivity, onComplete: (Boolean, String?) -> Unit) {}
         override fun deleteRunRecord(id: Long) {}
         override fun requestHealthPermissions() {}
         override fun shareRunData(run: RunActivity, format: String) {}

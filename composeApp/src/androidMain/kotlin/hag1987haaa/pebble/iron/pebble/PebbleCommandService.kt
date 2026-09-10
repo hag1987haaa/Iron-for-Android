@@ -148,6 +148,33 @@ class PebbleCommandService : BasePebbleListenerService() {
     private fun handleAppEvent(event: AppEventID) {
         val engine = KmpDependencies.trackerEngine
         val status = engine.statistics.value.status
+        val isMap = engine.isMapActive
+
+        Log.d("PebbleCommand", "handleAppEvent: $event (isMapActive=$isMap, status=$status)")
+
+        if (isMap) {
+            when (event) {
+                AppEventID.EVENT_BUTTON_UP_CLICK -> {
+                    Log.i("PebbleCommand", "Map Action: Zoom In requested via UP button")
+                    engine.zoomInMap()
+                }
+                AppEventID.EVENT_BUTTON_DOWN_CLICK -> {
+                    Log.i("PebbleCommand", "Map Action: Zoom Out requested via DOWN button")
+                    engine.zoomOutMap()
+                }
+                AppEventID.EVENT_BUTTON_SELECT_CLICK -> {
+                    Log.i("PebbleCommand", "Map Action: SELECT clicked (handled on watch for mid data)")
+                }
+                AppEventID.EVENT_BUTTON_SELECT_LONG -> {
+                    Log.i("PebbleCommand", "Map Action: Re-center requested via SELECT long press")
+                    engine.recenterMap()
+                }
+                else -> {
+                    Log.d("PebbleCommand", "Map Action: Ignored event $event during map active")
+                }
+            }
+            return
+        }
         
         when (event) {
             AppEventID.EVENT_BUTTON_UP_CLICK -> {
@@ -177,6 +204,10 @@ class PebbleCommandService : BasePebbleListenerService() {
 
     private fun handleLegacyCommand(cmd: Int) {
         val engine = KmpDependencies.trackerEngine
+        if (engine.isMapActive) {
+            Log.w("PebbleCommand", "Ignoring legacy command $cmd during map active")
+            return
+        }
         val currentStatus = engine.statistics.value.status
 
         when (cmd) {
@@ -320,6 +351,12 @@ class PebbleCommandService : BasePebbleListenerService() {
     private fun sendCommandToService(action: String) {
         Log.i("PebbleCommand", "Sending action to service: $action")
         try {
+            // スリープ中の端末復帰と TrackingService への確実なハンドオフを保証するため一時的に WakeLock を取得 (5秒)
+            if (action == "PREPARE" || action == "START" || action == "RESUME") {
+                val pm = getSystemService(POWER_SERVICE) as? PowerManager
+                pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Iron:PebbleCommandWakeLock")?.acquire(5000L)
+            }
+
             val intent = Intent(this, hag1987haaa.pebble.iron.service.TrackingService::class.java).apply {
                 this.action = action
                 // レスポンス改善：OS内のIntent配信優先度を「フォアグラウンド（最優先）」に設定

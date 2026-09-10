@@ -7,7 +7,9 @@ import kotlinx.datetime.Instant
 object TcxExporter {
     /**
      * RunActivity のデータを TCX (Training Center XML) 形式の文字列に変換します。
-     * 外部プラットフォームでの再計算を促すため、累積距離（DistanceMeters）は含めません。
+     * - Lap の DistanceMeters に実際の走行距離を出力し、Fitbit や Runkeeper 等での平均ペース計算崩壊を防止。
+     * - 一時停止（isSegmentStart または 10秒以上のタイムスタンプギャップ）で <Track> を分割出力し、
+     *   Strava, Garmin Connect, TrainingPeaks 等でポーズ時間を正確に除外。
      */
     fun export(run: RunActivity): String {
         val sb = StringBuilder()
@@ -28,12 +30,10 @@ object TcxExporter {
         sb.append("    <Activity Sport=\"$sportType\">\n")
         sb.append("      <Id>${run.startTime}</Id>\n")
         
-        // 1つの Lap として記録
+        // 1つの Lap として記録 (実際の運動時間と走行距離を正確に出力)
         sb.append("      <Lap StartTime=\"${run.startTime}\">\n")
         sb.append("        <TotalTimeSeconds>${run.durationSeconds}</TotalTimeSeconds>\n")
-        
-        // 距離はプラットフォーム側に再計算させるため 0.0 または省略（TCXスキーマ上は必須な場合が多いが、0.0で送れば再計算される）
-        sb.append("        <DistanceMeters>0.0</DistanceMeters>\n")
+        sb.append("        <DistanceMeters>${run.distanceMeters}</DistanceMeters>\n")
         
         val maxSpeed = run.route.maxOfOrNull { it.speed ?: 0.0 } ?: 0.0
         sb.append("        <MaximumSpeed>$maxSpeed</MaximumSpeed>\n")
@@ -51,8 +51,18 @@ object TcxExporter {
         
         var prevSteps = 0
         var prevTime: Instant? = null
+        val PAUSE_GAP_MS = 10_000L // 10秒以上のタイムスタンプギャップでポーズ判定 (過去データ救済対応)
 
-        run.route.forEach { pt ->
+        run.route.forEachIndexed { index, pt ->
+            // 一時停止区間の判定: 再開フラグまたは10秒以上のタイムスタンプギャップ
+            if (index > 0 && prevTime != null) {
+                val timeDiffMs = pt.timestamp.toEpochMilliseconds() - prevTime!!.toEpochMilliseconds()
+                if (pt.isSegmentStart || timeDiffMs >= PAUSE_GAP_MS) {
+                    sb.append("        </Track>\n")
+                    sb.append("        <Track>\n")
+                }
+            }
+
             sb.append("          <Trackpoint>\n")
             sb.append("            <Time>${pt.timestamp}</Time>\n")
             sb.append("            <Position>\n")
@@ -61,9 +71,6 @@ object TcxExporter {
             sb.append("            </Position>\n")
             
             pt.altitude?.let { sb.append("            <AltitudeMeters>$it</AltitudeMeters>\n") }
-            
-            // 各ポイントの累積距離も除外（または0.0）
-            // これにより、Strava等はGPS座標から正確に再計算を行う
             
             // 心拍数
             pt.heartRate?.let {
@@ -88,9 +95,9 @@ object TcxExporter {
                     }
                 }
                 prevSteps = currentSteps
-                prevTime = currentTime
             }
             
+            prevTime = pt.timestamp
             sb.append("          </Trackpoint>\n")
         }
 

@@ -97,6 +97,7 @@ class RunTrackerEngine(
     private var timerJob: Job? = null
     private var timeoutJob: Job? = null
     private var isStartPending = false
+    private var isResumePending = false
 
     private var lastIncomingSteps: Int = -1
     private var totalAccumulatedSteps: Int = 0
@@ -291,6 +292,7 @@ class RunTrackerEngine(
         
         // 歩数・通知カウンタ・心拍ソース等の内部状態を完全に初期化
         isStartPending = false
+        isResumePending = false
         lastIncomingSteps = -1; totalAccumulatedSteps = 0
         lastNotifiedDistanceKm = 0; lastNotifiedTimeCount = 0
         lastTimeStep = -1; lastDistStep = -1.0f
@@ -303,7 +305,8 @@ class RunTrackerEngine(
 
     fun start() {
         if (!_statistics.value.hasGpsFix) { isStartPending = true; pebbleMessenger?.sendState(RunStatus.PREPARING, _statistics.value); return }
-        isStartPending = false; timeoutJob?.cancel()
+        isStartPending = false
+        isResumePending = false; timeoutJob?.cancel()
         
         // 先に統計データの状態を更新
         _statistics.update { it.copy(startTime = Clock.System.now(), status = RunStatus.ACTIVE) }
@@ -330,7 +333,9 @@ class RunTrackerEngine(
     }
 
     fun resume() {
-        // 1つ前の位置をリセットするが、Windowは維持して精度を保つ
+        isResumePending = true
+        // 一時停止前の古い座標との加重平均によるワープ距離引きずりを完全に防止するためWindowをクリア
+        rawLocationWindow.clear()
         lastProcessedLocation = null
         
         // 先に統計データを更新
@@ -444,6 +449,11 @@ class RunTrackerEngine(
     fun setCurrentMidId(id: Int) { pebbleMessenger?.setCurrentMidId(id) }
     fun setCurrentLowerId(id: Int) { pebbleMessenger?.setCurrentLowerId(id) }
     fun setMapState(isActive: Boolean) { pebbleMessenger?.setMapState(isActive) }
+
+    val isMapActive: Boolean get() = pebbleMessenger?.isMapActive ?: false
+    fun zoomInMap() { pebbleMessenger?.zoomInMap() }
+    fun zoomOutMap() { pebbleMessenger?.zoomOutMap() }
+    fun recenterMap() { pebbleMessenger?.recenterMap() }
 
     private fun reset() {
         clearWorkoutData()
@@ -569,25 +579,32 @@ class RunTrackerEngine(
         val filteredLocation = calculateWeightedAverage(rawLocationWindow)
         
         // 1つ前の位置からの移動距離と標高差（獲得標高）を計算
+        val isSegStart = isResumePending || fullRoute.isEmpty()
+        isResumePending = false
+
         var distanceDelta = 0.0
         var elevationDelta = 0.0
-        lastProcessedLocation?.let { prev ->
-            distanceDelta = LocationUtils.calculateDistance(
-                prev.latitude, prev.longitude,
-                filteredLocation.latitude, filteredLocation.longitude
-            )
-            val prevAlt = prev.altitude
-            val currAlt = filteredLocation.altitude
-            if (prevAlt != null && currAlt != null && currAlt > prevAlt) {
-                val diff = currAlt - prevAlt
-                if (diff > 0.5) elevationDelta = diff // ノイズ対策: 0.5m以上の時のみ加算
+        // 再開直後のポイントの場合、一時停止地点からのワープ移動距離は運動距離に加算しない
+        if (!isSegStart) {
+            lastProcessedLocation?.let { prev ->
+                distanceDelta = LocationUtils.calculateDistance(
+                    prev.latitude, prev.longitude,
+                    filteredLocation.latitude, filteredLocation.longitude
+                )
+                val prevAlt = prev.altitude
+                val currAlt = filteredLocation.altitude
+                if (prevAlt != null && currAlt != null && currAlt > prevAlt) {
+                    val diff = currAlt - prevAlt
+                    if (diff > 0.5) elevationDelta = diff // ノイズ対策: 0.5m以上の時のみ加算
+                }
             }
         }
         lastProcessedLocation = filteredLocation
 
         val finalLocation = filteredLocation.copy(
             heartRate = location.heartRate ?: _statistics.value.currentHeartRate, 
-            steps = _statistics.value.steps
+            steps = _statistics.value.steps,
+            isSegmentStart = isSegStart
         )
         fullRoute.add(finalLocation)
 

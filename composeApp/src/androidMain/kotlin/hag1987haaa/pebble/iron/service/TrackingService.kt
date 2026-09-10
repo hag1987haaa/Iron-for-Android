@@ -123,8 +123,17 @@ class TrackingService : Service() {
             return START_STICKY
         }
 
-        // バイブレーションなどは必要なアクションの時のみ実行
+        // 終了・保存系以外のコマンドでは、GPS開始前に確実に即座にフォアグラウンド昇格 (startForeground) を完了させる
+        // これにより、画面OFF時でも Android 14 の While-in-use 位置情報制限に引っかかることなく即座に GPS サーチが開始される
         if (action != "SAVE" && action != "SAVE_TO_RESULT" && action != "STOP" && action != "RESET") {
+            val initialStatusName = when (action) {
+                "PREPARE" -> getString(R.string.status_preparing)
+                "START" -> getString(R.string.status_active)
+                "PAUSE" -> getString(R.string.status_paused)
+                "RESUME" -> getString(R.string.status_active)
+                else -> getString(R.string.app_name)
+            }
+            updateNotification(getString(R.string.notif_content_current_state, initialStatusName), forceOngoing = true)
             vibrateDevice()
         }
 
@@ -339,7 +348,8 @@ class TrackingService : Service() {
 
         val status = RunState.status.value
         // アイドルや終了状態なら、通知を更新しようとせず、速やかにフォアグラウンドから抜ける準備をする
-        if (status == RunStatus.IDLE || status == RunStatus.RESULT) {
+        // ただし forceOngoing (起動直後の即時フォアグラウンド昇格) の場合はガードをスキップして確実に startForeground を実行する
+        if (!forceOngoing && (status == RunStatus.IDLE || status == RunStatus.RESULT)) {
             return
         }
 

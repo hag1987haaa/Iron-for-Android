@@ -52,8 +52,12 @@ class AndroidPebbleMessenger(
     private var currentMidDataId: Int = -1
     private var currentLowerDataId: Int = -1
     private var currentGraphTypeId: Int = settings.lastGraphTypeId
-    private var isMapActive: Boolean = false
+    override var isMapActive: Boolean = false
     private var isMapTransferring: Boolean = false
+    private var currentMapZoom: Int = 16
+    private var lastMapPoints: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>? = null
+    private var lastMapWidth: Int = 144
+    private var lastMapHeight: Int = 168
 
     companion object {
         private val WATCHAPP_UUID = UUID.fromString("0ec71971-1191-4e05-87f5-27a3c749023c")
@@ -512,6 +516,7 @@ class AndroidPebbleMessenger(
     }
 
     override fun sendMapState(isActive: Boolean) {
+        isMapActive = isActive
         commandQueue.trySend(PebbleMessageRequest("MAP_STATE", mapOf(KEY_MAP_STATE to PebbleDictionaryItem.Int32(if (isActive) 1 else 0))))
     }
 
@@ -525,7 +530,39 @@ class AndroidPebbleMessenger(
         commandQueue.trySend(PebbleMessageRequest("MAP_CHUNK", dict))
     }
 
+    override suspend fun getMapPreviewRgba(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, width: Int, height: Int, isMonochrome: Boolean): IntArray? = withContext(Dispatchers.IO) {
+        if (points.isEmpty()) return@withContext null
+        return@withContext try {
+            val rawBitmap = renderMapBitmapWithTiles(points, width, height)
+            val pebblePixels = convertToPebblePixels(rawBitmap, isMonochrome)
+            rawBitmap.recycle()
+            val outPixels = IntArray(width * height)
+            for (i in pebblePixels.indices) {
+                val b = pebblePixels[i].toInt() and 0xFF
+                if (isMonochrome) {
+                    outPixels[i] = if (b == 0xFF) -1 else -16777216
+                } else {
+                    val a = 0xFF
+                    val r = ((b shr 4) and 0x03) * 85
+                    val g = ((b shr 2) and 0x03) * 85
+                    val blue = (b and 0x03) * 85
+                    outPixels[i] = (a shl 24) or (r shl 16) or (g shl 8) or blue
+                }
+            }
+            outPixels
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // 画面離脱による正常な中断のため、再スローして終了
+            throw e
+        } catch (e: Exception) {
+            Log.e("PebbleMessenger", "getMapPreviewRgba failed", e)
+            null
+        }
+    }
+
     override fun sendMap(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, width: Int, height: Int) {
+        lastMapPoints = points
+        lastMapWidth = width
+        lastMapHeight = height
         scope.launch {
             if (isMapTransferring) {
                 Log.w("PebbleMessenger", "sendMap: Already transferring. Ignored.")
@@ -587,6 +624,9 @@ class AndroidPebbleMessenger(
                     delay(fixedDelayMs) 
                 }
                 Log.i("PebbleMessenger", "sendMap: Fully transmitted $totalSize bytes in $totalChunks chunks.")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                Log.d("PebbleMessenger", "sendMap: Cancelled")
+                throw e
             } catch (e: Exception) {
                 Log.e("PebbleMessenger", "sendMap: Error during transmission: ${e.message}")
             } finally {
@@ -600,7 +640,7 @@ class AndroidPebbleMessenger(
         }
     }
 
-    private suspend fun renderMapBitmapWithTiles(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, width: Int, height: Int): Bitmap = withContext(Dispatchers.IO) {
+    suspend fun renderMapBitmapWithTiles(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, width: Int, height: Int): Bitmap = withContext(Dispatchers.IO) {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.LTGRAY)
@@ -611,8 +651,8 @@ class AndroidPebbleMessenger(
         val centerLat = currentPoint.latitude
         val centerLon = currentPoint.longitude
         
-        // 2. ズームレベルの設定 (半径約200m表示のため 16 に拡大設定)
-        val zoom = 16
+        // 2. ズームレベルの設定 (デフォルト 16: 半径約200m。UP/DOWNで動的変更可能)
+        val zoom = currentMapZoom
         val n = Math.pow(2.0, zoom.toDouble())
 
         // メルカトル投影での世界座標ピクセル (256pxタイル基準)
@@ -645,6 +685,8 @@ class AndroidPebbleMessenger(
                             val dy = (tileTopWorld - yCenterWorld + (height / 2.0)).toFloat()
                             Triple(tileBitmap, dx, dy)
                         } else null
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         Log.e("PebbleMessenger", "Tile fetch failed: $tileUrl, error: ${e.message}")
                         null
@@ -659,15 +701,16 @@ class AndroidPebbleMessenger(
             tileBitmap.recycle()
         }
 
-        // 4. ルート (Polyline) の描画
+        // 4. ルート (Polyline) の描画 (一時停止区間はワープ線を描かないよう moveTo でスキップ)
         val paint = Paint().apply {
             color = Color.RED
-            strokeWidth = 4f
+            strokeWidth = 6f
             style = Paint.Style.STROKE
             isAntiAlias = false
         }
 
         val path = android.graphics.Path()
+        val PAUSE_GAP_MS = 10_000L
         points.forEachIndexed { index, point ->
             val px = (point.longitude + 180.0) / 360.0 * n * 256.0
             val py = (1.0 - Math.log(Math.tan(Math.toRadians(point.latitude)) + (1.0 / Math.cos(Math.toRadians(point.latitude)))) / Math.PI) / 2.0 * n * 256.0
@@ -675,7 +718,18 @@ class AndroidPebbleMessenger(
             val dx = (px - xCenterWorld + (width / 2.0)).toFloat()
             val dy = (py - yCenterWorld + (height / 2.0)).toFloat()
             
-            if (index == 0) path.moveTo(dx, dy) else path.lineTo(dx, dy)
+            if (index == 0) {
+                path.moveTo(dx, dy)
+            } else {
+                val prev = points[index - 1]
+                val timeDiffMs = point.timestamp.toEpochMilliseconds() - prev.timestamp.toEpochMilliseconds()
+                val isPauseGap = point.isSegmentStart || timeDiffMs >= PAUSE_GAP_MS
+                if (isPauseGap) {
+                    path.moveTo(dx, dy)
+                } else {
+                    path.lineTo(dx, dy)
+                }
+            }
         }
         canvas.drawPath(path, paint)
 
@@ -726,7 +780,29 @@ class AndroidPebbleMessenger(
         bitmap
     }
 
-    private fun convertToPebblePixels(bitmap: Bitmap, isMonochrome: Boolean): ByteArray {
+    fun createPebblePreviewBitmap(sourceBitmap: Bitmap, isMonochrome: Boolean): Bitmap {
+        val width = sourceBitmap.width
+        val height = sourceBitmap.height
+        val pebblePixels = convertToPebblePixels(sourceBitmap, isMonochrome)
+        val previewBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val outPixels = IntArray(width * height)
+        for (i in pebblePixels.indices) {
+            val b = pebblePixels[i].toInt() and 0xFF
+            if (isMonochrome) {
+                outPixels[i] = if (b == 0xFF) Color.WHITE else Color.BLACK
+            } else {
+                val a = 0xFF
+                val r = ((b shr 4) and 0x03) * 85
+                val g = ((b shr 2) and 0x03) * 85
+                val blue = (b and 0x03) * 85
+                outPixels[i] = Color.argb(a, r, g, blue)
+            }
+        }
+        previewBitmap.setPixels(outPixels, 0, width, 0, 0, width, height)
+        return previewBitmap
+    }
+
+    fun convertToPebblePixels(bitmap: Bitmap, isMonochrome: Boolean): ByteArray {
         val width = bitmap.width
         val height = bitmap.height
         val pixels = IntArray(width * height)
@@ -752,11 +828,11 @@ class AndroidPebbleMessenger(
                 }
             } else {
                 // 1. ルート線（赤系統）を最優先で強調
-                if (rRaw > 180 && gRaw < 80 && bRaw < 80) {
+                if (rRaw > 170 && gRaw < 90 && bRaw < 90) {
                     result[i] = 0b11110000.toByte() // Red
                 }
-                // 2. 現在地マーカー・選択地点（青系統）
-                else if (bRaw > 170 && rRaw < 110) {
+                // 2. 現在地アロー（青系統）
+                else if (bRaw > 160 && rRaw < 110) {
                     result[i] = 0b11000011.toByte() // Blue
                 }
                 // 3. 幹線道路・高速（黄色・オレンジ系統）
@@ -764,18 +840,14 @@ class AndroidPebbleMessenger(
                     result[i] = 0b11111000.toByte() // Chrome Yellow
                 }
                 // 4. 一般道路（グレー系統）
-                else if (Math.abs(rRaw - gRaw) < 25 && Math.abs(gRaw - bRaw) < 25 && rRaw in 150..225) {
+                else if (Math.abs(rRaw - gRaw) < 20 && Math.abs(gRaw - bRaw) < 20 && rRaw in 160..225) {
                     result[i] = 0b11101010.toByte() // Light Gray (Road)
                 }
-                // 5. 水域・川・海（水色系統）
-                else if (bRaw > 200 && gRaw > 180 && rRaw < 180) {
+                // 5. 水域（海・大きな川）
+                else if (bRaw > 210 && gRaw > 190 && rRaw < 170) {
                     result[i] = 0b11011111.toByte() // Baby Blue Eyes (Water)
                 }
-                // 6. 緑地・公園（緑系統）
-                else if (gRaw > 200 && rRaw in 180..235 && bRaw in 180..235) {
-                    result[i] = 0b11101110.toByte() // Mint Green
-                }
-                // 7. それ以外（文字・建物の微細ノイズ・薄い地色）はすべてクリーンな純白に統一してRLE圧縮率を最大化！
+                // 6. それ以外（緑地、森林、等高線、微小路地、建物の影などの複雑地形ノイズ）はすべて純白に完全統合！
                 else {
                     result[i] = 0b11111111.toByte() // Pure White (Background)
                 }
@@ -832,6 +904,41 @@ class AndroidPebbleMessenger(
     override fun setMapState(isActive: Boolean) {
         isMapActive = isActive
         Log.d("PebbleMessenger", "Map state synced from watch: $isActive")
+    }
+
+    override fun zoomInMap() {
+        if (currentMapZoom < 18) {
+            currentMapZoom++
+            Log.i("PebbleMessenger", "Map Zoom In: level $currentMapZoom")
+            refreshMap()
+        } else {
+            Log.d("PebbleMessenger", "Map Zoom In: already at max zoom (18)")
+        }
+    }
+
+    override fun zoomOutMap() {
+        if (currentMapZoom > 13) {
+            currentMapZoom--
+            Log.i("PebbleMessenger", "Map Zoom Out: level $currentMapZoom")
+            refreshMap()
+        } else {
+            Log.d("PebbleMessenger", "Map Zoom Out: already at min zoom (13)")
+        }
+    }
+
+    override fun recenterMap() {
+        Log.i("PebbleMessenger", "Map Re-center requested")
+        refreshMap()
+    }
+
+    private fun refreshMap() {
+        val statsRoute = KmpDependencies.trackerEngine.statistics.value.route
+        val points = if (statsRoute.isNotEmpty()) statsRoute else (lastMapPoints ?: emptyList())
+        if (points.isNotEmpty()) {
+            sendMap(points, lastMapWidth, lastMapHeight)
+        } else {
+            Log.w("PebbleMessenger", "refreshMap: No points available to render map")
+        }
     }
 
     override fun launchWatchApp() {

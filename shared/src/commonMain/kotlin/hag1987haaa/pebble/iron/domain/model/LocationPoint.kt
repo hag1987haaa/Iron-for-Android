@@ -14,4 +14,5 @@ data class LocationPoint(
     val heartRate: Int? = null,
     val steps: Int? = null,
     val timestamp: Instant,
+    val isSegmentStart: Boolean = false,
 )

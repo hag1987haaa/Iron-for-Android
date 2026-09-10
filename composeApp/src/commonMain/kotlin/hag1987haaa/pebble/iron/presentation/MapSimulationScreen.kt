@@ -1,6 +1,7 @@
 package hag1987haaa.pebble.iron.presentation
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -16,15 +17,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.PixelMap
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hag1987haaa.pebble.iron.KmpDependencies
 import hag1987haaa.pebble.iron.domain.tracker.RunState
+import hag1987haaa.pebble.iron.domain.tracker.PebbleMessenger
 import kotlinx.coroutines.launch
-import android.util.Log
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -38,49 +42,47 @@ fun MapSimulationScreen(onBack: () -> Unit) {
         stats.currentLocation?.let { listOf(it) } ?: emptyList()
     }
     val scrollState = rememberScrollState()
-    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    
+    val snackbarHostState = remember { SnackbarHostState() }
     val messenger = KmpDependencies.trackerEngine.pebbleMessenger
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Pebble Resolution Simulator") },
+                title = { Text("Pebble Resolution Simulation") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(scrollState)
-                .padding(16.dp),
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            Spacer(Modifier.height(8.dp))
+
             if (pebblePlatform != null) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = MaterialTheme.shapes.medium,
+                val (nativeMapW, nativeMapH) = getMapSizeForPlatform(pebblePlatform)
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxWidth(0.9f)
                         .combinedClickable(
-                            onClick = {
-                                Log.d("MapSimulation", "Card clicked")
-                            },
+                            onClick = {},
                             onLongClick = {
-                                Log.d("MapSimulation", "Card long clicked! Starting map send...")
-                                val (w, h) = getMapSizeForPlatform(pebblePlatform)
-                                messenger?.sendMap(displayPoints, w, h)
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Sending Map to $pebblePlatform...")
+                                if (messenger != null) {
+                                    messenger.sendMap(displayPoints, nativeMapW, nativeMapH)
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Map sent to $pebblePlatform ($nativeMapW x $nativeMapH)!")
+                                    }
                                 }
                             }
                         )
@@ -102,7 +104,7 @@ fun MapSimulationScreen(onBack: () -> Unit) {
             }
 
             Text(
-                "Future Pebble Display Simulation",
+                "Pebble Display Mirroring Simulation",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -116,6 +118,7 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                 points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Classic") == true,
                 isMonochrome = true,
+                messenger = messenger,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Classic/Steel!") }
@@ -132,6 +135,7 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                 isHighlight = pebblePlatform?.contains("Time") == true && 
                              pebblePlatform?.contains("Round") == false && 
                              pebblePlatform?.contains("2") == false,
+                messenger = messenger,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time!") }
@@ -147,6 +151,7 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                 isRound = true,
                 points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Round 2") == true,
+                messenger = messenger,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Round 2!") }
@@ -162,6 +167,7 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                 isRound = true,
                 points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Round") == true && pebblePlatform?.contains("Round 2") == false,
+                messenger = messenger,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time Round!") }
@@ -177,6 +183,7 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                 points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Pebble 2") == true,
                 isMonochrome = true,
+                messenger = messenger,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble 2!") }
@@ -191,6 +198,7 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                 mapHeight = 176,
                 points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Time 2") == true,
+                messenger = messenger,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time 2!") }
@@ -224,8 +232,33 @@ fun ResolutionPreview(
     points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>,
     isHighlight: Boolean = false,
     isMonochrome: Boolean = false,
+    messenger: PebbleMessenger?,
     onSendMap: (Int, Int) -> Unit
 ) {
+    var previewImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(points, mapWidth, mapHeight, isMonochrome) {
+        if (messenger != null && points.isNotEmpty()) {
+            isLoading = true
+            try {
+                val rgba = messenger.getMapPreviewRgba(points, mapWidth, mapHeight, isMonochrome)
+                if (rgba != null) {
+                    val img = ImageBitmap(mapWidth, mapHeight)
+                    val buffer = IntArray(mapWidth * mapHeight)
+                    rgba.copyInto(buffer)
+                    // ImageBitmap へのピクセル流し込み
+                    img.readPixels(buffer, 0, 0, mapWidth, mapHeight)
+                    // Android上での直接ビットマップ変換
+                    previewImage = createAndroidImageBitmap(mapWidth, mapHeight, rgba) ?: img
+                }
+            } catch (_: Exception) {
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(
             color = if (isHighlight) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
@@ -255,18 +288,31 @@ fun ResolutionPreview(
                     onLongClick = { onSendMap(mapWidth, mapHeight) }
                 )
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                RouteMapView(
-                    points = points,
-                    modifier = Modifier.fillMaxSize(),
-                    isPrivacyMode = false,
-                    isAutoCenter = true
+            if (previewImage != null) {
+                Image(
+                    bitmap = previewImage!!,
+                    contentDescription = name,
+                    modifier = Modifier
+                        .size(mapWidth.dp, mapHeight.dp)
+                        .align(Alignment.Center),
+                    contentScale = ContentScale.FillBounds
                 )
-                
-                // モノクロシミュレーション（半透明のフィルターを被せるなどでも可能だが、
-                // 本来はビットマップ処理が必要。ここでは簡易的にオーバーレイを追加）
-                if (isMonochrome) {
-                    Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.3f)))
+            } else {
+                Box(Modifier.fillMaxSize().background(Color(0xFF1E1E1E))) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp).align(Alignment.Center),
+                            color = MaterialTheme.colorScheme.primary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            "Waiting for GPS...",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.Gray,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
                 }
             }
             
@@ -276,3 +322,5 @@ fun ResolutionPreview(
         }
     }
 }
+
+expect fun createAndroidImageBitmap(width: Int, height: Int, rgba: IntArray): ImageBitmap?

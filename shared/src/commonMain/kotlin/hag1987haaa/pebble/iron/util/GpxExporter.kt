@@ -1,12 +1,16 @@
 package hag1987haaa.pebble.iron.util
 
 import hag1987haaa.pebble.iron.domain.model.RunActivity
+import kotlinx.datetime.Instant
 
 object GpxExporter {
     /**
      * RunActivity のデータを GPX 1.1 形式の文字列に変換します。
      * 外部プラットフォームでの互換性と正確性を高めるため、座標と時刻のみを基本とし、
      * 累積距離のタグは含めません。心拍数等は標準的な拡張形式で追加します。
+     * 
+     * 一時停止区間（isSegmentStart または 10秒以上のタイムスタンプギャップ）で
+     * <trkseg> を分割出力し、Strava, Garmin Connect 等での正確なポーズ時間除外・平均ペース計算を実現します。
      */
     fun export(run: RunActivity): String {
         val sb = StringBuilder()
@@ -27,7 +31,19 @@ object GpxExporter {
         sb.append("    <type>${run.type.name}</type>\n")
         sb.append("    <trkseg>\n")
 
-        run.route.forEach { pt ->
+        var prevTime: Instant? = null
+        val PAUSE_GAP_MS = 10_000L // 10秒以上のタイムスタンプギャップでポーズ判定 (過去データ救済対応)
+
+        run.route.forEachIndexed { index, pt ->
+            // 一時停止区間の判定: 再開フラグまたは10秒以上のタイムスタンプギャップでトラックセグメントを分割
+            if (index > 0 && prevTime != null) {
+                val timeDiffMs = pt.timestamp.toEpochMilliseconds() - prevTime!!.toEpochMilliseconds()
+                if (pt.isSegmentStart || timeDiffMs >= PAUSE_GAP_MS) {
+                    sb.append("    </trkseg>\n")
+                    sb.append("    <trkseg>\n")
+                }
+            }
+
             sb.append("      <trkpt lat=\"${pt.latitude}\" lon=\"${pt.longitude}\">\n")
             pt.altitude?.let { sb.append("        <ele>$it</ele>\n") }
             sb.append("        <time>${pt.timestamp}</time>\n")
@@ -42,6 +58,7 @@ object GpxExporter {
             }
 
             sb.append("      </trkpt>\n")
+            prevTime = pt.timestamp
         }
 
         sb.append("    </trkseg>\n")
