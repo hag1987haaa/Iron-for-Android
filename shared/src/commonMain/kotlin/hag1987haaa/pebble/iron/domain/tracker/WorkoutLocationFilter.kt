@@ -110,8 +110,18 @@ internal class WorkoutLocationFilter(
         val reportedSpeed =
             candidate.speed?.takeIf { it.isFinite() && it >= 0.0 }
 
-        if (reportedSpeed != null &&
-            reportedSpeed < config.stationarySpeedMetersPerSecond
+        val speedAccuracy =
+            candidate.speedAccuracyMetersPerSecond
+                ?.takeIf { it.isFinite() && it >= 0.0 }
+        val stationarySpeedWithUncertainty =
+            when {
+                reportedSpeed == null -> null
+                speedAccuracy != null -> reportedSpeed + speedAccuracy
+                else -> reportedSpeed
+            }
+
+        if (stationarySpeedWithUncertainty != null &&
+            stationarySpeedWithUncertainty < config.stationarySpeedMetersPerSecond
         ) {
             val accuracyRadius = maxOf(
                 usableAccuracy(previousDistancePoint) ?: 0.0,

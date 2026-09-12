@@ -122,6 +122,42 @@ class WorkoutLocationFilterTest {
     }
 
     @Test
+    fun accurateLowSpeedCanBeUsedAsStationaryHint() {
+        val previous =
+            point(northMeters = 0.0, seconds = 0, accuracy = 5.0, speed = 0.1)
+        val current =
+            point(
+                northMeters = 4.0,
+                seconds = 1,
+                accuracy = 5.0,
+                speed = 0.1,
+                speedAccuracyMetersPerSecond = 0.1,
+            )
+
+        assertFalse(
+            filter.shouldAccumulateDistance(previous, current, 4.0),
+        )
+    }
+
+    @Test
+    fun inaccurateLowSpeedIsNotTrustedAsStationaryHint() {
+        val previous =
+            point(northMeters = 0.0, seconds = 0, accuracy = 5.0, speed = 0.1)
+        val current =
+            point(
+                northMeters = 4.0,
+                seconds = 1,
+                accuracy = 5.0,
+                speed = 0.1,
+                speedAccuracyMetersPerSecond = 1.0,
+            )
+
+        assertTrue(
+            filter.shouldAccumulateDistance(previous, current, 4.0),
+        )
+    }
+
+    @Test
     fun usesReportedSpeedAsStationaryHint() {
         val previous =
             point(northMeters = 0.0, seconds = 0, accuracy = 5.0, speed = 0.1)
@@ -138,12 +174,14 @@ class WorkoutLocationFilterTest {
         seconds: Long,
         accuracy: Double = 5.0,
         speed: Double? = 1.4,
+        speedAccuracyMetersPerSecond: Double? = null,
         elapsedRealtimeNanos: Long? = null,
     ): LocationPoint = LocationPoint(
         latitude = baseLatitude + northMeters / 111_320.0,
         longitude = baseLongitude,
         altitude = 100.0,
         speed = speed,
+        speedAccuracyMetersPerSecond = speedAccuracyMetersPerSecond,
         bearing = 0.0,
         accuracy = accuracy,
         timestamp = Instant.fromEpochMilliseconds(seconds * 1000L),
