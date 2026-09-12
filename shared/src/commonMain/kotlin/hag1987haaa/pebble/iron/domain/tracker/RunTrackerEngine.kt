@@ -88,7 +88,9 @@ class RunTrackerEngine(
     val statistics: StateFlow<RunStatistics> = _statistics.asStateFlow()
 
     private var lastProcessedLocation: LocationPoint? = null
-    private var lastRawLocation: LocationPoint? = null
+    private var lastAcceptedRawLocation: LocationPoint? = null
+    private var lastDistanceLocation: LocationPoint? = null
+    private val locationFilter = WorkoutLocationFilter()
     private val rawLocationWindow = mutableListOf<LocationPoint>()
     private val fullRoute = mutableListOf<LocationPoint>() 
     private val windowSize = 3
@@ -130,7 +132,7 @@ class RunTrackerEngine(
                 reEvaluateHeartRateSource()
             }
         }
-        
+
         // 改善：設定画面での ON/OFF 切り替えに即座に反応して自動接続を開始/停止する
         scope.launch {
             val settings = appSettings ?: return@launch
@@ -146,18 +148,18 @@ class RunTrackerEngine(
     private fun reEvaluateHeartRateSource() {
         val now = Clock.System.now().toEpochMilliseconds()
         val stats = _statistics.value
-        
+
         // 1. BLEソースの信頼性チェック
         val isBleActive = bleHrManager?.isDataActive?.value ?: false
         val isBlePreferred = appSettings?.preferBleHeartRate ?: true
-        
+
         // 通信が10秒以上途絶えているか、数値が15秒以上変化していない（ホールド状態）場合は「信頼不可」
         val isBleStale = lastHrTimestamp > 0 && (now - lastHrTimestamp) > 10000L
         val isBleFrozen = lastBleValueChangeTimestamp > 0 && (now - lastBleValueChangeTimestamp) > 15000L
         val isBleValidValue = (stats.latestBleHeartRate ?: 0) in 30..220
 
         val isBleReliable = isBleActive && !isBleStale && !isBleFrozen && isBleValidValue
-        
+
         // 2. メインソースの決定（BLEが信頼でき、かつ優先設定ならBLE、そうでなければPEBBLE）
         val newSource = if (isBleReliable && isBlePreferred) "BLE" else "PEBBLE"
         val newBpm = if (newSource == "BLE") stats.latestBleHeartRate else stats.latestPebbleHeartRate
@@ -174,18 +176,18 @@ class RunTrackerEngine(
         autoConnectJob = scope.launch {
             val settings = appSettings ?: return@launch
             val hrManager = bleHrManager ?: return@launch
-            
+
             // 無効化されている場合は何もしない（既に接続されているなら切断する）
             if (!settings.isBleHeartRateEnabled) {
                 if (hrManager.isConnected.value) hrManager.close()
                 return@launch
             }
-            
+
             // 既に接続されているなら何もしない
             if (hrManager.isConnected.value) return@launch
 
             delay(1000)
-            
+
             // 1. 最優先（お気に入り）デバイスへの接続試行
             settings.preferredBleHrAddress?.let { 
                 println("RunTrackerEngine AutoConnect: Attempting preferred $it")
@@ -211,7 +213,7 @@ class RunTrackerEngine(
             while (isActive && settings.isBleHeartRateEnabled) {
                 // 接続されたらループ終了
                 if (hrManager.isConnected.value) break
-                
+
                 println("RunTrackerEngine AutoConnect: Scanning for registered devices...")
                 hag1987haaa.pebble.iron.KmpDependencies.bleScanner.startScan("0000180d-0000-1000-8000-00805f9b34fb")
                 try {
@@ -232,7 +234,7 @@ class RunTrackerEngine(
                 } finally {
                     hag1987haaa.pebble.iron.KmpDependencies.bleScanner.stopScan()
                 }
-                
+
                 // 見つからなかった場合はしばらく待って再試行
                 delay(10000)
             }
@@ -244,7 +246,7 @@ class RunTrackerEngine(
         appSettings?.let { it.lastActivityType = type.name; it.save() }
         val newStats = _statistics.value
         RunState.updateStats(newStats)
-        
+
         // 改善：種別変更を即座に「確定した状態」としてウォッチに送り出す
         // これにより、他の定期更新に上書きされる前にウォッチ側の表示を書き換える
         pebbleMessenger?.sendState(newStats.status, newStats)
@@ -258,18 +260,18 @@ class RunTrackerEngine(
 
         if (trackingJob != null) return
         startSmartAutoConnect()
-        
+
         // ステータスを準備中に更新
         _statistics.update { it.copy(status = RunStatus.PREPARING) }
         RunState.updateStats(_statistics.value)
         RunState.setStatus(RunStatus.PREPARING)
         resetTimeoutTimer()
-        
+
         pebbleMessenger?.launchWatchApp()
         pebbleMessenger?.requestWatchInfo()
         pebbleMessenger?.sendState(RunStatus.PREPARING, _statistics.value)
         pebbleMessenger?.sendGraphData(_statistics.value)
-        
+
         trackingJob = locationTracker.startTracking().onEach { handleNewLocation(it) }.launchIn(scope)
     }
 
@@ -279,17 +281,17 @@ class RunTrackerEngine(
         trackingJob?.cancel(); trackingJob = null
         timerJob?.cancel(); timerJob = null
         locationTracker.stopTracking()
-        
+
         // 統計データを初期化（現在のアクティビティ種別のみを維持してリセット）
         _statistics.update { current ->
             RunStatistics(activityType = current.activityType)
         }
         RunState.updateStats(_statistics.value)
-        
+
         // 位置情報・経路データを初期化
-        lastProcessedLocation = null; lastRawLocation = null
+        lastProcessedLocation = null; lastAcceptedRawLocation = null; lastDistanceLocation = null
         rawLocationWindow.clear(); fullRoute.clear()
-        
+
         // 歩数・通知カウンタ・心拍ソース等の内部状態を完全に初期化
         isStartPending = false
         isResumePending = false
@@ -298,7 +300,7 @@ class RunTrackerEngine(
         lastTimeStep = -1; lastDistStep = -1.0f
         lastHrTimestamp = 0L; lastBpmValue = null
         lastBleValueChangeTimestamp = 0L; lastBleBpm = null
-        
+
         // BLEセンサーを閉じる
         bleHrManager?.close()
     }
@@ -307,11 +309,11 @@ class RunTrackerEngine(
         if (!_statistics.value.hasGpsFix) { isStartPending = true; pebbleMessenger?.sendState(RunStatus.PREPARING, _statistics.value); return }
         isStartPending = false
         isResumePending = false; timeoutJob?.cancel()
-        
+
         // 先に統計データの状態を更新
         _statistics.update { it.copy(startTime = Clock.System.now(), status = RunStatus.ACTIVE) }
         RunState.updateStats(_statistics.value)
-        
+
         // その後にグローバル状態を更新（これによりService側の同期が最新データを掴む）
         RunState.setStatus(RunStatus.ACTIVE)
         pebbleMessenger?.sendState(RunStatus.ACTIVE, _statistics.value)
@@ -322,12 +324,12 @@ class RunTrackerEngine(
     fun pause() {
         // 1. まずタイマーを即座に停止し、バックグラウンドからの意図しない送信を断つ
         timerJob?.cancel(); timerJob = null
-        
+
         // 2. その後、静止した状態でステータスを更新
         _statistics.update { it.copy(status = RunStatus.PAUSED) }
         RunState.updateStats(_statistics.value)
         RunState.setStatus(RunStatus.PAUSED)
-        
+
         // 3. 最後に確定した情報をウォッチへ送る
         pebbleMessenger?.sendState(RunStatus.PAUSED, _statistics.value)
     }
@@ -337,11 +339,12 @@ class RunTrackerEngine(
         // 一時停止前の古い座標との加重平均によるワープ距離引きずりを完全に防止するためWindowをクリア
         rawLocationWindow.clear()
         lastProcessedLocation = null
-        
+        lastAcceptedRawLocation = null
+        lastDistanceLocation = null
         // 先に統計データを更新
         _statistics.update { it.copy(status = RunStatus.ACTIVE) }
         RunState.updateStats(_statistics.value)
-        
+
         // その後にグローバル状態を更新
         RunState.setStatus(RunStatus.ACTIVE)
         pebbleMessenger?.sendState(RunStatus.ACTIVE, _statistics.value)
@@ -355,15 +358,15 @@ class RunTrackerEngine(
         timerJob?.cancel(); timerJob = null
         trackingJob?.cancel(); trackingJob = null
         locationTracker.stopTracking()
-        
+
         val now = Clock.System.now(); val localTime = now.toLocalDateTime(TimeZone.currentSystemDefault())
         val defaultName = "${localTime.year}${localTime.monthNumber.toString().padStart(2, '0')}${localTime.dayOfMonth.toString().padStart(2, '0')}-${localTime.hour.toString().padStart(2, '0')}${localTime.minute.toString().padStart(2, '0')}"
-        
+
         // 2. ステータスと名前を更新
         _statistics.update { it.copy(status = RunStatus.FINISHED, name = defaultName) }
         RunState.updateStats(_statistics.value)
         RunState.setStatus(RunStatus.FINISHED)
-        
+
         // 3. 確定情報を送る
         pebbleMessenger?.sendState(RunStatus.FINISHED, _statistics.value)
     }
@@ -383,7 +386,7 @@ class RunTrackerEngine(
 
         val now = Clock.System.now().toEpochMilliseconds()
         val validBpm = if (bpm in 30..220) bpm else null
-        
+
         // 1. タイムスタンプと履歴の更新
         if (source == "BLE") {
             // BLEの場合：数値が変化したときのみ「変化時刻」を更新（ホールド検知用）
@@ -466,7 +469,7 @@ class RunTrackerEngine(
         timerJob = scope.launch(Dispatchers.Default) {
             while (isActive) {
                 delay(1000)
-                
+
                 // ACTIVE 状態でない場合は送信・更新をスキップする（二重ガード）
                 if (_statistics.value.status != RunStatus.ACTIVE) continue
 
@@ -482,14 +485,14 @@ class RunTrackerEngine(
                     val nextSeconds = stats.totalSeconds + 1
                     val weight = appSettings?.userWeightKg ?: 70.0f
                     val currentCalories = HealthUtils.calculateCalories(stats.activityType, weight, nextSeconds, stats.totalDistanceMeters, stats.totalElevationGain, if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null)
-                    
+
                     val updatedStats = stats.copy(totalSeconds = nextSeconds, calories = currentCalories)
 
                     // --- 通知判定 (判定のみ行い、副作用は外で実行) ---
                     val timeStep = appSettings?.notificationTimeSeconds ?: 0
                     if (timeStep > 0) {
                         val currentIntervalCount = (nextSeconds / timeStep).toInt()
-                        
+
                         // 設定変更の検知
                         if (lastTimeStep != -1 && lastTimeStep != timeStep) {
                             // 設定が変わった直後は、現在のカウントに同期させて通知はスキップする
@@ -562,59 +565,121 @@ class RunTrackerEngine(
 
     private fun handleNewLocation(location: LocationPoint) {
         if (RunState.status.value == RunStatus.IDLE) return
-        lastRawLocation = location
+
+        val activityType = _statistics.value.activityType
+        if (!locationFilter.isAcceptable(
+                lastAcceptedRawLocation,
+                location,
+                activityType,
+            )
+        ) {
+            return
+        }
+        lastAcceptedRawLocation = location
+
         if (!_statistics.value.hasGpsFix) {
-            _statistics.update { it.copy(hasGpsFix = true, currentLocation = location) }
-            if (isStartPending) start()
-            else if (RunState.status.value == RunStatus.PREPARING) {
-                _statistics.update { it.copy(status = RunStatus.READY, currentLocation = location) }
-                RunState.setStatus(RunStatus.READY); pebbleMessenger?.sendState(RunStatus.READY, _statistics.value)
+            _statistics.update {
+                it.copy(hasGpsFix = true, currentLocation = location)
+            }
+            if (isStartPending) {
+                start()
+            } else if (RunState.status.value == RunStatus.PREPARING) {
+                _statistics.update {
+                    it.copy(
+                        status = RunStatus.READY,
+                        currentLocation = location,
+                    )
+                }
+                RunState.setStatus(RunStatus.READY)
+                pebbleMessenger?.sendState(
+                    RunStatus.READY,
+                    _statistics.value,
+                )
                 resetTimeoutTimer()
             }
         } else {
             _statistics.update { it.copy(currentLocation = location) }
         }
+
         if (RunState.status.value != RunStatus.ACTIVE) return
-        rawLocationWindow.add(location); if (rawLocationWindow.size > windowSize) rawLocationWindow.removeAt(0)
+
+        // Keep Iron's existing lightweight smoothing, but only allow plausible
+        // fixes into the smoothing window.
+        rawLocationWindow.add(location)
+        if (rawLocationWindow.size > windowSize) {
+            rawLocationWindow.removeAt(0)
+        }
         val filteredLocation = calculateWeightedAverage(rawLocationWindow)
-        
-        // 1つ前の位置からの移動距離と標高差（獲得標高）を計算
+
+        // Preserve route segmentation across pause/resume.
         val isSegStart = isResumePending || fullRoute.isEmpty()
         isResumePending = false
 
         var distanceDelta = 0.0
         var elevationDelta = 0.0
-        // 再開直後のポイントの場合、一時停止地点からのワープ移動距離は運動距離に加算しない
+
+        // A new segment must not count a straight-line jump from the previous
+        // segment. Otherwise use the separate distance anchor so small GPS
+        // movements can accumulate until they clear the noise floor.
+        val distanceAnchor = lastDistanceLocation
+        if (isSegStart || distanceAnchor == null) {
+            lastDistanceLocation = filteredLocation
+        } else {
+            val distanceFromAnchor = LocationUtils.calculateDistance(
+                distanceAnchor.latitude,
+                distanceAnchor.longitude,
+                filteredLocation.latitude,
+                filteredLocation.longitude,
+            )
+
+            if (locationFilter.shouldAccumulateDistance(
+                    distanceAnchor,
+                    filteredLocation,
+                    distanceFromAnchor,
+                )
+            ) {
+                distanceDelta = distanceFromAnchor
+                lastDistanceLocation = filteredLocation
+            }
+        }
+
+        // Do not count elevation changes across a pause/resume boundary.
         if (!isSegStart) {
             lastProcessedLocation?.let { prev ->
-                distanceDelta = LocationUtils.calculateDistance(
-                    prev.latitude, prev.longitude,
-                    filteredLocation.latitude, filteredLocation.longitude
-                )
                 val prevAlt = prev.altitude
                 val currAlt = filteredLocation.altitude
+
                 if (prevAlt != null && currAlt != null && currAlt > prevAlt) {
                     val diff = currAlt - prevAlt
-                    if (diff > 0.5) elevationDelta = diff // ノイズ対策: 0.5m以上の時のみ加算
+                    if (diff > 0.5) {
+                        elevationDelta = diff
+                    }
                 }
             }
         }
+
         lastProcessedLocation = filteredLocation
 
         val finalLocation = filteredLocation.copy(
-            heartRate = location.heartRate ?: _statistics.value.currentHeartRate, 
+            heartRate = location.heartRate ?: _statistics.value.currentHeartRate,
             steps = _statistics.value.steps,
-            isSegmentStart = isSegStart
+            isSegmentStart = isSegStart,
         )
+
         fullRoute.add(finalLocation)
 
-        _statistics.update { it.copy(
-            totalDistanceMeters = it.totalDistanceMeters + distanceDelta, 
-            totalElevationGain = it.totalElevationGain + elevationDelta,
-            route = fullRoute.toList()
-        ).also { s ->
-            pebbleMessenger?.sendStatistics(s); RunState.updateStats(s)
-        } }
+        _statistics.update {
+            it.copy(
+                totalDistanceMeters =
+                    it.totalDistanceMeters + distanceDelta,
+                totalElevationGain =
+                    it.totalElevationGain + elevationDelta,
+                route = fullRoute.toList(),
+            ).also { s ->
+                pebbleMessenger?.sendStatistics(s)
+                RunState.updateStats(s)
+            }
+        }
     }
 
     private fun calculateWeightedAverage(window: List<LocationPoint>): LocationPoint {

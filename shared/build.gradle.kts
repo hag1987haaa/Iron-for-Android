@@ -18,6 +18,9 @@ kotlin {
             implementation(libs.logging.kermit)
             implementation(libs.sqldelight.coroutines)
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
         androidMain.dependencies {
             implementation(libs.androidx.core.ktx)
             implementation(libs.sqlcipher)
