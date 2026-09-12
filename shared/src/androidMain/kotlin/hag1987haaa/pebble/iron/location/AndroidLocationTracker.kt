@@ -10,6 +10,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import hag1987haaa.pebble.iron.domain.location.LocationTracker
 import hag1987haaa.pebble.iron.domain.model.LocationPoint
 
@@ -65,5 +66,12 @@ fun Location.toLocationPoint(): LocationPoint = LocationPoint(
     speed = if (hasSpeed()) speed.toDouble() else null,
     bearing = if (hasBearing()) bearing.toDouble() else null,
     accuracy = if (hasAccuracy()) accuracy.toDouble() else null,
-    timestamp = Clock.System.now()
+    timestamp = if (time > 0L) Instant.fromEpochMilliseconds(time) else Clock.System.now(),
+    speedAccuracyMetersPerSecond =
+        if (hasSpeedAccuracy()) this.speedAccuracyMetersPerSecond.toDouble() else null,
+    bearingAccuracyDegrees =
+        if (hasBearingAccuracy()) this.bearingAccuracyDegrees.toDouble() else null,
+    verticalAccuracyMeters =
+        if (hasVerticalAccuracy()) this.verticalAccuracyMeters.toDouble() else null,
+    elapsedRealtimeNanos = elapsedRealtimeNanos.takeIf { it > 0L },
 )

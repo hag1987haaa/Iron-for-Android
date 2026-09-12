@@ -86,6 +86,42 @@ class WorkoutLocationFilterTest {
     }
 
     @Test
+    fun usesMonotonicFixTimeWhenWallClockMovesBackward() {
+        val previous = point(
+            northMeters = 0.0,
+            seconds = 10,
+            elapsedRealtimeNanos = 1_000_000_000L,
+        )
+        val current = point(
+            northMeters = 10.0,
+            seconds = 9,
+            elapsedRealtimeNanos = 3_000_000_000L,
+        )
+
+        assertTrue(
+            filter.isAcceptable(previous, current, ActivityType.WALKING),
+        )
+    }
+
+    @Test
+    fun monotonicFixTimePreventsWallClockFromHidingJump() {
+        val previous = point(
+            northMeters = 0.0,
+            seconds = 0,
+            elapsedRealtimeNanos = 1_000_000_000L,
+        )
+        val current = point(
+            northMeters = 30.0,
+            seconds = 60,
+            elapsedRealtimeNanos = 2_000_000_000L,
+        )
+
+        assertFalse(
+            filter.isAcceptable(previous, current, ActivityType.WALKING),
+        )
+    }
+
+    @Test
     fun usesReportedSpeedAsStationaryHint() {
         val previous =
             point(northMeters = 0.0, seconds = 0, accuracy = 5.0, speed = 0.1)
@@ -102,6 +138,7 @@ class WorkoutLocationFilterTest {
         seconds: Long,
         accuracy: Double = 5.0,
         speed: Double? = 1.4,
+        elapsedRealtimeNanos: Long? = null,
     ): LocationPoint = LocationPoint(
         latitude = baseLatitude + northMeters / 111_320.0,
         longitude = baseLongitude,
@@ -110,5 +147,6 @@ class WorkoutLocationFilterTest {
         bearing = 0.0,
         accuracy = accuracy,
         timestamp = Instant.fromEpochMilliseconds(seconds * 1000L),
+        elapsedRealtimeNanos = elapsedRealtimeNanos,
     )
 }
