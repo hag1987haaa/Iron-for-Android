@@ -457,6 +457,7 @@ class RunTrackerEngine(
     fun zoomInMap() { pebbleMessenger?.zoomInMap() }
     fun zoomOutMap() { pebbleMessenger?.zoomOutMap() }
     fun recenterMap() { pebbleMessenger?.recenterMap() }
+    fun panMap(dx: Int, dy: Int) { pebbleMessenger?.panMap(dx, dy) }
 
     private fun reset() {
         clearWorkoutData()

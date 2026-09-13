@@ -34,6 +34,8 @@ class PebbleCommandService : BasePebbleListenerService() {
         private const val KEY_LOWER_ID = 10016u
         private const val KEY_EVENT = 10018u
         private const val KEY_MAP_STATE = 10022u
+        private const val KEY_PAN_DX = 10023u
+        private const val KEY_PAN_DY = 10024u
     }
 
     override fun onCreate() {
@@ -110,6 +112,13 @@ class PebbleCommandService : BasePebbleListenerService() {
         // 2. イベント・コマンドの処理
         var handledByEvent = false
         
+        // 新プロトコル: PAN_DX (10023) / PAN_DY (10024) によるスワイプ・パン移動
+        val panDx = data[KEY_PAN_DX]?.let { parsePebbleItemToInt(it) }
+        val panDy = data[KEY_PAN_DY]?.let { parsePebbleItemToInt(it) }
+        if (panDx != null && panDy != null) {
+            handleTouchPan(panDx, panDy)
+        }
+
         // KEY_EVENT (10018) を最優先で評価
         val eventId = data[KEY_EVENT]?.let { parsePebbleItemToInt(it) }?.let { AppEventID.fromId(it) }
         if (eventId != null && eventId != AppEventID.EVENT_NONE) {
@@ -143,6 +152,44 @@ class PebbleCommandService : BasePebbleListenerService() {
         }
 
         return ReceiveResult.Ack
+    }
+
+    private fun handleTouchPan(dx: Int, dy: Int) {
+        val engine = KmpDependencies.trackerEngine
+        val isMap = engine.isMapActive
+        val settings = KmpDependencies.appSettings
+
+        Log.i("PebbleCommand", "handleTouchPan: dx=$dx, dy=$dy, isMap=$isMap, isMapSwipePanEnabled=${settings.isMapSwipePanEnabled}")
+
+        if (isMap && settings.isMapSwipePanEnabled) {
+            // マップ表示中 かつ パン有効 -> 地図スクロール
+            engine.panMap(dx, dy)
+        } else {
+            // 音楽操作モード（または通常画面）: 移動方向から曲送り・音量を判定
+            val absDx = Math.abs(dx)
+            val absDy = Math.abs(dy)
+            val SWIPE_THRESHOLD = 15
+
+            if (absDx >= SWIPE_THRESHOLD || absDy >= SWIPE_THRESHOLD) {
+                if (absDx > absDy) {
+                    if (dx > 0) {
+                        Log.i("PebbleCommand", "Touch Swipe interpreted as PREV (dx=$dx)")
+                        sendMediaKey(3) // Prev
+                    } else {
+                        Log.i("PebbleCommand", "Touch Swipe interpreted as NEXT (dx=$dx)")
+                        sendMediaKey(2) // Next
+                    }
+                } else {
+                    if (dy > 0) {
+                        Log.i("PebbleCommand", "Touch Swipe interpreted as VOL DOWN (dy=$dy)")
+                        sendMediaKey(5) // Vol Down
+                    } else {
+                        Log.i("PebbleCommand", "Touch Swipe interpreted as VOL UP (dy=$dy)")
+                        sendMediaKey(4) // Vol Up
+                    }
+                }
+            }
+        }
     }
 
     private fun handleAppEvent(event: AppEventID) {

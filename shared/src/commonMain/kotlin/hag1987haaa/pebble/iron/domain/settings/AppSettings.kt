@@ -8,6 +8,7 @@ import hag1987haaa.pebble.iron.domain.model.ActivityType
 class AppSettings {
     var isMusicControlEnabled: Boolean = false
     var isTouchControlEnabled: Boolean = false
+    var isMapSwipePanEnabled: Boolean = true
     
     // ボタン長押しアクション設定
     var isLongPressEnabled: Boolean = false

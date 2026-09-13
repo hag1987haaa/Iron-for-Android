@@ -105,6 +105,11 @@ interface PebbleMessenger {
     fun recenterMap() {}
 
     /**
+     * マップパン（スクロール）指示
+     */
+    fun panMap(dx: Int, dy: Int) {}
+
+    /**
      * マップデータを送信する（経路情報を元にビットマップ生成・RLEエンコード・分割送信を一括で行う）
      */
     fun sendMap(points: List<LocationPoint>, width: Int, height: Int)

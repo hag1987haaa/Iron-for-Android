@@ -6,6 +6,7 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import android.util.LruCache
 import androidx.core.content.ContextCompat
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -55,9 +56,16 @@ class AndroidPebbleMessenger(
     override var isMapActive: Boolean = false
     private var isMapTransferring: Boolean = false
     private var currentMapZoom: Int = 16
+    private var panOffsetPixelsX: Double = 0.0
+    private var panOffsetPixelsY: Double = 0.0
+
+    // マップ操作の集約・保留制御（メモリ内のみ保持、保存・永続化は一切行わない）
+    private var mapDebounceJob: kotlinx.coroutines.Job? = null
+    private var hasPendingMapRefresh: Boolean = false
     private var lastMapPoints: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>? = null
     private var lastMapWidth: Int = 144
     private var lastMapHeight: Int = 168
+    private val tileCache = LruCache<String, Bitmap>(32)
 
     companion object {
         private val WATCHAPP_UUID = UUID.fromString("0ec71971-1191-4e05-87f5-27a3c749023c")
@@ -517,6 +525,13 @@ class AndroidPebbleMessenger(
 
     override fun sendMapState(isActive: Boolean) {
         isMapActive = isActive
+        if (!isActive) {
+            mapDebounceJob?.cancel()
+            mapDebounceJob = null
+            hasPendingMapRefresh = false
+            panOffsetPixelsX = 0.0
+            panOffsetPixelsY = 0.0
+        }
         commandQueue.trySend(PebbleMessageRequest("MAP_STATE", mapOf(KEY_MAP_STATE to PebbleDictionaryItem.Int32(if (isActive) 1 else 0))))
     }
 
@@ -565,7 +580,8 @@ class AndroidPebbleMessenger(
         lastMapHeight = height
         scope.launch {
             if (isMapTransferring) {
-                Log.w("PebbleMessenger", "sendMap: Already transferring. Ignored.")
+                hasPendingMapRefresh = true
+                Log.w("PebbleMessenger", "sendMap: Already transferring. Marked as pending.")
                 return@launch
             }
             isMapTransferring = true
@@ -636,6 +652,13 @@ class AndroidPebbleMessenger(
                 nextStatsRequest?.let { commandQueue.trySend(it) }
                 nextMidDataRequest?.let { commandQueue.trySend(it) }
                 nextLowerDataRequest?.let { commandQueue.trySend(it) }
+
+                // 転送中に溜まった連打・スワイプ等の保留リフレッシュがあれば最新状態で即時再送
+                if (hasPendingMapRefresh && isMapActive) {
+                    hasPendingMapRefresh = false
+                    Log.i("PebbleMessenger", "Executing pending map refresh after previous transfer finished.")
+                    scheduleMapRefresh(0L)
+                }
             }
         }
     }
@@ -656,8 +679,10 @@ class AndroidPebbleMessenger(
         val n = Math.pow(2.0, zoom.toDouble())
 
         // メルカトル投影での世界座標ピクセル (256pxタイル基準)
-        val xCenterWorld = (centerLon + 180.0) / 360.0 * n * 256.0
-        val yCenterWorld = (1.0 - Math.log(Math.tan(Math.toRadians(centerLat)) + (1.0 / Math.cos(Math.toRadians(centerLat)))) / Math.PI) / 2.0 * n * 256.0
+        val currentPointWorldX = (centerLon + 180.0) / 360.0 * n * 256.0
+        val currentPointWorldY = (1.0 - Math.log(Math.tan(Math.toRadians(centerLat)) + (1.0 / Math.cos(Math.toRadians(centerLat)))) / Math.PI) / 2.0 * n * 256.0
+        val xCenterWorld = currentPointWorldX + panOffsetPixelsX
+        val yCenterWorld = currentPointWorldY + panOffsetPixelsY
 
         val xtileCenter = Math.floor(xCenterWorld / 256.0).toInt()
         val ytileCenter = Math.floor(yCenterWorld / 256.0).toInt()
@@ -670,14 +695,26 @@ class AndroidPebbleMessenger(
             (0..1).map { tx ->
                 val curX = xStartTile + tx
                 val curY = yStartTile + ty
-                val tileUrl = "https://tile.openstreetmap.org/$zoom/$curX/$curY.png"
+                val subdomains = arrayOf("a", "b", "c", "d")
+                val sub = subdomains[Math.abs(curX + curY) % subdomains.size]
+                val tileUrl = "https://$sub.basemaps.cartocdn.com/rastertiles/voyager_nolabels/$zoom/$curX/$curY.png"
                 async(Dispatchers.IO) {
                     try {
-                        val connection = java.net.URL(tileUrl).openConnection() as java.net.HttpURLConnection
-                        connection.setRequestProperty("User-Agent", "TrackerIronAndroid/1.0")
-                        connection.connectTimeout = 2500
-                        connection.readTimeout = 2500
-                        val tileBitmap = android.graphics.BitmapFactory.decodeStream(connection.inputStream)
+                        val cached = synchronized(tileCache) { tileCache.get(tileUrl) }
+                        val tileBitmap = if (cached != null && !cached.isRecycled) {
+                            cached
+                        } else {
+                            val connection = java.net.URL(tileUrl).openConnection() as java.net.HttpURLConnection
+                            connection.setRequestProperty("User-Agent", "TrackerIronAndroid/1.0")
+                            connection.connectTimeout = 2500
+                            connection.readTimeout = 2500
+                            val loaded = android.graphics.BitmapFactory.decodeStream(connection.inputStream)
+                            if (loaded != null) {
+                                synchronized(tileCache) { tileCache.put(tileUrl, loaded) }
+                            }
+                            loaded
+                        }
+
                         if (tileBitmap != null) {
                             val tileLeftWorld = curX * 256.0
                             val tileTopWorld = curY * 256.0
@@ -698,7 +735,7 @@ class AndroidPebbleMessenger(
         val downloadedTiles = tileJobs.awaitAll().filterNotNull()
         for ((tileBitmap, dx, dy) in downloadedTiles) {
             canvas.drawBitmap(tileBitmap, dx, dy, null)
-            tileBitmap.recycle()
+            // tile is cached, skip recycle
         }
 
         // 4. ルート (Polyline) の描画 (一時停止区間はワープ線を描かないよう moveTo でスキップ)
@@ -750,8 +787,9 @@ class AndroidPebbleMessenger(
         }
 
         // 6. 現在地・進行方向アロー（矢印）の描画
-        val cx = width / 2f
-        val cy = height / 2f
+        // 現在地の描画座標（パン移動量に完全連動）
+        val cx = (currentPointWorldX - xCenterWorld + (width / 2.0)).toFloat()
+        val cy = (currentPointWorldY - yCenterWorld + (height / 2.0)).toFloat()
 
         canvas.save()
         canvas.rotate(bearing, cx, cy)
@@ -805,51 +843,161 @@ class AndroidPebbleMessenger(
     fun convertToPebblePixels(bitmap: Bitmap, isMonochrome: Boolean): ByteArray {
         val width = bitmap.width
         val height = bitmap.height
-        val pixels = IntArray(width * height)
+        val totalPixels = width * height
+        val pixels = IntArray(totalPixels)
         bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-        
-        val result = ByteArray(width * height)
-        for (i in pixels.indices) {
-            val color = pixels[i]
-            val rRaw = Color.red(color)
-            val gRaw = Color.green(color)
-            val bRaw = Color.blue(color)
 
+        val TYPE_BG = 0
+        val TYPE_WATER = 1
+        val TYPE_LOCAL_ROAD = 2
+        val TYPE_HIGHWAY = 3
+        val TYPE_ROUTE = 4
+        val TYPE_ARROW = 5
+
+        val types = ByteArray(totalPixels)
+
+        // 第1パス: 各ピクセルの色分類
+        for (i in 0 until totalPixels) {
+            val color = pixels[i]
+            val r = Color.red(color)
+            val g = Color.green(color)
+            val b = Color.blue(color)
+
+            // 1. ルート線（赤系統）を最優先で強調
+            if (r > 170 && g < 90 && b < 90) {
+                types[i] = TYPE_ROUTE.toByte()
+                continue
+            }
+            // 2. 現在地アロー（青系統）
+            if (b > 160 && r < 110) {
+                types[i] = TYPE_ARROW.toByte()
+                continue
+            }
+            // 3. 幹線道路・高速（Voyager: 黄色・オレンジ系）-> 太い黒線
+            if (r > 215 && g > 140 && b < 190 && (r - b) > 30) {
+                types[i] = TYPE_HIGHWAY.toByte()
+                continue
+            }
+            // 4. 水域（海・河川）
+            if (b > 215 && g > 210 && r < 225 && b >= r) {
+                types[i] = TYPE_WATER.toByte()
+                continue
+            }
+            // 5. 一般道路（純白の路面、または道路縁取りケーシング線）
+            // 拡大率によらず安定して検出できるようRGBの許容範囲を最適化
+            val isRoadSurface = (r >= 250 && g >= 250 && b >= 248)
+            val isRoadCasing = (Math.abs(r - g) <= 6 && Math.abs(g - b) <= 6 && r in 218..238 && (r - b) < 6)
+            if (isRoadSurface || isRoadCasing) {
+                types[i] = TYPE_LOCAL_ROAD.toByte()
+                continue
+            }
+
+            types[i] = TYPE_BG.toByte()
+        }
+
+        // 第2パス: 孤立点（点群ノイズ）の除去（線の接続性は維持）
+        val cleanedTypes = types.clone()
+        for (y in 1 until height - 1) {
+            val yOffset = y * width
+            for (x in 1 until width - 1) {
+                val idx = yOffset + x
+                val t = types[idx].toInt()
+
+                // 水域の点群ノイズ除去（孤立した水色ドットは陸地へ）
+                if (t == TYPE_WATER) {
+                    var waterNeighbors = 0
+                    for (dy in -1..1) {
+                        for (dx in -1..1) {
+                            if (dx == 0 && dy == 0) continue
+                            if (types[(y + dy) * width + (x + dx)].toInt() == TYPE_WATER) {
+                                waterNeighbors++
+                            }
+                        }
+                    }
+                    if (waterNeighbors < 3) {
+                        cleanedTypes[idx] = TYPE_BG.toByte()
+                    }
+                    continue
+                }
+
+                // 道路の孤立ノイズ除去
+                // 周囲8近傍に道路/ルートが1つもない完全孤立ドットのみ消去（角や端点を誤消去しない）
+                if (t == TYPE_LOCAL_ROAD || t == TYPE_HIGHWAY) {
+                    var roadNeighbors = 0
+                    for (dy in -1..1) {
+                        for (dx in -1..1) {
+                            if (dx == 0 && dy == 0) continue
+                            val neighborType = types[(y + dy) * width + (x + dx)].toInt()
+                            if (neighborType == TYPE_LOCAL_ROAD || neighborType == TYPE_HIGHWAY || neighborType == TYPE_ROUTE) {
+                                roadNeighbors++
+                            }
+                        }
+                    }
+                    if (roadNeighbors == 0) {
+                        cleanedTypes[idx] = TYPE_BG.toByte()
+                    }
+                }
+            }
+        }
+
+        // 第3パス: 道路の太線化・途切れ防止（モルフォロジー膨張）
+        // どの拡大率でも道路が細くかすれたり途切れたりしないよう補正
+        val dilatedTypes = cleanedTypes.clone()
+        val isLowZoom = currentMapZoom <= 15
+        for (y in 1 until height - 1) {
+            val yOffset = y * width
+            for (x in 1 until width - 1) {
+                val idx = yOffset + x
+                val t = cleanedTypes[idx].toInt()
+                if (t == TYPE_HIGHWAY) {
+                    // 幹線道路: 上下左右1px膨張（太い線で強調）
+                    for (dy in -1..1) {
+                        val ny = y + dy
+                        for (dx in -1..1) {
+                            if (Math.abs(dy) + Math.abs(dx) == 1) {
+                                val nIdx = ny * width + (x + dx)
+                                if (dilatedTypes[nIdx].toInt() == TYPE_BG) {
+                                    dilatedTypes[nIdx] = TYPE_HIGHWAY.toByte()
+                                }
+                            }
+                        }
+                    }
+                } else if (isLowZoom && t == TYPE_LOCAL_ROAD) {
+                    // 一般道路（広域表示時）: 上下左右1px膨張して細線化・途切れを防止
+                    for (dy in -1..1) {
+                        val ny = y + dy
+                        for (dx in -1..1) {
+                            if (Math.abs(dy) + Math.abs(dx) == 1) {
+                                val nIdx = ny * width + (x + dx)
+                                if (dilatedTypes[nIdx].toInt() == TYPE_BG) {
+                                    dilatedTypes[nIdx] = TYPE_LOCAL_ROAD.toByte()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 第4パス: Pebble用カラー/モノクロ値へのマッピング
+        val result = ByteArray(totalPixels)
+        for (i in 0 until totalPixels) {
+            val t = dilatedTypes[i].toInt()
             if (isMonochrome) {
-                // ルート（赤系統）や道路（暗い線）を黒に、背景を白にクッキリ二値化
-                val isRedRoute = (rRaw > 160 && gRaw < 100 && bRaw < 100)
-                val isBlueMarker = (bRaw > 160 && rRaw < 100)
-                val luminance = (0.299 * rRaw + 0.587 * gRaw + 0.114 * bRaw).toInt()
-                
-                result[i] = if (isRedRoute || isBlueMarker || luminance < 170) {
-                    0b11000000.toByte() // Black
-                } else {
-                    0b11111111.toByte() // White
+                // モノクロ機: 道路（幹線・一般道ともに黒）、背景と水域は白
+                result[i] = when (t) {
+                    TYPE_ROUTE, TYPE_ARROW, TYPE_HIGHWAY, TYPE_LOCAL_ROAD -> 0b11000000.toByte() // Black
+                    else -> 0b11111111.toByte() // White (Background)
                 }
             } else {
-                // 1. ルート線（赤系統）を最優先で強調
-                if (rRaw > 170 && gRaw < 90 && bRaw < 90) {
-                    result[i] = 0b11110000.toByte() // Red
-                }
-                // 2. 現在地アロー（青系統）
-                else if (bRaw > 160 && rRaw < 110) {
-                    result[i] = 0b11000011.toByte() // Blue
-                }
-                // 3. 幹線道路・高速（黄色・オレンジ系統）
-                else if (rRaw > 200 && gRaw > 150 && bRaw < 130) {
-                    result[i] = 0b11111000.toByte() // Chrome Yellow
-                }
-                // 4. 一般道路（グレー系統）
-                else if (Math.abs(rRaw - gRaw) < 20 && Math.abs(gRaw - bRaw) < 20 && rRaw in 160..225) {
-                    result[i] = 0b11101010.toByte() // Light Gray (Road)
-                }
-                // 5. 水域（海・大きな川）
-                else if (bRaw > 210 && gRaw > 190 && rRaw < 170) {
-                    result[i] = 0b11011111.toByte() // Baby Blue Eyes (Water)
-                }
-                // 6. それ以外（緑地、森林、等高線、微小路地、建物の影などの複雑地形ノイズ）はすべて純白に完全統合！
-                else {
-                    result[i] = 0b11111111.toByte() // Pure White (Background)
+                // カラー機: 幹線道路は太い黒、一般道路は濃いグレー、水域は水色、背景は純白
+                result[i] = when (t) {
+                    TYPE_ROUTE -> 0b11110000.toByte() // Red
+                    TYPE_ARROW -> 0b11000011.toByte() // Blue
+                    TYPE_HIGHWAY -> 0b11000000.toByte() // Black (Major Road - Thick)
+                    TYPE_LOCAL_ROAD -> 0b11010101.toByte() // Dark Gray (Local Road - Thin)
+                    TYPE_WATER -> 0b11011111.toByte() // Baby Blue Eyes (Water)
+                    else -> 0b11111111.toByte() // Pure White (Land Background)
                 }
             }
         }
@@ -903,14 +1051,21 @@ class AndroidPebbleMessenger(
 
     override fun setMapState(isActive: Boolean) {
         isMapActive = isActive
+        if (!isActive) {
+            mapDebounceJob?.cancel()
+            mapDebounceJob = null
+            hasPendingMapRefresh = false
+            panOffsetPixelsX = 0.0
+            panOffsetPixelsY = 0.0
+        }
         Log.d("PebbleMessenger", "Map state synced from watch: $isActive")
     }
 
     override fun zoomInMap() {
         if (currentMapZoom < 18) {
             currentMapZoom++
-            Log.i("PebbleMessenger", "Map Zoom In: level $currentMapZoom")
-            refreshMap()
+            Log.i("PebbleMessenger", "Map Zoom In: level $currentMapZoom (debouncing refresh)")
+            scheduleMapRefresh(350L)
         } else {
             Log.d("PebbleMessenger", "Map Zoom In: already at max zoom (18)")
         }
@@ -919,19 +1074,47 @@ class AndroidPebbleMessenger(
     override fun zoomOutMap() {
         if (currentMapZoom > 13) {
             currentMapZoom--
-            Log.i("PebbleMessenger", "Map Zoom Out: level $currentMapZoom")
-            refreshMap()
+            Log.i("PebbleMessenger", "Map Zoom Out: level $currentMapZoom (debouncing refresh)")
+            scheduleMapRefresh(350L)
         } else {
             Log.d("PebbleMessenger", "Map Zoom Out: already at min zoom (13)")
         }
     }
 
-    override fun recenterMap() {
-        Log.i("PebbleMessenger", "Map Re-center requested")
-        refreshMap()
+    override fun panMap(dx: Int, dy: Int) {
+        // スワイプ移動量 (dx, dy) に合わせてマップ中心をシフト
+        panOffsetPixelsX -= dx.toDouble()
+        panOffsetPixelsY -= dy.toDouble()
+        Log.i("PebbleMessenger", "Map Pan: dx=$dx, dy=$dy -> current offset=($panOffsetPixelsX, $panOffsetPixelsY) (debouncing refresh)")
+        scheduleMapRefresh(350L)
     }
 
-    private fun refreshMap() {
+    override fun recenterMap() {
+        Log.i("PebbleMessenger", "Map Re-center requested (resetting pan offset)")
+        panOffsetPixelsX = 0.0
+        panOffsetPixelsY = 0.0
+        scheduleMapRefresh(0L) // リセンターは即時実行
+    }
+
+    private fun scheduleMapRefresh(delayMs: Long = 350L) {
+        if (!isMapActive) return
+
+        if (isMapTransferring) {
+            hasPendingMapRefresh = true
+            Log.d("PebbleMessenger", "Map transfer in progress. Refresh marked as pending.")
+            return
+        }
+
+        mapDebounceJob?.cancel()
+        mapDebounceJob = scope.launch {
+            if (delayMs > 0) {
+                delay(delayMs)
+            }
+            executeMapRefresh()
+        }
+    }
+
+    private fun executeMapRefresh() {
         val statsRoute = KmpDependencies.trackerEngine.statistics.value.route
         val points = if (statsRoute.isNotEmpty()) statsRoute else (lastMapPoints ?: emptyList())
         if (points.isNotEmpty()) {

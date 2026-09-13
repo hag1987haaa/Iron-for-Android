@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.PixelMap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -100,6 +99,45 @@ fun MapSimulationScreen(onBack: () -> Unit) {
                             Text("(Long press to send map)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                         }
                     }
+                }
+            }
+
+            var isSwipePanMode by remember { mutableStateOf(KmpDependencies.appSettings.isMapSwipePanEnabled) }
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.fillMaxWidth(0.9f)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Map Swipe Action", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Touch action on Pebble Time 2 (Emery) & Gabbro during map view",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            )
+                        }
+                        Switch(
+                            checked = isSwipePanMode,
+                            onCheckedChange = { checked ->
+                                isSwipePanMode = checked
+                                KmpDependencies.appSettings.isMapSwipePanEnabled = checked
+                                KmpDependencies.appSettings.save()
+                            }
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = if (isSwipePanMode) "Current: Map Pan (Scroll Map)" else "Current: Music Control (Prev/Next/Vol)",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
 
@@ -244,13 +282,7 @@ fun ResolutionPreview(
             try {
                 val rgba = messenger.getMapPreviewRgba(points, mapWidth, mapHeight, isMonochrome)
                 if (rgba != null) {
-                    val img = ImageBitmap(mapWidth, mapHeight)
-                    val buffer = IntArray(mapWidth * mapHeight)
-                    rgba.copyInto(buffer)
-                    // ImageBitmap へのピクセル流し込み
-                    img.readPixels(buffer, 0, 0, mapWidth, mapHeight)
-                    // Android上での直接ビットマップ変換
-                    previewImage = createAndroidImageBitmap(mapWidth, mapHeight, rgba) ?: img
+                    previewImage = platformImageBitmapConverter?.invoke(mapWidth, mapHeight, rgba)
                 }
             } catch (_: Exception) {
             } finally {
@@ -323,4 +355,4 @@ fun ResolutionPreview(
     }
 }
 
-expect fun createAndroidImageBitmap(width: Int, height: Int, rgba: IntArray): ImageBitmap?
+var platformImageBitmapConverter: ((width: Int, height: Int, rgba: IntArray) -> ImageBitmap?)? = null

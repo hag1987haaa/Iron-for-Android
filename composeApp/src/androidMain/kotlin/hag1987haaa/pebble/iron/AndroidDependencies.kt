@@ -15,6 +15,7 @@ import hag1987haaa.pebble.iron.pebble.AndroidPebbleMessenger
 import hag1987haaa.pebble.iron.ble.AndroidBleScanner
 import hag1987haaa.pebble.iron.ble.AndroidBleHeartRateManager
 import kotlinx.coroutines.MainScope
+import androidx.compose.ui.graphics.asImageBitmap
 
 @SuppressLint("StaticFieldLeak")
 object AndroidDependencies {
@@ -30,6 +31,16 @@ object AndroidDependencies {
         
         // Ensure we use application context to avoid leaks
         val appContext = context.applicationContext
+
+        hag1987haaa.pebble.iron.presentation.platformImageBitmapConverter = { width, height, rgba ->
+            try {
+                val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+                bitmap.setPixels(rgba, 0, width, 0, 0, width, height)
+                bitmap.asImageBitmap()
+            } catch (_: Exception) {
+                null
+            }
+        }
         
         val settings = AppSettings()
         
@@ -37,6 +48,7 @@ object AndroidDependencies {
         val prefs = appContext.getSharedPreferences("iron_settings", Context.MODE_PRIVATE)
         settings.isMusicControlEnabled = prefs.getBoolean("music_enabled", false)
         settings.isTouchControlEnabled = prefs.getBoolean("touch_enabled", false)
+        settings.isMapSwipePanEnabled = prefs.getBoolean("map_swipe_pan_enabled", true)
         settings.isLongPressEnabled = prefs.getBoolean("longpress_enabled", false)
         settings.upLongPressMode = hag1987haaa.pebble.iron.domain.settings.LongPressMode.valueOf(
             prefs.getString("longpress_up_mode", hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name) ?: hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name
@@ -137,6 +149,7 @@ object AndroidDependencies {
             prefs.edit().apply {
                 putBoolean("music_enabled", settings.isMusicControlEnabled)
                 putBoolean("touch_enabled", settings.isTouchControlEnabled)
+                putBoolean("map_swipe_pan_enabled", settings.isMapSwipePanEnabled)
                 putBoolean("longpress_enabled", settings.isLongPressEnabled)
                 putString("longpress_up_mode", settings.upLongPressMode.name)
                 putString("longpress_select_mode", settings.selectLongPressMode.name)
