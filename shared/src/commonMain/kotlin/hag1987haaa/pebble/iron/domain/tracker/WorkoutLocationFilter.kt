@@ -54,13 +54,7 @@ internal class WorkoutLocationFilter(
         }
 
         val previous = previousAccepted ?: return true
-        val elapsedMillis =
-            candidate.timestamp.toEpochMilliseconds() -
-                previous.timestamp.toEpochMilliseconds()
-
-        if (elapsedMillis <= 0L) {
-            return false
-        }
+        val elapsedSeconds = elapsedSeconds(previous, candidate) ?: return false
 
         val distanceMeters = LocationUtils.calculateDistance(
             previous.latitude,
@@ -87,7 +81,6 @@ internal class WorkoutLocationFilter(
             (averageAccuracy * config.jumpAccuracyAllowanceFraction)
                 .coerceAtMost(config.jumpAccuracyAllowanceMeters)
 
-        val elapsedSeconds = elapsedMillis / 1000.0
         val maximumTravelMeters =
             maximumReasonableSpeedMetersPerSecond(activityType) * elapsedSeconds +
                 uncertaintyAllowance
@@ -117,8 +110,18 @@ internal class WorkoutLocationFilter(
         val reportedSpeed =
             candidate.speed?.takeIf { it.isFinite() && it >= 0.0 }
 
-        if (reportedSpeed != null &&
-            reportedSpeed < config.stationarySpeedMetersPerSecond
+        val speedAccuracy =
+            candidate.speedAccuracyMetersPerSecond
+                ?.takeIf { it.isFinite() && it >= 0.0 }
+        val stationarySpeedWithUncertainty =
+            when {
+                reportedSpeed == null -> null
+                speedAccuracy != null -> reportedSpeed + speedAccuracy
+                else -> reportedSpeed
+            }
+
+        if (stationarySpeedWithUncertainty != null &&
+            stationarySpeedWithUncertainty < config.stationarySpeedMetersPerSecond
         ) {
             val accuracyRadius = maxOf(
                 usableAccuracy(previousDistancePoint) ?: 0.0,
@@ -146,6 +149,26 @@ internal class WorkoutLocationFilter(
             config.minimumDistanceNoiseFloorMeters,
             config.maximumDistanceNoiseFloorMeters,
         )
+    }
+
+    private fun elapsedSeconds(
+        previous: LocationPoint,
+        current: LocationPoint,
+    ): Double? {
+        val previousElapsedNanos = previous.elapsedRealtimeNanos
+        val currentElapsedNanos = current.elapsedRealtimeNanos
+
+        if (previousElapsedNanos != null && currentElapsedNanos != null) {
+            val deltaNanos = currentElapsedNanos - previousElapsedNanos
+            if (deltaNanos <= 0L) return null
+            return deltaNanos / 1_000_000_000.0
+        }
+
+        val deltaMillis =
+            current.timestamp.toEpochMilliseconds() -
+                previous.timestamp.toEpochMilliseconds()
+        if (deltaMillis <= 0L) return null
+        return deltaMillis / 1000.0
     }
 
     private fun usableAccuracy(point: LocationPoint): Double? {
