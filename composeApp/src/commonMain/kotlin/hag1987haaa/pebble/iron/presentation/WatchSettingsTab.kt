@@ -29,6 +29,7 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
     var isNotifExpanded by remember { mutableStateOf(false) }
     var isMidDataExpanded by remember { mutableStateOf(false) }
     var isLowerDataExpanded by remember { mutableStateOf(false) }
+    var isMapSettingsExpanded by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
 
@@ -43,6 +44,9 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
         }
         ExpandableSubSection(stringResource(Res.string.settings_section_lower_data), isLowerDataExpanded, { isLowerDataExpanded = !isLowerDataExpanded }) {
             LowerDataSettingsContent(enabledLowerItems, viewModel)
+        }
+        ExpandableSubSection("Map Settings", isMapSettingsExpanded, { isMapSettingsExpanded = !isMapSettingsExpanded }) {
+            MapSettingsContent(viewModel)
         }
 
 
@@ -293,6 +297,54 @@ fun LowerDataSettingsContent(enabledLowerItems: List<Int>, viewModel: SettingsVi
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { val newList = enabledLowerItems.toMutableList(); newList.add(typeId); viewModel.updateLowerDataSettings(newList) }) { Icon(Icons.Default.AddCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
                     Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun MapSettingsContent(viewModel: SettingsViewModel) {
+    val timeoutSec by viewModel.mapAutoCloseTimeoutSeconds.collectAsState()
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.padding(12.dp)) {
+        Text(
+            text = "Configure map display behavior and automatic timeout on Pebble watch.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Auto-Close Timeout", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "Return to metrics screen if no map interaction occurs",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+
+            Box {
+                TextButton(onClick = { expanded = true }) {
+                    Text(if (timeoutSec == 0) "OFF" else "${timeoutSec}s")
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    listOf(0, 5, 10, 15, 20, 30).forEach { sec ->
+                        DropdownMenuItem(
+                            text = { Text(if (sec == 0) "OFF (Disabled)" else "$sec seconds") },
+                            onClick = {
+                                viewModel.updateMapAutoCloseTimeoutSeconds(sec)
+                                expanded = false
+                            }
+                        )
+                    }
                 }
             }
         }

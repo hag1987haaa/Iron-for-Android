@@ -112,6 +112,24 @@ class MainActivity : ComponentActivity() {
         Log.d("MainActivity", "Health Connect granted: $granted")
     }
 
+    private var onGpxFileLoadedCallback: ((String) -> Unit)? = null
+
+    private val gpxFileLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            lifecycleScope.launch {
+                try {
+                    val content = contentResolver.openInputStream(it)?.bufferedReader()?.use { br -> br.readText() }
+                    if (content != null) {
+                        onGpxFileLoadedCallback?.invoke(content)
+                    }
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to read GPX file: ${e.message}")
+                    Toast.makeText(this@MainActivity, "Failed to load GPX", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     private val importLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
             lifecycleScope.launch {
@@ -451,6 +469,11 @@ class MainActivity : ComponentActivity() {
                 clipboard?.setPrimaryClip(clip)
                 Toast.makeText(this@MainActivity, "Copied: $text", Toast.LENGTH_SHORT).show()
             }
+
+            override fun pickGpxFile(onGpxLoaded: (content: String) -> Unit) {
+                onGpxFileLoadedCallback = onGpxLoaded
+                gpxFileLauncher.launch("*/*")
+            }
         }
 
         setContent {
@@ -727,6 +750,7 @@ fun AppAndroidPreview() {
         override fun triggerAutoExport(run: RunActivity) {}
         override fun requestSensorPermissions(onResult: (Boolean) -> Unit) {}
         override fun copyToClipboard(text: String, label: String) {}
+        override fun pickGpxFile(onGpxLoaded: (content: String) -> Unit) {}
     }
     App(actions)
 }

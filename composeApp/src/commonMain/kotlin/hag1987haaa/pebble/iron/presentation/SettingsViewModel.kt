@@ -58,6 +58,9 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _notifDistanceStep = MutableStateFlow(settings.notificationDistanceStep)
     val notifDistanceStep: StateFlow<Float> = _notifDistanceStep.asStateFlow()
 
+    private val _mapAutoCloseTimeoutSeconds = MutableStateFlow(settings.mapAutoCloseTimeoutSeconds)
+    val mapAutoCloseTimeoutSeconds: StateFlow<Int> = _mapAutoCloseTimeoutSeconds.asStateFlow()
+
     private val _notifTime = MutableStateFlow(settings.notificationTimeSeconds)
     val notifTime: StateFlow<Int> = _notifTime.asStateFlow()
 
@@ -303,6 +306,12 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         val next = if (settings.preferredBleHrAddress == address) null else address
         settings.preferredBleHrAddress = next
         _preferredBleHrAddress.value = next
+        settings.save()
+    }
+
+    fun updateMapAutoCloseTimeoutSeconds(seconds: Int) {
+        settings.mapAutoCloseTimeoutSeconds = seconds
+        _mapAutoCloseTimeoutSeconds.value = seconds
         settings.save()
     }
 

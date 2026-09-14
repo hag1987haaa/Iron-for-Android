@@ -131,9 +131,12 @@ fun App(actions: AppActions) {
                 })
             }
             composable("map_simulation") {
-                MapSimulationScreen(onBack = {
-                    navController.popBackStack()
-                })
+                MapSimulationScreen(
+                    actions = actions,
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
             }
         }
     }

@@ -64,6 +64,8 @@ object AndroidDependencies {
         settings.isCommand51Enabled = prefs.getBoolean("cmd51_enabled", true)
         settings.isCommand52Enabled = prefs.getBoolean("cmd52_enabled", true)
         settings.isPrivacyMapModeEnabled = prefs.getBoolean("privacy_map_enabled", false)
+        settings.isAutoShowMapOnReadyEnabled = prefs.getBoolean("auto_show_map_on_ready", false)
+        settings.mapAutoCloseTimeoutSeconds = prefs.getInt("map_auto_close_timeout", 10)
         settings.userWeightKg = prefs.getFloat("user_weight", 70.0f)
         settings.hasAskedHealthConnectOnboarding = prefs.getBoolean("hc_onboarding_asked", false)
         
@@ -159,6 +161,8 @@ object AndroidDependencies {
                 putBoolean("cmd51_enabled", settings.isCommand51Enabled)
                 putBoolean("cmd52_enabled", settings.isCommand52Enabled)
                 putBoolean("privacy_map_enabled", settings.isPrivacyMapModeEnabled)
+                putBoolean("auto_show_map_on_ready", settings.isAutoShowMapOnReadyEnabled)
+                putInt("map_auto_close_timeout", settings.mapAutoCloseTimeoutSeconds)
                 putFloat("user_weight", settings.userWeightKg)
                 putBoolean("hc_onboarding_asked", settings.hasAskedHealthConnectOnboarding)
                 

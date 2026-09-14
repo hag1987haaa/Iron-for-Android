@@ -110,6 +110,16 @@ interface PebbleMessenger {
     fun panMap(dx: Int, dy: Int) {}
 
     /**
+     * マップ中心位置化・拡大率初期化・ノースアップ/ノーズアップ切替指示
+     */
+    fun resetAndToggleMapOrientation() {}
+
+    /**
+     * マップの初期ズームレベルを設定する
+     */
+    fun setMapZoom(zoom: Int) {}
+
+    /**
      * マップデータを送信する（経路情報を元にビットマップ生成・RLEエンコード・分割送信を一括で行う）
      */
     fun sendMap(points: List<LocationPoint>, width: Int, height: Int)
@@ -119,4 +129,9 @@ interface PebbleMessenger {
     fun requestWatchInfo()
 
     suspend fun getMapPreviewRgba(points: List<LocationPoint>, width: Int, height: Int, isMonochrome: Boolean): IntArray? = null
+
+    /**
+     * 予定ルート（GPXなど）を設定・解除する
+     */
+    fun setPlannedCourse(points: List<LocationPoint>?) {}
 }

@@ -210,11 +210,11 @@ class PebbleCommandService : BasePebbleListenerService() {
                     engine.zoomOutMap()
                 }
                 AppEventID.EVENT_BUTTON_SELECT_CLICK -> {
-                    Log.i("PebbleCommand", "Map Action: SELECT clicked (handled on watch for mid data)")
+                    Log.i("PebbleCommand", "Map Action: Re-center, Reset Zoom & Toggle Orientation requested via SELECT click")
+                    engine.resetAndToggleMapOrientation()
                 }
                 AppEventID.EVENT_BUTTON_SELECT_LONG -> {
-                    Log.i("PebbleCommand", "Map Action: Re-center requested via SELECT long press")
-                    engine.recenterMap()
+                    Log.d("PebbleCommand", "Map Action: SELECT long press is deprecated (ignored)")
                 }
                 else -> {
                     Log.d("PebbleCommand", "Map Action: Ignored event $event during map active")

@@ -458,6 +458,7 @@ class RunTrackerEngine(
     fun zoomOutMap() { pebbleMessenger?.zoomOutMap() }
     fun recenterMap() { pebbleMessenger?.recenterMap() }
     fun panMap(dx: Int, dy: Int) { pebbleMessenger?.panMap(dx, dy) }
+    fun resetAndToggleMapOrientation() { pebbleMessenger?.resetAndToggleMapOrientation() }
 
     private fun reset() {
         clearWorkoutData()
@@ -592,14 +593,27 @@ class RunTrackerEngine(
                     )
                 }
                 RunState.setStatus(RunStatus.READY)
+                RunState.updateStats(_statistics.value)
                 pebbleMessenger?.sendState(
                     RunStatus.READY,
                     _statistics.value,
                 )
                 resetTimeoutTimer()
+
+                if (appSettings?.isAutoShowMapOnReadyEnabled == true) {
+                    val defaultZoom = when (activityType) {
+                        hag1987haaa.pebble.iron.domain.model.ActivityType.WALKING,
+                        hag1987haaa.pebble.iron.domain.model.ActivityType.HIKING -> 16
+                        hag1987haaa.pebble.iron.domain.model.ActivityType.CYCLING -> 14
+                        else -> 15
+                    }
+                    pebbleMessenger?.setMapZoom(defaultZoom)
+                    pebbleMessenger?.sendMap(listOf(location), 0, 0)
+                }
             }
         } else {
             _statistics.update { it.copy(currentLocation = location) }
+            RunState.updateStats(_statistics.value)
         }
 
         if (RunState.status.value != RunStatus.ACTIVE) return

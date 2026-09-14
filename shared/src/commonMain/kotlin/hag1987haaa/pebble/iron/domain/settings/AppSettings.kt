@@ -28,6 +28,18 @@ class AppSettings {
         get() = _isPrivacyMapModeEnabled.value
         set(value) { _isPrivacyMapModeEnabled.value = value }
 
+    private val _isAutoShowMapOnReadyEnabled = MutableStateFlow(value = false)
+    val isAutoShowMapOnReadyEnabledFlow: StateFlow<Boolean> = _isAutoShowMapOnReadyEnabled.asStateFlow()
+    var isAutoShowMapOnReadyEnabled: Boolean
+        get() = _isAutoShowMapOnReadyEnabled.value
+        set(value) { _isAutoShowMapOnReadyEnabled.value = value }
+
+    private val _mapAutoCloseTimeoutSeconds = MutableStateFlow(value = 10)
+    val mapAutoCloseTimeoutSecondsFlow: StateFlow<Int> = _mapAutoCloseTimeoutSeconds.asStateFlow()
+    var mapAutoCloseTimeoutSeconds: Int
+        get() = _mapAutoCloseTimeoutSeconds.value
+        set(value) { _mapAutoCloseTimeoutSeconds.value = value }
+
     /**
      * 中段表示（Mid Data）の設定
      * 0: Pace, 1: Distance, 2: Steps, 3: Altitude, 4: HR, 5: Calories, 7: Avg Pace, 8: Speed, 9: Clock, 10: Gain, 11: Cadence, 99: Cockpit

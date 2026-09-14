@@ -22,6 +22,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.firstOrNull
 import hag1987haaa.pebble.iron.domain.tracker.RunStatistics
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
+import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.domain.tracker.PebbleMessenger
 import hag1987haaa.pebble.iron.KmpDependencies
 import kotlinx.datetime.toLocalDateTime
@@ -58,6 +59,9 @@ class AndroidPebbleMessenger(
     private var currentMapZoom: Int = 16
     private var panOffsetPixelsX: Double = 0.0
     private var panOffsetPixelsY: Double = 0.0
+    @Volatile
+    private var isHeadingUp: Boolean = false
+    private var mapAutoCloseJob: kotlinx.coroutines.Job? = null
 
     // マップ操作の集約・保留制御（メモリ内のみ保持、保存・永続化は一切行わない）
     private var mapDebounceJob: kotlinx.coroutines.Job? = null
@@ -526,11 +530,15 @@ class AndroidPebbleMessenger(
     override fun sendMapState(isActive: Boolean) {
         isMapActive = isActive
         if (!isActive) {
+            mapAutoCloseJob?.cancel()
+            mapAutoCloseJob = null
             mapDebounceJob?.cancel()
             mapDebounceJob = null
             hasPendingMapRefresh = false
             panOffsetPixelsX = 0.0
             panOffsetPixelsY = 0.0
+        } else {
+            resetAutoCloseTimer()
         }
         commandQueue.trySend(PebbleMessageRequest("MAP_STATE", mapOf(KEY_MAP_STATE to PebbleDictionaryItem.Int32(if (isActive) 1 else 0))))
     }
@@ -545,8 +553,16 @@ class AndroidPebbleMessenger(
         commandQueue.trySend(PebbleMessageRequest("MAP_CHUNK", dict))
     }
 
+    @Volatile
+    private var plannedCoursePoints: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>? = null
+
+    override fun setPlannedCourse(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>?) {
+        plannedCoursePoints = points
+        Log.d("PebbleMessenger", "setPlannedCourse updated: ${points?.size ?: 0} points")
+    }
+
     override suspend fun getMapPreviewRgba(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, width: Int, height: Int, isMonochrome: Boolean): IntArray? = withContext(Dispatchers.IO) {
-        if (points.isEmpty()) return@withContext null
+        if (points.isEmpty() && plannedCoursePoints.isNullOrEmpty()) return@withContext null
         return@withContext try {
             val rawBitmap = renderMapBitmapWithTiles(points, width, height)
             val pebblePixels = convertToPebblePixels(rawBitmap, isMonochrome)
@@ -574,10 +590,25 @@ class AndroidPebbleMessenger(
         }
     }
 
+    private fun getNativeMapDimensions(): Pair<Int, Int> {
+        val platform = settings.pebblePlatform
+        return when {
+            platform?.contains("Classic") == true || (platform?.contains("Time") == true && !platform.contains("Round") && !platform.contains("2")) || platform?.contains("Pebble 2") == true -> Pair(144, 128)
+            platform?.contains("Round 2") == true -> Pair(260, 198)
+            platform?.contains("Round") == true -> Pair(180, 136)
+            platform?.contains("Time 2") == true -> Pair(200, 176)
+            else -> Pair(144, 128)
+        }
+    }
+
     override fun sendMap(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, width: Int, height: Int) {
+        val (nativeW, nativeH) = getNativeMapDimensions()
+        val targetW = if (width in 100..300) width else nativeW
+        val targetH = if (height in 100..250 && height != 168) height else nativeH
         lastMapPoints = points
-        lastMapWidth = width
-        lastMapHeight = height
+        lastMapWidth = targetW
+        lastMapHeight = targetH
+
         scope.launch {
             if (isMapTransferring) {
                 hasPendingMapRefresh = true
@@ -587,29 +618,35 @@ class AndroidPebbleMessenger(
             isMapTransferring = true
             
             try {
-                Log.i("PebbleMessenger", "sendMap: Starting fast transmission... (w=$width, h=$height, points=${points.size})")
+                Log.i("PebbleMessenger", "sendMap: Preparing map data (w=$targetW, h=$targetH, points=${points.size})...")
                 
                 val activePoints = if (points.isEmpty()) {
-                    val now = kotlinx.datetime.Clock.System.now()
-                    listOf(
-                        hag1987haaa.pebble.iron.domain.model.LocationPoint(35.6812, 139.7671, timestamp = now), 
-                        hag1987haaa.pebble.iron.domain.model.LocationPoint(35.6812, 139.7701, timestamp = now),
-                        hag1987haaa.pebble.iron.domain.model.LocationPoint(35.6782, 139.7701, timestamp = now),
-                        hag1987haaa.pebble.iron.domain.model.LocationPoint(35.6782, 139.7671, timestamp = now),
-                        hag1987haaa.pebble.iron.domain.model.LocationPoint(35.6812, 139.7671, timestamp = now)
-                    )
+                    val planned = plannedCoursePoints
+                    if (!planned.isNullOrEmpty()) {
+                        planned
+                    } else {
+                        val currentLoc = hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.statistics.value.currentLocation
+                        if (currentLoc != null) {
+                            listOf(currentLoc)
+                        } else {
+                            val now = kotlinx.datetime.Clock.System.now()
+                            listOf(
+                                hag1987haaa.pebble.iron.domain.model.LocationPoint(35.6812, 139.7671, timestamp = now), 
+                                hag1987haaa.pebble.iron.domain.model.LocationPoint(35.6812, 139.7701, timestamp = now),
+                                hag1987haaa.pebble.iron.domain.model.LocationPoint(35.6782, 139.7701, timestamp = now),
+                                hag1987haaa.pebble.iron.domain.model.LocationPoint(35.6782, 139.7671, timestamp = now),
+                                hag1987haaa.pebble.iron.domain.model.LocationPoint(35.6812, 139.7671, timestamp = now)
+                            )
+                        }
+                    }
                 } else {
                     points
                 }
 
-                // 1. マップ表示コマンドを送信
-                sendMapState(true)
-                delay(200) // 画面遷移待機（短縮）
-
-                // 2. ビットマップ生成 (IOスレッドで並列タイル取得)
-                val bitmap = renderMapBitmapWithTiles(activePoints, width, height)
+                // 1. タイル取得とビットマップ・RLE生成を先行して完全に完了させる
+                // （ウォッチ側を不完全な状態でマップ画面に待たせない）
+                val bitmap = renderMapBitmapWithTiles(activePoints, targetW, targetH)
                 
-                // 3. Pebble 8-bit カラー変換 & RLE エンコード
                 val isMonochrome = settings.pebblePlatform?.let { 
                     it.contains("Classic") || it.contains("Pebble 2") 
                 } ?: false
@@ -619,17 +656,29 @@ class AndroidPebbleMessenger(
                 val rleData = encodeRLE(pebblePixels)
                 
                 val totalSize = rleData.size
-                Log.i("PebbleMessenger", "sendMap: RLE encoded size = $totalSize bytes")
+                Log.i("PebbleMessenger", "sendMap: RLE prepared ($totalSize bytes). Awaiting priority messages to drain...")
 
-                // 4. チャンク分割送信 (500バイトチャンク + 180msディレイ)
+                // 2. 他の重要通信（READY通知やSTATS更新）が完全に送信完了するのを待つ
+                var waitCount = 0
+                while ((!commandQueue.isEmpty || nextStatsRequest != null || nextMidDataRequest != null) && waitCount < 20) {
+                    delay(100)
+                    waitCount++
+                }
+
+                // 3. 他の通信が落ち着いた段階でマップ表示コマンドを送信
+                sendMapState(true)
+                delay(150)
+
+                // 4. チャンク分割送信 (安全な間隔でパケット欠落を完全防止)
                 val chunkSize = 500 
                 val totalChunks = (totalSize + chunkSize - 1) / chunkSize
-                
-                val fixedDelayMs = 180L 
-                val estimatedTimeSec = ((totalChunks * fixedDelayMs) / 1000.0)
-                Log.i("PebbleMessenger", "sendMap: Total chunks = $totalChunks. Estimated time = ${estimatedTimeSec}s")
+                val fixedDelayMs = 200L 
 
                 for (i in 0 until totalChunks) {
+                    if (!commandQueue.isEmpty) {
+                        // 途中で優先コマンドが入った場合は一旦譲る
+                        delay(120)
+                    }
                     val start = i * chunkSize
                     val end = minOf(start + chunkSize, totalSize)
                     val chunk = rleData.sliceArray(start until end)
@@ -668,7 +717,18 @@ class AndroidPebbleMessenger(
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.LTGRAY)
 
-        val currentPoint = points.lastOrNull() ?: return@withContext bitmap
+        val plannedPoints = plannedCoursePoints
+        // 中心座標の決定: 
+        // 1. 走行実績が2点以上ある場合は最新の走者位置
+        // 2. 計画ルート（GPX）がある場合は計画ルートの始点
+        // 3. それ以外は現在地またはフォールバック
+        val currentPoint = if (points.size >= 2 && points !== plannedPoints) {
+            points.last()
+        } else if (!plannedPoints.isNullOrEmpty()) {
+            plannedPoints.first()
+        } else {
+            points.lastOrNull() ?: return@withContext bitmap
+        }
 
         // 1. 中心の決定 (最新の地点を画像の中央にする)
         val centerLat = currentPoint.latitude
@@ -683,6 +743,73 @@ class AndroidPebbleMessenger(
         val currentPointWorldY = (1.0 - Math.log(Math.tan(Math.toRadians(centerLat)) + (1.0 / Math.cos(Math.toRadians(centerLat)))) / Math.PI) / 2.0 * n * 256.0
         val xCenterWorld = currentPointWorldX + panOffsetPixelsX
         val yCenterWorld = currentPointWorldY + panOffsetPixelsY
+
+        // 停止判定および進行方位角 (bearing) の計算
+        val STOPPED_SPEED_THRESHOLD_MPS = 0.5 // 0.5 m/s (時速1.8km) 未満を停止と判定
+        val latestActivePoint = if (points.isNotEmpty() && points !== plannedPoints) points.last() else currentPoint
+        val isStopped = when {
+            points.size >= 2 && points !== plannedPoints -> {
+                val speed = latestActivePoint.speed
+                if (speed != null && speed.isFinite()) {
+                    speed < STOPPED_SPEED_THRESHOLD_MPS
+                } else {
+                    val prev = points[points.size - 2]
+                    val timeDiffSec = (latestActivePoint.timestamp - prev.timestamp).inWholeMilliseconds / 1000.0
+                    if (timeDiffSec in 0.2..10.0) {
+                        val lat1 = Math.toRadians(prev.latitude)
+                        val lat2 = Math.toRadians(latestActivePoint.latitude)
+                        val dLat = Math.toRadians(latestActivePoint.latitude - prev.latitude)
+                        val dLon = Math.toRadians(latestActivePoint.longitude - prev.longitude)
+                        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+                        val dist = 6371000.0 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+                        (dist / timeDiffSec) < STOPPED_SPEED_THRESHOLD_MPS
+                    } else {
+                        true
+                    }
+                }
+            }
+            points.size == 1 && points !== plannedPoints -> {
+                val speed = latestActivePoint.speed
+                if (speed != null && speed.isFinite()) speed < STOPPED_SPEED_THRESHOLD_MPS else true
+            }
+            else -> true
+        }
+
+        val bearing = if (points.isNotEmpty() && points !== plannedPoints) {
+            if (points.size >= 2) {
+                val last = points.last()
+                val prev = points[points.size - 2]
+                last.bearing?.toFloat() ?: run {
+                    val lat1 = Math.toRadians(prev.latitude)
+                    val lat2 = Math.toRadians(last.latitude)
+                    val dLon = Math.toRadians(last.longitude - prev.longitude)
+                    val y = Math.sin(dLon) * Math.cos(lat2)
+                    val x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon)
+                    ((Math.toDegrees(Math.atan2(y, x)) + 360.0) % 360.0).toFloat()
+                }
+            } else {
+                points.firstOrNull()?.bearing?.toFloat() ?: 0f
+            }
+        } else if (!plannedPoints.isNullOrEmpty() && plannedPoints.size >= 2) {
+            val p0 = plannedPoints[0]
+            val p1 = plannedPoints[1]
+            p0.bearing?.toFloat() ?: run {
+                val lat1 = Math.toRadians(p0.latitude)
+                val lat2 = Math.toRadians(p1.latitude)
+                val dLon = Math.toRadians(p1.longitude - p0.longitude)
+                val y = Math.sin(dLon) * Math.cos(lat2)
+                val x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon)
+                ((Math.toDegrees(Math.atan2(y, x)) + 360.0) % 360.0).toFloat()
+            }
+        } else {
+            0f
+        }
+
+        val rotateHeadingUp = isHeadingUp
+        if (rotateHeadingUp) {
+            canvas.save()
+            canvas.rotate(-bearing, (width / 2.0).toFloat(), (height / 2.0).toFloat())
+        }
 
         val xtileCenter = Math.floor(xCenterWorld / 256.0).toInt()
         val ytileCenter = Math.floor(yCenterWorld / 256.0).toInt()
@@ -735,86 +862,122 @@ class AndroidPebbleMessenger(
         val downloadedTiles = tileJobs.awaitAll().filterNotNull()
         for ((tileBitmap, dx, dy) in downloadedTiles) {
             canvas.drawBitmap(tileBitmap, dx, dy, null)
-            // tile is cached, skip recycle
         }
 
-        // 4. ルート (Polyline) の描画 (一時停止区間はワープ線を描かないよう moveTo でスキップ)
-        val paint = Paint().apply {
-            color = Color.RED
-            strokeWidth = 6f
-            style = Paint.Style.STROKE
-            isAntiAlias = false
-        }
-
-        val path = android.graphics.Path()
         val PAUSE_GAP_MS = 10_000L
-        points.forEachIndexed { index, point ->
-            val px = (point.longitude + 180.0) / 360.0 * n * 256.0
-            val py = (1.0 - Math.log(Math.tan(Math.toRadians(point.latitude)) + (1.0 / Math.cos(Math.toRadians(point.latitude)))) / Math.PI) / 2.0 * n * 256.0
-            
-            val dx = (px - xCenterWorld + (width / 2.0)).toFloat()
-            val dy = (py - yCenterWorld + (height / 2.0)).toFloat()
-            
-            if (index == 0) {
-                path.moveTo(dx, dy)
-            } else {
-                val prev = points[index - 1]
-                val timeDiffMs = point.timestamp.toEpochMilliseconds() - prev.timestamp.toEpochMilliseconds()
-                val isPauseGap = point.isSegmentStart || timeDiffMs >= PAUSE_GAP_MS
-                if (isPauseGap) {
-                    path.moveTo(dx, dy)
+
+        // 4-A. 計画ルート (Planned Course) の描画 (マゼンタ: Garmin標準色・道路幅以上の太さ・角丸)
+        if (!plannedPoints.isNullOrEmpty()) {
+            val plannedPaint = Paint().apply {
+                color = Color.MAGENTA
+                strokeWidth = 10f
+                style = Paint.Style.STROKE
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+                isAntiAlias = false
+            }
+            val plannedPath = android.graphics.Path()
+            plannedPoints.forEachIndexed { index, point ->
+                val px = (point.longitude + 180.0) / 360.0 * n * 256.0
+                val py = (1.0 - Math.log(Math.tan(Math.toRadians(point.latitude)) + (1.0 / Math.cos(Math.toRadians(point.latitude)))) / Math.PI) / 2.0 * n * 256.0
+                val dx = (px - xCenterWorld + (width / 2.0)).toFloat()
+                val dy = (py - yCenterWorld + (height / 2.0)).toFloat()
+                if (index == 0 || point.isSegmentStart) {
+                    plannedPath.moveTo(dx, dy)
                 } else {
-                    path.lineTo(dx, dy)
+                    plannedPath.lineTo(dx, dy)
                 }
             }
+            canvas.drawPath(plannedPath, plannedPaint)
         }
-        canvas.drawPath(path, paint)
 
-        // 5. 進行方向（方位）の計算
-        val bearing = if (points.size >= 2) {
-            val last = points.last()
-            val prev = points[points.size - 2]
-            last.bearing?.toFloat() ?: run {
-                val lat1 = Math.toRadians(prev.latitude)
-                val lat2 = Math.toRadians(last.latitude)
-                val dLon = Math.toRadians(last.longitude - prev.longitude)
-                val y = Math.sin(dLon) * Math.cos(lat2)
-                val x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon)
-                ((Math.toDegrees(Math.atan2(y, x)) + 360.0) % 360.0).toFloat()
+        // 4-B. 走行実績ルート (Tracked Route) の描画 (赤色: 道路幅以上の太さ・角丸・ポーズ区間分離)
+        if (points.isNotEmpty() && points !== plannedPoints) {
+            val routePaint = Paint().apply {
+                color = Color.RED
+                strokeWidth = 10f
+                style = Paint.Style.STROKE
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+                isAntiAlias = false
             }
-        } else {
-            points.firstOrNull()?.bearing?.toFloat() ?: 0f
+
+            var currentPath = android.graphics.Path()
+            var isPathEmpty = true
+
+            for (i in points.indices) {
+                val point = points[i]
+                val px = (point.longitude + 180.0) / 360.0 * n * 256.0
+                val py = (1.0 - Math.log(Math.tan(Math.toRadians(point.latitude)) + (1.0 / Math.cos(Math.toRadians(point.latitude)))) / Math.PI) / 2.0 * n * 256.0
+                val dx = (px - xCenterWorld + (width / 2.0)).toFloat()
+                val dy = (py - yCenterWorld + (height / 2.0)).toFloat()
+
+                val isNewSegment = if (i == 0) {
+                    true
+                } else {
+                    val prev = points[i - 1]
+                    val timeDiff = (point.timestamp - prev.timestamp).inWholeMilliseconds
+                    point.isSegmentStart || timeDiff > PAUSE_GAP_MS
+                }
+
+                if (isNewSegment) {
+                    if (!isPathEmpty) {
+                        canvas.drawPath(currentPath, routePaint)
+                    }
+                    currentPath = android.graphics.Path()
+                    currentPath.moveTo(dx, dy)
+                    isPathEmpty = false
+                } else {
+                    currentPath.lineTo(dx, dy)
+                }
+            }
+            if (!isPathEmpty) {
+                canvas.drawPath(currentPath, routePaint)
+            }
         }
 
-        // 6. 現在地・進行方向アロー（矢印）の描画
-        // 現在地の描画座標（パン移動量に完全連動）
+        // 6. 現在地インジケータの描画 (停止時: 単色グリーンドット / 移動時: 単色グリーン二等辺三角形)
         val cx = (currentPointWorldX - xCenterWorld + (width / 2.0)).toFloat()
         val cy = (currentPointWorldY - yCenterWorld + (height / 2.0)).toFloat()
 
-        canvas.save()
-        canvas.rotate(bearing, cx, cy)
-
-        val arrowPath = android.graphics.Path().apply {
-            moveTo(cx, cy - 9f)        // 先端
-            lineTo(cx + 7f, cy + 9f)   // 右後
-            lineTo(cx, cy + 4f)        // 中央くぼみ
-            lineTo(cx - 7f, cy + 9f)   // 左後
-            close()
+        val locationPaint = Paint().apply {
+            style = Paint.Style.FILL
+            color = Color.GREEN // Vivid Green
+            isAntiAlias = false
         }
 
-        // 矢印の内部塗りつぶし（鮮やかな青）
-        paint.style = Paint.Style.FILL
-        paint.color = Color.BLUE
-        canvas.drawPath(arrowPath, paint)
+        if (isStopped) {
+            // 停止中: 半径 8px (直径 16px) のグリーン単色ドット
+            canvas.drawCircle(cx, cy, 8f, locationPaint)
+        } else {
+            // 移動中: グリーン単色・二等辺三角形 (底辺幅16px, 全長22px)
+            if (rotateHeadingUp) {
+                // ノーズアップ: キャンバスが既に -bearing 回転しているので、二等辺三角形は真上(12時方向)を向く
+                val trianglePath = android.graphics.Path().apply {
+                    moveTo(cx, cy - 13f)       // 先端 (真上)
+                    lineTo(cx + 8f, cy + 9f)   // 右下
+                    lineTo(cx - 8f, cy + 9f)   // 左下
+                    close()
+                }
+                canvas.drawPath(trianglePath, locationPaint)
+            } else {
+                // ノースアップ: マップは北が上。二等辺三角形のみ bearing 角度回転
+                canvas.save()
+                canvas.rotate(bearing, cx, cy)
+                val trianglePath = android.graphics.Path().apply {
+                    moveTo(cx, cy - 13f)       // 先端
+                    lineTo(cx + 8f, cy + 9f)   // 右下
+                    lineTo(cx - 8f, cy + 9f)   // 左下
+                    close()
+                }
+                canvas.drawPath(trianglePath, locationPaint)
+                canvas.restore()
+            }
+        }
 
-        // 矢印の白枠線（コントラスト確保）
-        paint.style = Paint.Style.STROKE
-        paint.color = Color.WHITE
-        paint.strokeWidth = 2f
-        canvas.drawPath(arrowPath, paint)
-
-        canvas.restore()
-
+        if (rotateHeadingUp) {
+            canvas.restore()
+        }
         bitmap
     }
 
@@ -853,6 +1016,7 @@ class AndroidPebbleMessenger(
         val TYPE_HIGHWAY = 3
         val TYPE_ROUTE = 4
         val TYPE_ARROW = 5
+        val TYPE_PLANNED = 6
 
         val types = ByteArray(totalPixels)
 
@@ -863,14 +1027,19 @@ class AndroidPebbleMessenger(
             val g = Color.green(color)
             val b = Color.blue(color)
 
-            // 1. ルート線（赤系統）を最優先で強調
+            // 1. ルート線（赤系統: 走行実績）を最優先で強調
             if (r > 170 && g < 90 && b < 90) {
                 types[i] = TYPE_ROUTE.toByte()
                 continue
             }
-            // 2. 現在地アロー（青系統）
-            if (b > 160 && r < 110) {
+            // 2. 現在地インジケータ（Vivid Green系統: 停止時ドット / 移動時二等辺三角形）
+            if (g > 180 && r < 100 && b < 100) {
                 types[i] = TYPE_ARROW.toByte()
+                continue
+            }
+            // 3. 計画ルート（マゼンタ系統: Garmin標準の計画コース色）
+            if (r > 150 && g < 80 && b > 150 && Math.abs(r - b) < 60) {
+                types[i] = TYPE_PLANNED.toByte()
                 continue
             }
             // 3. 幹線道路・高速（Voyager: 黄色・オレンジ系）-> 太い黒線
@@ -928,7 +1097,7 @@ class AndroidPebbleMessenger(
                         for (dx in -1..1) {
                             if (dx == 0 && dy == 0) continue
                             val neighborType = types[(y + dy) * width + (x + dx)].toInt()
-                            if (neighborType == TYPE_LOCAL_ROAD || neighborType == TYPE_HIGHWAY || neighborType == TYPE_ROUTE) {
+                            if (neighborType == TYPE_LOCAL_ROAD || neighborType == TYPE_HIGHWAY || neighborType == TYPE_ROUTE || neighborType == TYPE_PLANNED) {
                                 roadNeighbors++
                             }
                         }
@@ -984,16 +1153,18 @@ class AndroidPebbleMessenger(
         for (i in 0 until totalPixels) {
             val t = dilatedTypes[i].toInt()
             if (isMonochrome) {
-                // モノクロ機: 道路（幹線・一般道ともに黒）、背景と水域は白
+                // モノクロ機: 道路（幹線・一般道ともに黒）、計画ルート、実績、アローは黒、背景と水域は白
                 result[i] = when (t) {
-                    TYPE_ROUTE, TYPE_ARROW, TYPE_HIGHWAY, TYPE_LOCAL_ROAD -> 0b11000000.toByte() // Black
+                    TYPE_ROUTE, TYPE_PLANNED, TYPE_ARROW, TYPE_HIGHWAY, TYPE_LOCAL_ROAD -> 0b11000000.toByte() // Black
                     else -> 0b11111111.toByte() // White (Background)
                 }
             } else {
-                // カラー機: 幹線道路は太い黒、一般道路は濃いグレー、水域は水色、背景は純白
+                // カラー機 (Garmin スタンダード配色):
+                // 幹線道路は太い黒、一般道路は濃いグレー、水域は水色、計画ルートはマゼンタ、実績は赤、現在地はエレクトリックシアン
                 result[i] = when (t) {
-                    TYPE_ROUTE -> 0b11110000.toByte() // Red
-                    TYPE_ARROW -> 0b11000011.toByte() // Blue
+                    TYPE_ROUTE -> 0b11110000.toByte() // Red (走行実績)
+                    TYPE_PLANNED -> 0b11110011.toByte() // Magenta (GPX計画コース)
+                    TYPE_ARROW -> 0b11001100.toByte() // Vivid Green (現在地ドット/二等辺三角形)
                     TYPE_HIGHWAY -> 0b11000000.toByte() // Black (Major Road - Thick)
                     TYPE_LOCAL_ROAD -> 0b11010101.toByte() // Dark Gray (Local Road - Thin)
                     TYPE_WATER -> 0b11011111.toByte() // Baby Blue Eyes (Water)
@@ -1052,11 +1223,15 @@ class AndroidPebbleMessenger(
     override fun setMapState(isActive: Boolean) {
         isMapActive = isActive
         if (!isActive) {
+            mapAutoCloseJob?.cancel()
+            mapAutoCloseJob = null
             mapDebounceJob?.cancel()
             mapDebounceJob = null
             hasPendingMapRefresh = false
             panOffsetPixelsX = 0.0
             panOffsetPixelsY = 0.0
+        } else {
+            resetAutoCloseTimer()
         }
         Log.d("PebbleMessenger", "Map state synced from watch: $isActive")
     }
@@ -1064,6 +1239,7 @@ class AndroidPebbleMessenger(
     override fun zoomInMap() {
         if (currentMapZoom < 18) {
             currentMapZoom++
+            resetAutoCloseTimer()
             Log.i("PebbleMessenger", "Map Zoom In: level $currentMapZoom (debouncing refresh)")
             scheduleMapRefresh(350L)
         } else {
@@ -1074,6 +1250,7 @@ class AndroidPebbleMessenger(
     override fun zoomOutMap() {
         if (currentMapZoom > 13) {
             currentMapZoom--
+            resetAutoCloseTimer()
             Log.i("PebbleMessenger", "Map Zoom Out: level $currentMapZoom (debouncing refresh)")
             scheduleMapRefresh(350L)
         } else {
@@ -1081,11 +1258,18 @@ class AndroidPebbleMessenger(
         }
     }
 
+    override fun setMapZoom(zoom: Int) {
+        val clamped = zoom.coerceIn(13, 18)
+        currentMapZoom = clamped
+        Log.i("PebbleMessenger", "Map Zoom set to $currentMapZoom")
+    }
+
     override fun panMap(dx: Int, dy: Int) {
         // スワイプ移動量 (dx, dy) に合わせてマップ中心をシフト
         panOffsetPixelsX -= dx.toDouble()
         panOffsetPixelsY -= dy.toDouble()
         Log.i("PebbleMessenger", "Map Pan: dx=$dx, dy=$dy -> current offset=($panOffsetPixelsX, $panOffsetPixelsY) (debouncing refresh)")
+        resetAutoCloseTimer()
         scheduleMapRefresh(350L)
     }
 
@@ -1093,7 +1277,38 @@ class AndroidPebbleMessenger(
         Log.i("PebbleMessenger", "Map Re-center requested (resetting pan offset)")
         panOffsetPixelsX = 0.0
         panOffsetPixelsY = 0.0
+        resetAutoCloseTimer()
         scheduleMapRefresh(0L) // リセンターは即時実行
+    }
+
+    override fun resetAndToggleMapOrientation() {
+        panOffsetPixelsX = 0.0
+        panOffsetPixelsY = 0.0
+        val defaultZoom = when (KmpDependencies.trackerEngine.statistics.value.activityType) {
+            hag1987haaa.pebble.iron.domain.model.ActivityType.WALKING,
+            hag1987haaa.pebble.iron.domain.model.ActivityType.HIKING -> 16
+            hag1987haaa.pebble.iron.domain.model.ActivityType.CYCLING -> 14
+            else -> 15
+        }
+        currentMapZoom = defaultZoom
+        isHeadingUp = !isHeadingUp
+        Log.i("PebbleMessenger", "resetAndToggleMapOrientation: Re-centered, zoom=$defaultZoom, isHeadingUp=$isHeadingUp")
+        resetAutoCloseTimer()
+        scheduleMapRefresh(0L)
+    }
+
+    private fun resetAutoCloseTimer() {
+        mapAutoCloseJob?.cancel()
+        val timeoutSec = settings.mapAutoCloseTimeoutSeconds
+        if (timeoutSec > 0 && isMapActive) {
+            mapAutoCloseJob = scope.launch {
+                delay(timeoutSec * 1000L)
+                if (isMapActive) {
+                    Log.i("PebbleMessenger", "Map auto-close timeout reached (${timeoutSec}s). Returning to cockpit screen.")
+                    sendMapState(false)
+                }
+            }
+        }
     }
 
     private fun scheduleMapRefresh(delayMs: Long = 350L) {

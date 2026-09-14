@@ -25,4 +25,5 @@ interface AppActions {
     fun triggerAutoExport(run: RunActivity) // 自動エクスポートを実行
     fun requestSensorPermissions(onResult: (Boolean) -> Unit) // 身体センサー・活動権限のリクエスト
     fun copyToClipboard(text: String, label: String = "Intent Action") // クリップボードへのコピー
+    fun pickGpxFile(onGpxLoaded: (content: String) -> Unit) // GPXファイルの選択・読み込み
 }
