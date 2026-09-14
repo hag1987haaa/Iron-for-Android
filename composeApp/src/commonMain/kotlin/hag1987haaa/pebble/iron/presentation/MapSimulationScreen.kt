@@ -40,10 +40,11 @@ fun MapSimulationScreen(
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(KmpDependencies.appSettings) }
     val pebblePlatform by viewModel.pebblePlatform.collectAsState()
     val stats by RunState.currentStats.collectAsState()
+    val engineStats by KmpDependencies.trackerEngine.statistics.collectAsState()
 
     var loadedGpxCourse by remember { mutableStateOf<GpxCourse?>(null) }
 
-    val currentLoc = stats.currentLocation ?: KmpDependencies.trackerEngine.statistics.value.currentLocation
+    val currentLoc = stats.currentLocation ?: engineStats.currentLocation
     val displayPoints = if (stats.route.isNotEmpty()) {
         stats.route
     } else if (loadedGpxCourse != null && loadedGpxCourse!!.points.isNotEmpty()) {
