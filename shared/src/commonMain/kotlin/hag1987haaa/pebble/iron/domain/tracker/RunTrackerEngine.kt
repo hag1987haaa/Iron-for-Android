@@ -13,7 +13,6 @@ import hag1987haaa.pebble.iron.domain.settings.AppSettings
 import hag1987haaa.pebble.iron.domain.ble.BleHeartRateManager
 import hag1987haaa.pebble.iron.util.LocationUtils
 import hag1987haaa.pebble.iron.util.HealthUtils
-import kotlin.math.pow
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -91,6 +90,7 @@ class RunTrackerEngine(
     private var lastAcceptedRawLocation: LocationPoint? = null
     private var lastDistanceLocation: LocationPoint? = null
     private val locationFilter = WorkoutLocationFilter()
+    private val locationSmoother = AccuracyAwareLocationSmoother()
     private val rawLocationWindow = mutableListOf<LocationPoint>()
     private val fullRoute = mutableListOf<LocationPoint>() 
     private val windowSize = 3
@@ -610,7 +610,7 @@ class RunTrackerEngine(
         if (rawLocationWindow.size > windowSize) {
             rawLocationWindow.removeAt(0)
         }
-        val filteredLocation = calculateWeightedAverage(rawLocationWindow)
+        val filteredLocation = locationSmoother.smooth(rawLocationWindow)
 
         // Preserve route segmentation across pause/resume.
         val isSegStart = isResumePending || fullRoute.isEmpty()
@@ -681,16 +681,6 @@ class RunTrackerEngine(
                 RunState.updateStats(s)
             }
         }
-    }
-
-    private fun calculateWeightedAverage(window: List<LocationPoint>): LocationPoint {
-        if (window.isEmpty()) return LocationPoint(0.0, 0.0, timestamp = Clock.System.now())
-        val latest = window.last()
-        var totalWeight = 0.0; var latSum = 0.0; var lonSum = 0.0; var altSum = 0.0
-        window.forEachIndexed { index, point ->
-            val weight = (index + 1).toDouble().pow(2.0); latSum += point.latitude * weight; lonSum += point.longitude * weight; altSum += (point.altitude ?: 0.0) * weight; totalWeight += weight
-        }
-        return latest.copy(latitude = latSum / totalWeight, longitude = lonSum / totalWeight, altitude = if (latest.altitude != null) altSum / totalWeight else null)
     }
 
     private fun resetTimeoutTimer() {
