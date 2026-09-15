@@ -51,7 +51,7 @@ class AppSettings {
     var isMetric: Boolean = true
     var userWeightKg: Float = 70.0f
     var hasAskedHealthConnectOnboarding: Boolean = false
-    var appVersion: String = "2.1.0"
+    var appVersion: String = "2.1.3"
     
     private val _pebblePlatform = MutableStateFlow<String?>(value = null)
     val pebblePlatformFlow: StateFlow<String?> = _pebblePlatform.asStateFlow()
