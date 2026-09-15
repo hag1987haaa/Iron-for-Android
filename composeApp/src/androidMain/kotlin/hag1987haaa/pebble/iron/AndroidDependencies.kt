@@ -48,7 +48,7 @@ object AndroidDependencies {
         val prefs = appContext.getSharedPreferences("iron_settings", Context.MODE_PRIVATE)
         settings.isMusicControlEnabled = prefs.getBoolean("music_enabled", false)
         settings.isTouchControlEnabled = prefs.getBoolean("touch_enabled", false)
-        settings.isMapSwipePanEnabled = prefs.getBoolean("map_swipe_pan_enabled", true)
+        settings.isMapSwipePanEnabled = prefs.getBoolean("map_swipe_pan_enabled", false)
         settings.isLongPressEnabled = prefs.getBoolean("longpress_enabled", false)
         settings.upLongPressMode = hag1987haaa.pebble.iron.domain.settings.LongPressMode.valueOf(
             prefs.getString("longpress_up_mode", hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name) ?: hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name
