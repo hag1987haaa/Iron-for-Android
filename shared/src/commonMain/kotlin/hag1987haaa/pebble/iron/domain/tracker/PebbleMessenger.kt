@@ -134,4 +134,9 @@ interface PebbleMessenger {
      * 予定ルート（GPXなど）を設定・解除する
      */
     fun setPlannedCourse(points: List<LocationPoint>?) {}
+
+    /**
+     * コース一覧データ文字列（例: "1,NAME1|0,NAME2"）をウォッチに一括送信する
+     */
+    fun sendCoursesData(coursesDataString: String) {}
 }

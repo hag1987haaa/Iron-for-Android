@@ -106,6 +106,16 @@ class AppSettings {
     var isBleHeartRateEnabled: Boolean = false
     var preferBleHeartRate: Boolean = true // BLEセンサーがある場合はPebbleより優先する
 
+    // 保存済みGPXコース一覧（最大20個）
+    private val _savedGpxCourses = MutableStateFlow<List<hag1987haaa.pebble.iron.util.GpxCourse>>(emptyList())
+    val savedGpxCoursesFlow: StateFlow<List<hag1987haaa.pebble.iron.util.GpxCourse>> = _savedGpxCourses.asStateFlow()
+    var savedGpxCourses: List<hag1987haaa.pebble.iron.util.GpxCourse>
+        get() = _savedGpxCourses.value
+        set(value) {
+            _savedGpxCourses.value = value
+            save()
+        }
+
     // プラットフォーム固有の保存処理用コールバック
     var onSettingsChanged: (() -> Unit)? = null
 

@@ -92,6 +92,7 @@ class AndroidPebbleMessenger(
         private const val KEY_MAP_CHUNK_IDX = 10020u
         private const val KEY_MAP_TOTAL_CHUNKS = 10021u
         private const val KEY_MAP_STATE = 10022u
+        private const val KEY_COURSES_DATA = 10025u
         private const val SEND_TIMEOUT_MS = 2500L
     }
 
@@ -504,6 +505,13 @@ class AndroidPebbleMessenger(
         )
         commandQueue.trySend(PebbleMessageRequest("SYNC", dict, retryCount = 3))
         sendGraphData(stats)
+
+        // Pebble起動時・同期時に最新の保存済みコース一覧を自動プッシュ
+        val courses = settings.savedGpxCourses
+        if (courses.isNotEmpty()) {
+            val coursesDataStr = courses.joinToString("|") { "${if (it.isEnabled) 1 else 0},${it.name}" }
+            sendCoursesData(coursesDataStr)
+        }
     }
 
     override fun sendTouchConfig(enabled: Boolean) {
@@ -555,6 +563,10 @@ class AndroidPebbleMessenger(
 
     @Volatile
     private var plannedCoursePoints: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>? = null
+
+    override fun sendCoursesData(coursesDataString: String) {
+        commandQueue.trySend(PebbleMessageRequest("COURSES_DATA", mapOf(KEY_COURSES_DATA to PebbleDictionaryItem.Text(coursesDataString))))
+    }
 
     override fun setPlannedCourse(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>?) {
         plannedCoursePoints = points

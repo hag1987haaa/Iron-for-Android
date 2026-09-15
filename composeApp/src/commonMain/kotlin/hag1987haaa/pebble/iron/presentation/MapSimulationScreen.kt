@@ -42,13 +42,31 @@ fun MapSimulationScreen(
     val stats by RunState.currentStats.collectAsState()
     val engineStats by KmpDependencies.trackerEngine.statistics.collectAsState()
 
-    var loadedGpxCourse by remember { mutableStateOf<GpxCourse?>(null) }
+    val settings = KmpDependencies.appSettings
+    var gpxCourses by remember { mutableStateOf(settings.savedGpxCourses) }
+    var pendingCourseForImport by remember { mutableStateOf<GpxCourse?>(null) }
+    var editingCourse by remember { mutableStateOf<GpxCourse?>(null) }
+    var courseNameInput by remember { mutableStateOf("") }
+
+    fun validateCourseName(input: String, currentCourseId: String? = null): String? {
+        val trimmed = input.trim()
+        if (trimmed.isEmpty()) return "Name cannot be empty"
+        if (trimmed.length > 12) return "Max 12 characters"
+        if (!Regex("^[a-zA-Z0-9_ -]+$").matches(trimmed)) return "Only A-Z, 0-9, -, _, space allowed"
+        val isDuplicate = gpxCourses.any { it.id != currentCourseId && it.name.equals(trimmed, ignoreCase = true) }
+        if (isDuplicate) return "Course name already exists"
+        return null
+    }
+
+    val activePlannedPoints = remember(gpxCourses) {
+        gpxCourses.filter { it.isEnabled }.flatMap { it.points }
+    }
 
     val currentLoc = stats.currentLocation ?: engineStats.currentLocation
     val displayPoints = if (stats.route.isNotEmpty()) {
         stats.route
-    } else if (loadedGpxCourse != null && loadedGpxCourse!!.points.isNotEmpty()) {
-        loadedGpxCourse!!.points
+    } else if (activePlannedPoints.isNotEmpty()) {
+        activePlannedPoints
     } else {
         currentLoc?.let { listOf(it) } ?: emptyList()
     }
@@ -59,14 +77,103 @@ fun MapSimulationScreen(
     val messenger = KmpDependencies.trackerEngine.pebbleMessenger
 
     // メモリ保持のみ: 画面離脱時は予定ルートを自動クリア
-    LaunchedEffect(loadedGpxCourse) {
-        messenger?.setPlannedCourse(loadedGpxCourse?.points)
+    LaunchedEffect(activePlannedPoints) {
+        messenger?.setPlannedCourse(activePlannedPoints.ifEmpty { null })
+    }
+
+    // コース一覧の変更時に設定へ永続保存＆Pebbleへ一括区切り文字列を自動同期
+    LaunchedEffect(gpxCourses) {
+        settings.savedGpxCourses = gpxCourses
+        if (gpxCourses.isNotEmpty()) {
+            val coursesDataStr = gpxCourses.joinToString("|") { "${if (it.isEnabled) 1 else 0},${it.name}" }
+            messenger?.sendCoursesData(coursesDataStr)
+        }
     }
 
     DisposableEffect(Unit) {
         onDispose {
             messenger?.setPlannedCourse(null)
         }
+    }
+
+    // コース名前入力・編集ダイアログ
+    if (pendingCourseForImport != null || editingCourse != null) {
+        val isNew = pendingCourseForImport != null
+        val currentId = editingCourse?.id
+        val errorMsg = validateCourseName(courseNameInput, currentId)
+
+        AlertDialog(
+            onDismissRequest = {
+                pendingCourseForImport = null
+                editingCourse = null
+            },
+            title = { Text(if (isNew) "Name New Course" else "Rename Course") },
+            text = {
+                Column {
+                    Text(
+                        "Enter course name (max 12 alphanumeric chars). Must be unique.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = courseNameInput,
+                        onValueChange = {
+                            if (it.length <= 12) courseNameInput = it
+                        },
+                        label = { Text("Course Name") },
+                        singleLine = true,
+                        isError = errorMsg != null,
+                        supportingText = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(errorMsg ?: "", color = MaterialTheme.colorScheme.error)
+                                Text("${courseNameInput.length}/12")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val sanitized = courseNameInput.trim()
+                        if (isNew) {
+                            val newCourse = pendingCourseForImport!!.copy(name = sanitized)
+                            gpxCourses = gpxCourses + newCourse
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Added: $sanitized (${newCourse.points.size} pts)")
+                            }
+                            pendingCourseForImport = null
+                        } else {
+                            gpxCourses = gpxCourses.map {
+                                if (it.id == editingCourse!!.id) it.copy(name = sanitized) else it
+                            }
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Renamed to: $sanitized")
+                            }
+                            editingCourse = null
+                        }
+                    },
+                    enabled = errorMsg == null
+                ) {
+                    Text(if (isNew) "Add" else "Save")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        pendingCourseForImport = null
+                        editingCourse = null
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -273,9 +380,9 @@ fun MapSimulationScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("GPX Course (Planned Route)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("GPX Planned Courses (${gpxCourses.size}/20)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             Text(
-                                "Overlay planned course on Pebble map simulation",
+                                "Manage up to 20 courses. Toggle [✓] to display on map.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                             )
@@ -284,16 +391,120 @@ fun MapSimulationScreen(
 
                     Spacer(Modifier.height(12.dp))
 
-                    if (loadedGpxCourse == null) {
+                    if (gpxCourses.isEmpty()) {
+                        Text(
+                            "No courses imported yet. Add a GPX file to preview planned tracks.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            gpxCourses.forEach { course ->
+                                Surface(
+                                    color = if (course.isEnabled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surface,
+                                    shape = MaterialTheme.shapes.small,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (course.isEnabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Checkbox(
+                                            checked = course.isEnabled,
+                                            onCheckedChange = { isChecked ->
+                                                gpxCourses = gpxCourses.map {
+                                                    if (it.id == course.id) it.copy(isEnabled = isChecked) else it
+                                                }
+                                            }
+                                        )
+
+                                        Column(
+                                            modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = course.name,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (course.isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                text = "${course.points.size} pts  •  ${formatGpxDistance(course.totalDistanceMeters)}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                editingCourse = course
+                                                courseNameInput = course.name
+                                            }
+                                        ) {
+                                            Icon(Icons.Default.Edit, contentDescription = "Rename Course", modifier = Modifier.size(20.dp))
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                gpxCourses = gpxCourses.filter { it.id != course.id }
+                                                scope.launch { snackbarHostState.showSnackbar("Removed course: ${course.name}") }
+                                            }
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Delete Course", modifier = Modifier.size(20.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (gpxCourses.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = {
+                                    gpxCourses = emptyList()
+                                    scope.launch { snackbarHostState.showSnackbar("All GPX courses cleared") }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.DeleteSweep, contentDescription = null)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Clear All")
+                            }
+                        }
+
+                        if (gpxCourses.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = {
+                                    val coursesDataStr = gpxCourses.joinToString("|") { "${if (it.isEnabled) 1 else 0},${it.name}" }
+                                    messenger?.sendCoursesData(coursesDataStr)
+                                    scope.launch { snackbarHostState.showSnackbar("Synced ${gpxCourses.size} courses to Pebble!") }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Sync, contentDescription = null)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Sync")
+                            }
+                        }
+
                         Button(
                             onClick = {
                                 actions.pickGpxFile { content ->
                                     val course = GpxImporter.parse(content)
                                     if (course != null && course.points.isNotEmpty()) {
-                                        loadedGpxCourse = course
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("Loaded: ${course.name.ifBlank { "GPX Route" }} (${course.points.size} pts, ${formatGpxDistance(course.totalDistanceMeters)})")
-                                        }
+                                        // 自動サニタイズされた初期名をセットし、入力ダイアログを開く
+                                        val uniqueName = generateUniqueCourseName(course.name, gpxCourses)
+                                        pendingCourseForImport = course
+                                        courseNameInput = uniqueName
                                     } else {
                                         scope.launch {
                                             snackbarHostState.showSnackbar("Failed to parse GPX file or track is empty.")
@@ -301,70 +512,12 @@ fun MapSimulationScreen(
                                     }
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            enabled = gpxCourses.size < 20,
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.Default.FolderOpen, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Select GPX File")
-                        }
-                    } else {
-                        val course = loadedGpxCourse!!
-                        Surface(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = MaterialTheme.shapes.small,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    text = course.name.ifBlank { "Imported GPX Track" },
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = "Points: ${course.points.size}  •  Distance: ${formatGpxDistance(course.totalDistanceMeters)}",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    loadedGpxCourse = null
-                                    scope.launch { snackbarHostState.showSnackbar("GPX Course cleared") }
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = null)
-                                Spacer(Modifier.width(4.dp))
-                                Text("Clear")
-                            }
-
-                            Button(
-                                onClick = {
-                                    actions.pickGpxFile { content ->
-                                        val newCourse = GpxImporter.parse(content)
-                                        if (newCourse != null && newCourse.points.isNotEmpty()) {
-                                            loadedGpxCourse = newCourse
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar("Loaded: ${newCourse.name.ifBlank { "GPX Route" }} (${newCourse.points.size} pts)")
-                                            }
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null)
-                                Spacer(Modifier.width(4.dp))
-                                Text("Replace")
-                            }
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (gpxCourses.size < 20) "Add Course" else "Limit Reached")
                         }
                     }
                 }
@@ -386,7 +539,7 @@ fun MapSimulationScreen(
                 isHighlight = pebblePlatform?.contains("Classic") == true,
                 isMonochrome = true,
                 messenger = messenger,
-                refreshKey = loadedGpxCourse,
+                refreshKey = activePlannedPoints,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Classic/Steel!") }
@@ -404,7 +557,7 @@ fun MapSimulationScreen(
                              pebblePlatform?.contains("Round") == false && 
                              pebblePlatform?.contains("2") == false,
                 messenger = messenger,
-                refreshKey = loadedGpxCourse,
+                refreshKey = activePlannedPoints,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time!") }
@@ -421,7 +574,7 @@ fun MapSimulationScreen(
                 points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Round 2") == true,
                 messenger = messenger,
-                refreshKey = loadedGpxCourse,
+                refreshKey = activePlannedPoints,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Round 2!") }
@@ -438,7 +591,7 @@ fun MapSimulationScreen(
                 points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Round") == true && pebblePlatform?.contains("Round 2") == false,
                 messenger = messenger,
-                refreshKey = loadedGpxCourse,
+                refreshKey = activePlannedPoints,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time Round!") }
@@ -455,7 +608,7 @@ fun MapSimulationScreen(
                 isHighlight = pebblePlatform?.contains("Pebble 2") == true,
                 isMonochrome = true,
                 messenger = messenger,
-                refreshKey = loadedGpxCourse,
+                refreshKey = activePlannedPoints,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble 2!") }
@@ -471,7 +624,7 @@ fun MapSimulationScreen(
                 points = displayPoints,
                 isHighlight = pebblePlatform?.contains("Time 2") == true,
                 messenger = messenger,
-                refreshKey = loadedGpxCourse,
+                refreshKey = activePlannedPoints,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time 2!") }
@@ -602,3 +755,19 @@ fun ResolutionPreview(
 }
 
 var platformImageBitmapConverter: ((width: Int, height: Int, rgba: IntArray) -> ImageBitmap?)? = null
+
+private fun generateUniqueCourseName(baseName: String, existing: List<GpxCourse>): String {
+    var candidate = baseName.take(12).ifBlank { "COURSE" }
+    if (!existing.any { it.name.equals(candidate, ignoreCase = true) }) {
+        return candidate
+    }
+    for (i in 1..99) {
+        val suffix = "_$i"
+        val maxPrefixLen = (12 - suffix.length).coerceAtLeast(1)
+        candidate = candidate.take(maxPrefixLen) + suffix
+        if (!existing.any { it.name.equals(candidate, ignoreCase = true) }) {
+            return candidate
+        }
+    }
+    return candidate.take(12)
+}

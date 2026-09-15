@@ -5,12 +5,23 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
 data class GpxCourse(
+    val id: String = Clock.System.now().toEpochMilliseconds().toString(),
     val name: String,
     val points: List<LocationPoint>,
-    val totalDistanceMeters: Double
+    val totalDistanceMeters: Double,
+    val isEnabled: Boolean = true
 )
 
 object GpxImporter {
+    fun sanitizeCourseName(rawName: String): String {
+        var name = rawName.replace(Regex("\\.gpx$", RegexOption.IGNORE_CASE), "")
+        name = name.replace(Regex("[^a-zA-Z0-9_ -]"), "_").trim()
+        if (name.length > 12) {
+            name = name.take(12)
+        }
+        return name.ifBlank { "COURSE" }
+    }
+
     private val NAME_REGEX = Regex("<name>(.*?)</name>", RegexOption.IGNORE_CASE)
     private val ELE_REGEX = Regex("<ele>(.*?)</ele>", RegexOption.IGNORE_CASE)
     private val TIME_REGEX = Regex("<time>(.*?)</time>", RegexOption.IGNORE_CASE)
@@ -27,7 +38,8 @@ object GpxImporter {
     fun parse(gpxContent: String): GpxCourse? {
         if (gpxContent.isBlank()) return null
 
-        val name = NAME_REGEX.find(gpxContent)?.groupValues?.get(1)?.trim() ?: "Planned Route"
+        val rawName = NAME_REGEX.find(gpxContent)?.groupValues?.get(1)?.trim() ?: "COURSE"
+        val name = sanitizeCourseName(rawName)
         val points = mutableListOf<LocationPoint>()
         val now = Clock.System.now()
 
@@ -68,7 +80,12 @@ object GpxImporter {
             totalDist += haversine(points[i - 1], points[i])
         }
 
-        return GpxCourse(name, points, totalDist)
+        return GpxCourse(
+            name = name,
+            points = points,
+            totalDistanceMeters = totalDist,
+            isEnabled = true
+        )
     }
 
     private fun haversine(p1: LocationPoint, p2: LocationPoint): Double {
