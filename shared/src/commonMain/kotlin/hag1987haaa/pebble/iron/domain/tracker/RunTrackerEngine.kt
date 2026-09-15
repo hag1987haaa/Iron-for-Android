@@ -86,10 +86,10 @@ class RunTrackerEngine(
     ))
     val statistics: StateFlow<RunStatistics> = _statistics.asStateFlow()
 
-    private var lastProcessedLocation: LocationPoint? = null
     private var lastAcceptedRawLocation: LocationPoint? = null
     private var lastDistanceLocation: LocationPoint? = null
     private val locationFilter = WorkoutLocationFilter()
+    private val elevationFilter = WorkoutElevationFilter()
     private val locationSmoother = AccuracyAwareLocationSmoother()
     private val rawLocationWindow = mutableListOf<LocationPoint>()
     private val fullRoute = mutableListOf<LocationPoint>() 
@@ -289,7 +289,8 @@ class RunTrackerEngine(
         RunState.updateStats(_statistics.value)
 
         // 位置情報・経路データを初期化
-        lastProcessedLocation = null; lastAcceptedRawLocation = null; lastDistanceLocation = null
+        lastAcceptedRawLocation = null; lastDistanceLocation = null
+        elevationFilter.reset()
         rawLocationWindow.clear(); fullRoute.clear()
 
         // 歩数・通知カウンタ・心拍ソース等の内部状態を完全に初期化
@@ -338,9 +339,9 @@ class RunTrackerEngine(
         isResumePending = true
         // 一時停止前の古い座標との加重平均によるワープ距離引きずりを完全に防止するためWindowをクリア
         rawLocationWindow.clear()
-        lastProcessedLocation = null
         lastAcceptedRawLocation = null
         lastDistanceLocation = null
+        elevationFilter.reset()
         // 先に統計データを更新
         _statistics.update { it.copy(status = RunStatus.ACTIVE) }
         RunState.updateStats(_statistics.value)
@@ -631,7 +632,6 @@ class RunTrackerEngine(
         isResumePending = false
 
         var distanceDelta = 0.0
-        var elevationDelta = 0.0
 
         // A new segment must not count a straight-line jump from the previous
         // segment. Otherwise use the separate distance anchor so small GPS
@@ -658,22 +658,10 @@ class RunTrackerEngine(
             }
         }
 
-        // Do not count elevation changes across a pause/resume boundary.
-        if (!isSegStart) {
-            lastProcessedLocation?.let { prev ->
-                val prevAlt = prev.altitude
-                val currAlt = filteredLocation.altitude
-
-                if (prevAlt != null && currAlt != null && currAlt > prevAlt) {
-                    val diff = currAlt - prevAlt
-                    if (diff > 0.5) {
-                        elevationDelta = diff
-                    }
-                }
-            }
-        }
-
-        lastProcessedLocation = filteredLocation
+        val elevationDelta = elevationFilter.process(
+            candidate = location,
+            isSegmentStart = isSegStart,
+        )
 
         val finalLocation = filteredLocation.copy(
             heartRate = location.heartRate ?: _statistics.value.currentHeartRate,
