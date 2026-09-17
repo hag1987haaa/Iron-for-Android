@@ -2,6 +2,12 @@ package hag1987haaa.pebble.iron.domain.tracker
 
 import hag1987haaa.pebble.iron.domain.model.LocationPoint
 
+data class MapPreviewResult(
+    val rgba: IntArray,
+    val rleBytesCount: Int,
+    val roadPixelPercent: Float
+)
+
 interface PebbleMessenger {
     /**
      * 定期的な統計情報（時間、距離、心拍数など）を送信する
@@ -115,6 +121,11 @@ interface PebbleMessenger {
     fun resetAndToggleMapOrientation() {}
 
     /**
+     * マップ自動終了タイマーをリセット（延長）する
+     */
+    fun resetMapAutoCloseTimer() {}
+
+    /**
      * マップの初期ズームレベルを設定する
      */
     fun setMapZoom(zoom: Int) {}
@@ -128,7 +139,9 @@ interface PebbleMessenger {
 
     fun requestWatchInfo()
 
-    suspend fun getMapPreviewRgba(points: List<LocationPoint>, width: Int, height: Int, isMonochrome: Boolean): IntArray? = null
+    suspend fun getMapPreviewRgba(points: List<LocationPoint>, width: Int, height: Int, isMonochrome: Boolean, zoom: Int? = null): IntArray? = null
+
+    suspend fun getMapPreviewInfo(points: List<LocationPoint>, width: Int, height: Int, isMonochrome: Boolean, zoom: Int? = null): MapPreviewResult? = null
 
     /**
      * 予定ルート（GPXなど）を設定・解除する

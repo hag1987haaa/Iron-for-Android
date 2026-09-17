@@ -573,18 +573,43 @@ class AndroidPebbleMessenger(
         Log.d("PebbleMessenger", "setPlannedCourse updated: ${points?.size ?: 0} points")
     }
 
-    override suspend fun getMapPreviewRgba(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, width: Int, height: Int, isMonochrome: Boolean): IntArray? = withContext(Dispatchers.IO) {
+    override suspend fun getMapPreviewRgba(
+        points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, 
+        width: Int, 
+        height: Int, 
+        isMonochrome: Boolean, 
+        zoom: Int?
+    ): IntArray? = withContext(Dispatchers.IO) {
+        val result = getMapPreviewInfo(points, width, height, isMonochrome, zoom)
+        result?.rgba
+    }
+
+    override suspend fun getMapPreviewInfo(
+        points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, 
+        width: Int, 
+        height: Int, 
+        isMonochrome: Boolean, 
+        zoom: Int?
+    ): hag1987haaa.pebble.iron.domain.tracker.MapPreviewResult? = withContext(Dispatchers.IO) {
         if (points.isEmpty() && plannedCoursePoints.isNullOrEmpty()) return@withContext null
         return@withContext try {
-            val rawBitmap = renderMapBitmapWithTiles(points, width, height)
-            val pebblePixels = convertToPebblePixels(rawBitmap, isMonochrome)
+            val targetZoom = (zoom ?: currentMapZoom).coerceIn(11, 18)
+            val rawBitmap = renderMapBitmapWithTiles(points, width, height, targetZoom)
+            val pebblePixels = convertToPebblePixels(rawBitmap, isMonochrome, targetZoom)
             rawBitmap.recycle()
+            
+            val rleData = encodeRLE(pebblePixels)
+            var roadPixelCount = 0
             val outPixels = IntArray(width * height)
             for (i in pebblePixels.indices) {
                 val b = pebblePixels[i].toInt() and 0xFF
                 if (isMonochrome) {
+                    if (b != 0xFF) roadPixelCount++
                     outPixels[i] = if (b == 0xFF) -1 else -16777216
                 } else {
+                    if (b == 0b11000000.toByte().toInt() and 0xFF || b == 0b11010101.toByte().toInt() and 0xFF) {
+                        roadPixelCount++
+                    }
                     val a = 0xFF
                     val r = ((b shr 4) and 0x03) * 85
                     val g = ((b shr 2) and 0x03) * 85
@@ -592,12 +617,16 @@ class AndroidPebbleMessenger(
                     outPixels[i] = (a shl 24) or (r shl 16) or (g shl 8) or blue
                 }
             }
-            outPixels
+            val roadPct = (roadPixelCount.toFloat() / (width * height).toFloat()) * 100f
+            hag1987haaa.pebble.iron.domain.tracker.MapPreviewResult(
+                rgba = outPixels,
+                rleBytesCount = rleData.size,
+                roadPixelPercent = roadPct
+            )
         } catch (e: kotlinx.coroutines.CancellationException) {
-            // 画面離脱による正常な中断のため、再スローして終了
             throw e
         } catch (e: Exception) {
-            Log.e("PebbleMessenger", "getMapPreviewRgba failed", e)
+            Log.e("PebbleMessenger", "getMapPreviewInfo failed", e)
             null
         }
     }
@@ -663,12 +692,12 @@ class AndroidPebbleMessenger(
                     it.contains("Classic") || it.contains("Pebble 2") 
                 } ?: false
 
-                val pebblePixels = convertToPebblePixels(bitmap, isMonochrome)
+                val pebblePixels = convertToPebblePixels(bitmap, isMonochrome, currentMapZoom)
                 bitmap.recycle()
                 val rleData = encodeRLE(pebblePixels)
                 
                 val totalSize = rleData.size
-                Log.i("PebbleMessenger", "sendMap: RLE prepared ($totalSize bytes). Awaiting priority messages to drain...")
+                Log.i("PebbleMessenger", "sendMap: RLE prepared ($totalSize bytes, zoom=$currentMapZoom). Awaiting priority messages to drain...")
 
                 // 2. 他の重要通信（READY通知やSTATS更新）が完全に送信完了するのを待つ
                 var waitCount = 0
@@ -719,12 +748,15 @@ class AndroidPebbleMessenger(
                     hasPendingMapRefresh = false
                     Log.i("PebbleMessenger", "Executing pending map refresh after previous transfer finished.")
                     scheduleMapRefresh(0L)
+                } else if (isMapActive) {
+                    // 全チャンク送信完了＝ウォッチ画面にマップが表示された瞬間から、フルで自動終了タイマーを開始
+                    resetAutoCloseTimer()
                 }
             }
         }
     }
 
-    suspend fun renderMapBitmapWithTiles(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, width: Int, height: Int): Bitmap = withContext(Dispatchers.IO) {
+    suspend fun renderMapBitmapWithTiles(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, width: Int, height: Int, zoomOverride: Int? = null): Bitmap = withContext(Dispatchers.IO) {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.LTGRAY)
@@ -747,7 +779,7 @@ class AndroidPebbleMessenger(
         val centerLon = currentPoint.longitude
         
         // 2. ズームレベルの設定 (デフォルト 16: 半径約200m。UP/DOWNで動的変更可能)
-        val zoom = currentMapZoom
+        val zoom = (zoomOverride ?: currentMapZoom).coerceIn(11, 18)
         val n = Math.pow(2.0, zoom.toDouble())
 
         // メルカトル投影での世界座標ピクセル (256pxタイル基準)
@@ -878,11 +910,12 @@ class AndroidPebbleMessenger(
 
         val PAUSE_GAP_MS = 10_000L
 
-        // 4-A. 計画ルート (Planned Course) の描画 (マゼンタ: Garmin標準色・道路幅以上の太さ・角丸)
+        // 4-A. 計画ルート (Planned Course) の描画 (マゼンタ: Garmin標準色・道路幅より少し太め・角丸)
         if (!plannedPoints.isNullOrEmpty()) {
+            val routeStrokeWidth = if (width >= 200) 6f else 5f
             val plannedPaint = Paint().apply {
                 color = Color.MAGENTA
-                strokeWidth = 10f
+                strokeWidth = routeStrokeWidth
                 style = Paint.Style.STROKE
                 strokeCap = Paint.Cap.ROUND
                 strokeJoin = Paint.Join.ROUND
@@ -903,11 +936,12 @@ class AndroidPebbleMessenger(
             canvas.drawPath(plannedPath, plannedPaint)
         }
 
-        // 4-B. 走行実績ルート (Tracked Route) の描画 (赤色: 道路幅以上の太さ・角丸・ポーズ区間分離)
+        // 4-B. 走行実績ルート (Tracked Route) の描画 (赤色: 道路幅より少し太め・角丸・ポーズ区間分離)
         if (points.isNotEmpty() && points !== plannedPoints) {
+            val routeStrokeWidth = if (width >= 200) 6f else 5f
             val routePaint = Paint().apply {
                 color = Color.RED
-                strokeWidth = 10f
+                strokeWidth = routeStrokeWidth
                 style = Paint.Style.STROKE
                 strokeCap = Paint.Cap.ROUND
                 strokeJoin = Paint.Join.ROUND
@@ -996,7 +1030,7 @@ class AndroidPebbleMessenger(
     fun createPebblePreviewBitmap(sourceBitmap: Bitmap, isMonochrome: Boolean): Bitmap {
         val width = sourceBitmap.width
         val height = sourceBitmap.height
-        val pebblePixels = convertToPebblePixels(sourceBitmap, isMonochrome)
+        val pebblePixels = convertToPebblePixels(sourceBitmap, isMonochrome, currentMapZoom)
         val previewBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val outPixels = IntArray(width * height)
         for (i in pebblePixels.indices) {
@@ -1015,7 +1049,7 @@ class AndroidPebbleMessenger(
         return previewBitmap
     }
 
-    fun convertToPebblePixels(bitmap: Bitmap, isMonochrome: Boolean): ByteArray {
+    fun convertToPebblePixels(bitmap: Bitmap, isMonochrome: Boolean, zoom: Int = currentMapZoom): ByteArray {
         val width = bitmap.width
         val height = bitmap.height
         val totalPixels = width * height
@@ -1055,7 +1089,8 @@ class AndroidPebbleMessenger(
                 continue
             }
             // 3. 幹線道路・高速（Voyager: 黄色・オレンジ系）-> 太い黒線
-            if (r > 215 && g > 140 && b < 190 && (r - b) > 30) {
+            val isHighway = (r > 215 && g > 140 && b < 190 && (r - b) > 30)
+            if (isHighway) {
                 types[i] = TYPE_HIGHWAY.toByte()
                 continue
             }
@@ -1064,13 +1099,32 @@ class AndroidPebbleMessenger(
                 types[i] = TYPE_WATER.toByte()
                 continue
             }
-            // 5. 一般道路（純白の路面、または道路縁取りケーシング線）
-            // 拡大率によらず安定して検出できるようRGBの許容範囲を最適化
-            val isRoadSurface = (r >= 250 && g >= 250 && b >= 248)
-            val isRoadCasing = (Math.abs(r - g) <= 6 && Math.abs(g - b) <= 6 && r in 218..238 && (r - b) < 6)
-            if (isRoadSurface || isRoadCasing) {
-                types[i] = TYPE_LOCAL_ROAD.toByte()
-                continue
+            // 5. 一般道路・生活道路（ズーム倍率に応じたインテリジェント間引き）
+            if (zoom <= 14) {
+                // Zoom 13-14（引き・広域）: 生活道路・細道は完全間引き（表示しない）
+                // 幹線道路と水域のみを描画し、大局を把握＆データサイズを激減
+            } else if (zoom == 15) {
+                // Zoom 15（中域）: 幅の広い主要一般道（路面が純白）のみ抽出。細い路地やケーシングは除外
+                if (r >= 252 && g >= 252 && b >= 250) {
+                    types[i] = TYPE_LOCAL_ROAD.toByte()
+                    continue
+                }
+            } else if (zoom == 16) {
+                // Zoom 16（標準）: 路面（純白）＋明確な道路ケーシング（明るいグレーのみ、ウォーターマーク誤検知防止）
+                val isRoadSurface = (r >= 250 && g >= 250 && b >= 248)
+                val isRoadCasing = (Math.abs(r - g) <= 4 && Math.abs(g - b) <= 4 && r in 226..240 && (r - b) < 4)
+                if (isRoadSurface || isRoadCasing) {
+                    types[i] = TYPE_LOCAL_ROAD.toByte()
+                    continue
+                }
+            } else {
+                // Zoom 17-18（詳細・拡大）: 路地や細い通路までしっかり表示
+                val isRoadSurface = (r >= 248 && g >= 248 && b >= 245)
+                val isRoadCasing = (Math.abs(r - g) <= 5 && Math.abs(g - b) <= 5 && r in 220..242)
+                if (isRoadSurface || isRoadCasing) {
+                    types[i] = TYPE_LOCAL_ROAD.toByte()
+                    continue
+                }
             }
 
             types[i] = TYPE_BG.toByte()
@@ -1121,37 +1175,41 @@ class AndroidPebbleMessenger(
             }
         }
 
-        // 第3パス: 道路の太線化・途切れ防止（モルフォロジー膨張）
-        // どの拡大率でも道路が細くかすれたり途切れたりしないよう補正
+        // 第3パス: 道路の太線化・途切れ防止（ズーム連動モルフォロジー膨張）
         val dilatedTypes = cleanedTypes.clone()
-        val isLowZoom = currentMapZoom <= 15
         for (y in 1 until height - 1) {
             val yOffset = y * width
             for (x in 1 until width - 1) {
                 val idx = yOffset + x
                 val t = cleanedTypes[idx].toInt()
                 if (t == TYPE_HIGHWAY) {
-                    // 幹線道路: 上下左右1px膨張（太い線で強調）
-                    for (dy in -1..1) {
-                        val ny = y + dy
-                        for (dx in -1..1) {
-                            if (Math.abs(dy) + Math.abs(dx) == 1) {
-                                val nIdx = ny * width + (x + dx)
-                                if (dilatedTypes[nIdx].toInt() == TYPE_BG) {
-                                    dilatedTypes[nIdx] = TYPE_HIGHWAY.toByte()
+                    // 幹線道路: 広域〜標準（Zoom 13〜16）で上下左右1px膨張（太い線で強調）。超広域（11-12）はシャープに維持
+                    if (zoom in 13..16) {
+                        for (dy in -1..1) {
+                            val ny = y + dy
+                            for (dx in -1..1) {
+                                if (Math.abs(dy) + Math.abs(dx) == 1) {
+                                    val nIdx = ny * width + (x + dx)
+                                    if (dilatedTypes[nIdx].toInt() == TYPE_BG) {
+                                        dilatedTypes[nIdx] = TYPE_HIGHWAY.toByte()
+                                    }
                                 }
                             }
                         }
                     }
-                } else if (isLowZoom && t == TYPE_LOCAL_ROAD) {
-                    // 一般道路（広域表示時）: 上下左右1px膨張して細線化・途切れを防止
-                    for (dy in -1..1) {
-                        val ny = y + dy
-                        for (dx in -1..1) {
-                            if (Math.abs(dy) + Math.abs(dx) == 1) {
-                                val nIdx = ny * width + (x + dx)
-                                if (dilatedTypes[nIdx].toInt() == TYPE_BG) {
-                                    dilatedTypes[nIdx] = TYPE_LOCAL_ROAD.toByte()
+                } else if (t == TYPE_LOCAL_ROAD) {
+                    // 一般道路:
+                    // Zoom 13-15 では膨張しない！（画面が埋まるのを防止）
+                    // Zoom 17-18（拡大時）のみ、細道がかすれて途切れないよう上下左右1px膨張
+                    if (zoom >= 17) {
+                        for (dy in -1..1) {
+                            val ny = y + dy
+                            for (dx in -1..1) {
+                                if (Math.abs(dy) + Math.abs(dx) == 1) {
+                                    val nIdx = ny * width + (x + dx)
+                                    if (dilatedTypes[nIdx].toInt() == TYPE_BG) {
+                                        dilatedTypes[nIdx] = TYPE_LOCAL_ROAD.toByte()
+                                    }
                                 }
                             }
                         }
@@ -1260,18 +1318,18 @@ class AndroidPebbleMessenger(
     }
 
     override fun zoomOutMap() {
-        if (currentMapZoom > 13) {
+        if (currentMapZoom > 11) {
             currentMapZoom--
             resetAutoCloseTimer()
             Log.i("PebbleMessenger", "Map Zoom Out: level $currentMapZoom (debouncing refresh)")
             scheduleMapRefresh(350L)
         } else {
-            Log.d("PebbleMessenger", "Map Zoom Out: already at min zoom (13)")
+            Log.d("PebbleMessenger", "Map Zoom Out: already at min zoom (11)")
         }
     }
 
     override fun setMapZoom(zoom: Int) {
-        val clamped = zoom.coerceIn(13, 18)
+        val clamped = zoom.coerceIn(11, 18)
         currentMapZoom = clamped
         Log.i("PebbleMessenger", "Map Zoom set to $currentMapZoom")
     }
@@ -1309,13 +1367,20 @@ class AndroidPebbleMessenger(
         scheduleMapRefresh(0L)
     }
 
+    override fun resetMapAutoCloseTimer() {
+        Log.d("PebbleMessenger", "resetMapAutoCloseTimer: Operation detected, extending auto-close timer.")
+        resetAutoCloseTimer()
+    }
+
     private fun resetAutoCloseTimer() {
         mapAutoCloseJob?.cancel()
         val timeoutSec = settings.mapAutoCloseTimeoutSeconds
-        if (timeoutSec > 0 && isMapActive) {
+        // マップが有効 かつ 画像転送中でない場合のみカウントダウン開始
+        // （転送中にタイムアウト時間が消費されて勝手に閉じるのを防止）
+        if (timeoutSec > 0 && isMapActive && !isMapTransferring) {
             mapAutoCloseJob = scope.launch {
                 delay(timeoutSec * 1000L)
-                if (isMapActive) {
+                if (isMapActive && !isMapTransferring) {
                     Log.i("PebbleMessenger", "Map auto-close timeout reached (${timeoutSec}s). Returning to cockpit screen.")
                     sendMapState(false)
                 }

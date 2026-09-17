@@ -161,9 +161,13 @@ class PebbleCommandService : BasePebbleListenerService() {
 
         Log.i("PebbleCommand", "handleTouchPan: dx=$dx, dy=$dy, isMap=$isMap, isMapSwipePanEnabled=${settings.isMapSwipePanEnabled}")
 
-        if (isMap && settings.isMapSwipePanEnabled) {
-            // マップ表示中 かつ パン有効 -> 地図スクロール
-            engine.panMap(dx, dy)
+        if (isMap) {
+            // マップ表示中は操作中とみなして自動終了タイマーを延長
+            engine.resetMapAutoCloseTimer()
+            if (settings.isMapSwipePanEnabled) {
+                // パン有効 -> 地図スクロール
+                engine.panMap(dx, dy)
+            }
         } else {
             // 音楽操作モード（または通常画面）: 移動方向から曲送り・音量を判定
             val absDx = Math.abs(dx)

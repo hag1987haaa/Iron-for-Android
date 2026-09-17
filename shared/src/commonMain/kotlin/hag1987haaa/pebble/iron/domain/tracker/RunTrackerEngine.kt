@@ -460,6 +460,7 @@ class RunTrackerEngine(
     fun recenterMap() { pebbleMessenger?.recenterMap() }
     fun panMap(dx: Int, dy: Int) { pebbleMessenger?.panMap(dx, dy) }
     fun resetAndToggleMapOrientation() { pebbleMessenger?.resetAndToggleMapOrientation() }
+    fun resetMapAutoCloseTimer() { pebbleMessenger?.resetMapAutoCloseTimer() }
 
     private fun reset() {
         clearWorkoutData()

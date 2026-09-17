@@ -523,11 +523,62 @@ fun MapSimulationScreen(
                 }
             }
 
+            var simulatedZoom by remember { mutableStateOf(16) }
+
             Text(
                 "Pebble Display Mirroring Simulation",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Zoom: Level $simulatedZoom",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        val zoomDesc = when (simulatedZoom) {
+                            11 -> "Regional (~40km, Highway only)"
+                            12 -> "City-Wide (~20km, Highway only)"
+                            13 -> "Ultra-Wide (~10km, Highway only)"
+                            14 -> "Wide (~5km, Highway only)"
+                            15 -> "Medium (~2.5km, Main roads)"
+                            16 -> "Standard (~1.2km, Default)"
+                            17 -> "Detail (~600m, All streets)"
+                            18 -> "Max Detail (~300m)"
+                            else -> ""
+                        }
+                        Text(
+                            zoomDesc,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(11, 12, 13, 14, 15, 16, 17, 18).forEach { z ->
+                            FilterChip(
+                                selected = (simulatedZoom == z),
+                                onClick = { simulatedZoom = z },
+                                label = { Text("z$z", style = MaterialTheme.typography.labelSmall) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
 
             ResolutionPreview(
                 name = "Pebble Classic / Steel",
@@ -540,6 +591,7 @@ fun MapSimulationScreen(
                 isMonochrome = true,
                 messenger = messenger,
                 refreshKey = activePlannedPoints,
+                zoom = simulatedZoom,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Classic/Steel!") }
@@ -558,6 +610,7 @@ fun MapSimulationScreen(
                              pebblePlatform?.contains("2") == false,
                 messenger = messenger,
                 refreshKey = activePlannedPoints,
+                zoom = simulatedZoom,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time!") }
@@ -575,6 +628,7 @@ fun MapSimulationScreen(
                 isHighlight = pebblePlatform?.contains("Round 2") == true,
                 messenger = messenger,
                 refreshKey = activePlannedPoints,
+                zoom = simulatedZoom,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Round 2!") }
@@ -592,6 +646,7 @@ fun MapSimulationScreen(
                 isHighlight = pebblePlatform?.contains("Round") == true && pebblePlatform?.contains("Round 2") == false,
                 messenger = messenger,
                 refreshKey = activePlannedPoints,
+                zoom = simulatedZoom,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time Round!") }
@@ -609,6 +664,7 @@ fun MapSimulationScreen(
                 isMonochrome = true,
                 messenger = messenger,
                 refreshKey = activePlannedPoints,
+                zoom = simulatedZoom,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble 2!") }
@@ -625,6 +681,7 @@ fun MapSimulationScreen(
                 isHighlight = pebblePlatform?.contains("Time 2") == true,
                 messenger = messenger,
                 refreshKey = activePlannedPoints,
+                zoom = simulatedZoom,
                 onSendMap = { w, h ->
                     messenger?.sendMap(displayPoints, w, h)
                     scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time 2!") }
@@ -670,18 +727,23 @@ fun ResolutionPreview(
     isMonochrome: Boolean = false,
     messenger: PebbleMessenger?,
     refreshKey: Any? = null,
+    zoom: Int = 16,
     onSendMap: (Int, Int) -> Unit
 ) {
     var previewImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    var rleBytes by remember { mutableStateOf(0) }
+    var roadPct by remember { mutableStateOf(0f) }
     var isLoading by remember { mutableStateOf(false) }
 
-    LaunchedEffect(points, mapWidth, mapHeight, isMonochrome, refreshKey) {
+    LaunchedEffect(points, mapWidth, mapHeight, isMonochrome, refreshKey, zoom) {
         if (messenger != null && points.isNotEmpty()) {
             isLoading = true
             try {
-                val rgba = messenger.getMapPreviewRgba(points, mapWidth, mapHeight, isMonochrome)
-                if (rgba != null) {
-                    previewImage = platformImageBitmapConverter?.invoke(mapWidth, mapHeight, rgba)
+                val info = messenger.getMapPreviewInfo(points, mapWidth, mapHeight, isMonochrome, zoom)
+                if (info != null) {
+                    previewImage = platformImageBitmapConverter?.invoke(mapWidth, mapHeight, info.rgba)
+                    rleBytes = info.rleBytesCount
+                    roadPct = info.roadPixelPercent
                 }
             } catch (_: Exception) {
             } finally {
@@ -750,6 +812,24 @@ fun ResolutionPreview(
             // 中央の十字線（位置合わせ用）
             Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.2f)).align(Alignment.Center))
             Box(Modifier.fillMaxHeight().width(1.dp).background(Color.White.copy(alpha = 0.2f)).align(Alignment.Center))
+        }
+
+        if (rleBytes > 0) {
+            Spacer(Modifier.height(6.dp))
+            val roadRounded = (roadPct * 10).toInt() / 10.0
+            val isFast = rleBytes < 3500
+            Surface(
+                color = if (isFast) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
+                shape = MaterialTheme.shapes.extraSmall
+            ) {
+                Text(
+                    text = "RLE: ${rleBytes} B | Road: ${roadRounded}% | ${if (isFast) "⚡ Fast (~0.3s)" else "⚠️ Large (~1-2s)"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isFast) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
