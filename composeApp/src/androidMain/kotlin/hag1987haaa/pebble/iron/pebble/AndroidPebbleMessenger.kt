@@ -56,6 +56,7 @@ class AndroidPebbleMessenger(
     private var currentGraphTypeId: Int = settings.lastGraphTypeId
     override var isMapActive: Boolean = false
     private var isMapTransferring: Boolean = false
+    private var isTransmittingChunks: Boolean = false
     private var currentMapZoom: Int = 16
     private var panOffsetPixelsX: Double = 0.0
     private var panOffsetPixelsY: Double = 0.0
@@ -64,6 +65,7 @@ class AndroidPebbleMessenger(
     private var mapAutoCloseJob: kotlinx.coroutines.Job? = null
 
     // マップ操作の集約・保留制御（メモリ内のみ保持、保存・永続化は一切行わない）
+    private var mapSendJob: kotlinx.coroutines.Job? = null
     private var mapDebounceJob: kotlinx.coroutines.Job? = null
     private var hasPendingMapRefresh: Boolean = false
     private var lastMapPoints: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>? = null
@@ -542,6 +544,9 @@ class AndroidPebbleMessenger(
             mapAutoCloseJob = null
             mapDebounceJob?.cancel()
             mapDebounceJob = null
+            mapSendJob?.cancel()
+            mapSendJob = null
+            isTransmittingChunks = false
             hasPendingMapRefresh = false
             panOffsetPixelsX = 0.0
             panOffsetPixelsY = 0.0
@@ -642,7 +647,11 @@ class AndroidPebbleMessenger(
         }
     }
 
-    override fun sendMap(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, width: Int, height: Int) {
+    override fun sendMap(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, width: Int, height: Int, zoom: Int?) {
+        if (zoom != null) {
+            currentMapZoom = zoom.coerceIn(11, 18)
+            Log.i("PebbleMessenger", "sendMap: Requested zoom override -> $currentMapZoom")
+        }
         val (nativeW, nativeH) = getNativeMapDimensions()
         val targetW = if (width in 100..300) width else nativeW
         val targetH = if (height in 100..250 && height != 168) height else nativeH
@@ -650,16 +659,20 @@ class AndroidPebbleMessenger(
         lastMapWidth = targetW
         lastMapHeight = targetH
 
-        scope.launch {
-            if (isMapTransferring) {
-                hasPendingMapRefresh = true
-                Log.w("PebbleMessenger", "sendMap: Already transferring. Marked as pending.")
-                return@launch
-            }
+        // Bluetoothパケット送信フェーズ中の場合は、ウォッチ側の画面破損を防ぐため現在の送信完了を待ってから即座に再送
+        if (isTransmittingChunks) {
+            hasPendingMapRefresh = true
+            Log.d("PebbleMessenger", "sendMap: Bluetooth chunks transmitting. Next request marked as pending.")
+            return
+        }
+
+        // まだウォッチへのパケット送信が始まっていない（タイル取得・生成中）場合は、直前の処理を即キャンセルして最新操作で一発再実行！
+        mapSendJob?.cancel()
+
+        mapSendJob = scope.launch {
             isMapTransferring = true
-            
             try {
-                Log.i("PebbleMessenger", "sendMap: Preparing map data (w=$targetW, h=$targetH, points=${points.size})...")
+                Log.i("PebbleMessenger", "sendMap: Instantly starting map preparation (w=$targetW, h=$targetH, zoom=$currentMapZoom)...")
                 
                 val activePoints = if (points.isEmpty()) {
                     val planned = plannedCoursePoints
@@ -684,8 +697,7 @@ class AndroidPebbleMessenger(
                     points
                 }
 
-                // 1. タイル取得とビットマップ・RLE生成を先行して完全に完了させる
-                // （ウォッチ側を不完全な状態でマップ画面に待たせない）
+                // 1. タイル取得とビットマップ・RLE生成
                 val bitmap = renderMapBitmapWithTiles(activePoints, targetW, targetH)
                 
                 val isMonochrome = settings.pebblePlatform?.let { 
@@ -695,9 +707,9 @@ class AndroidPebbleMessenger(
                 val pebblePixels = convertToPebblePixels(bitmap, isMonochrome, currentMapZoom)
                 bitmap.recycle()
                 val rleData = encodeRLE(pebblePixels)
-                
                 val totalSize = rleData.size
-                Log.i("PebbleMessenger", "sendMap: RLE prepared ($totalSize bytes, zoom=$currentMapZoom). Awaiting priority messages to drain...")
+
+                if (mapSendJob?.isActive != true) return@launch
 
                 // 2. 他の重要通信（READY通知やSTATS更新）が完全に送信完了するのを待つ
                 var waitCount = 0
@@ -706,18 +718,20 @@ class AndroidPebbleMessenger(
                     waitCount++
                 }
 
-                // 3. 他の通信が落ち着いた段階でマップ表示コマンドを送信
+                if (mapSendJob?.isActive != true) return@launch
+
+                // 3. マップ表示コマンド送信
                 sendMapState(true)
                 delay(150)
 
-                // 4. チャンク分割送信 (安全な間隔でパケット欠落を完全防止)
+                // 4. ここからチャンク送信フェーズ（途中で中断させず最後まで安全に送り切る）
+                isTransmittingChunks = true
                 val chunkSize = 500 
                 val totalChunks = (totalSize + chunkSize - 1) / chunkSize
-                val fixedDelayMs = 200L 
+                val fixedDelayMs = 130L 
 
                 for (i in 0 until totalChunks) {
                     if (!commandQueue.isEmpty) {
-                        // 途中で優先コマンドが入った場合は一旦譲る
                         delay(120)
                     }
                     val start = i * chunkSize
@@ -731,25 +745,25 @@ class AndroidPebbleMessenger(
                 }
                 Log.i("PebbleMessenger", "sendMap: Fully transmitted $totalSize bytes in $totalChunks chunks.")
             } catch (e: kotlinx.coroutines.CancellationException) {
-                Log.d("PebbleMessenger", "sendMap: Cancelled")
+                Log.d("PebbleMessenger", "sendMap: Pre-transmission generation cancelled in favor of newer request")
                 throw e
             } catch (e: Exception) {
                 Log.e("PebbleMessenger", "sendMap: Error during transmission: ${e.message}")
             } finally {
+                isTransmittingChunks = false
                 isMapTransferring = false
                 Log.d("PebbleMessenger", "sendMap: Transmission lock released. Syncing latest stats.")
-                // 転送完了直後に最新のSTATS/MID_DATAをウォッチへ即座に送信
+                
                 nextStatsRequest?.let { commandQueue.trySend(it) }
                 nextMidDataRequest?.let { commandQueue.trySend(it) }
                 nextLowerDataRequest?.let { commandQueue.trySend(it) }
 
-                // 転送中に溜まった連打・スワイプ等の保留リフレッシュがあれば最新状態で即時再送
+                // 転送中に溜まった操作（ダブルクリック、連続ズーム、スワイプ等）があれば最新状態で即座に一括再実行！
                 if (hasPendingMapRefresh && isMapActive) {
                     hasPendingMapRefresh = false
-                    Log.i("PebbleMessenger", "Executing pending map refresh after previous transfer finished.")
-                    scheduleMapRefresh(0L)
+                    Log.i("PebbleMessenger", "sendMap: Executing pending map refresh with coalesced latest state (zoom=$currentMapZoom)...")
+                    executeMapRefresh()
                 } else if (isMapActive) {
-                    // 全チャンク送信完了＝ウォッチ画面にマップが表示された瞬間から、フルで自動終了タイマーを開始
                     resetAutoCloseTimer()
                 }
             }
@@ -1297,6 +1311,9 @@ class AndroidPebbleMessenger(
             mapAutoCloseJob = null
             mapDebounceJob?.cancel()
             mapDebounceJob = null
+            mapSendJob?.cancel()
+            mapSendJob = null
+            isTransmittingChunks = false
             hasPendingMapRefresh = false
             panOffsetPixelsX = 0.0
             panOffsetPixelsY = 0.0
@@ -1310,8 +1327,8 @@ class AndroidPebbleMessenger(
         if (currentMapZoom < 18) {
             currentMapZoom++
             resetAutoCloseTimer()
-            Log.i("PebbleMessenger", "Map Zoom In: level $currentMapZoom (debouncing refresh)")
-            scheduleMapRefresh(350L)
+            Log.i("PebbleMessenger", "Map Zoom In: level $currentMapZoom (instant refresh)")
+            scheduleMapRefresh(0L)
         } else {
             Log.d("PebbleMessenger", "Map Zoom In: already at max zoom (18)")
         }
@@ -1321,8 +1338,8 @@ class AndroidPebbleMessenger(
         if (currentMapZoom > 11) {
             currentMapZoom--
             resetAutoCloseTimer()
-            Log.i("PebbleMessenger", "Map Zoom Out: level $currentMapZoom (debouncing refresh)")
-            scheduleMapRefresh(350L)
+            Log.i("PebbleMessenger", "Map Zoom Out: level $currentMapZoom (instant refresh)")
+            scheduleMapRefresh(0L)
         } else {
             Log.d("PebbleMessenger", "Map Zoom Out: already at min zoom (11)")
         }
@@ -1338,9 +1355,9 @@ class AndroidPebbleMessenger(
         // スワイプ移動量 (dx, dy) に合わせてマップ中心をシフト
         panOffsetPixelsX -= dx.toDouble()
         panOffsetPixelsY -= dy.toDouble()
-        Log.i("PebbleMessenger", "Map Pan: dx=$dx, dy=$dy -> current offset=($panOffsetPixelsX, $panOffsetPixelsY) (debouncing refresh)")
+        Log.i("PebbleMessenger", "Map Pan: dx=$dx, dy=$dy -> current offset=($panOffsetPixelsX, $panOffsetPixelsY) (instant refresh)")
         resetAutoCloseTimer()
-        scheduleMapRefresh(350L)
+        scheduleMapRefresh(0L)
     }
 
     override fun recenterMap() {
@@ -1388,21 +1405,23 @@ class AndroidPebbleMessenger(
         }
     }
 
-    private fun scheduleMapRefresh(delayMs: Long = 350L) {
+    private fun scheduleMapRefresh(delayMs: Long = 0L) {
         if (!isMapActive) return
 
-        if (isMapTransferring) {
+        if (isTransmittingChunks) {
             hasPendingMapRefresh = true
-            Log.d("PebbleMessenger", "Map transfer in progress. Refresh marked as pending.")
+            Log.d("PebbleMessenger", "scheduleMapRefresh: Chunks transmitting. Refresh marked as pending.")
             return
         }
 
         mapDebounceJob?.cancel()
-        mapDebounceJob = scope.launch {
-            if (delayMs > 0) {
-                delay(delayMs)
-            }
+        if (delayMs <= 0L) {
             executeMapRefresh()
+        } else {
+            mapDebounceJob = scope.launch {
+                delay(delayMs)
+                executeMapRefresh()
+            }
         }
     }
 

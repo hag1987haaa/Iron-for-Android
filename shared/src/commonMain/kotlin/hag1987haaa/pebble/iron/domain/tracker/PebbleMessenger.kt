@@ -133,7 +133,7 @@ interface PebbleMessenger {
     /**
      * マップデータを送信する（経路情報を元にビットマップ生成・RLEエンコード・分割送信を一括で行う）
      */
-    fun sendMap(points: List<LocationPoint>, width: Int, height: Int)
+    fun sendMap(points: List<LocationPoint>, width: Int, height: Int, zoom: Int? = null)
 
     fun launchWatchApp()
 

@@ -176,6 +176,8 @@ fun MapSimulationScreen(
         )
     }
 
+    var simulatedZoom by remember { mutableStateOf(16) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -209,9 +211,10 @@ fun MapSimulationScreen(
                             onClick = {},
                             onLongClick = {
                                 if (messenger != null) {
-                                    messenger.sendMap(displayPoints, nativeMapW, nativeMapH)
+                                    messenger.setMapZoom(simulatedZoom)
+                                    messenger.sendMap(displayPoints, nativeMapW, nativeMapH, simulatedZoom)
                                     scope.launch {
-                                        snackbarHostState.showSnackbar("Map sent to $pebblePlatform ($nativeMapW x $nativeMapH)!")
+                                        snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to $pebblePlatform ($nativeMapW x $nativeMapH)!")
                                     }
                                 }
                             }
@@ -523,8 +526,6 @@ fun MapSimulationScreen(
                 }
             }
 
-            var simulatedZoom by remember { mutableStateOf(16) }
-
             Text(
                 "Pebble Display Mirroring Simulation",
                 style = MaterialTheme.typography.titleMedium,
@@ -571,7 +572,10 @@ fun MapSimulationScreen(
                         listOf(11, 12, 13, 14, 15, 16, 17, 18).forEach { z ->
                             FilterChip(
                                 selected = (simulatedZoom == z),
-                                onClick = { simulatedZoom = z },
+                                onClick = {
+                                    simulatedZoom = z
+                                    messenger?.setMapZoom(z)
+                                },
                                 label = { Text("z$z", style = MaterialTheme.typography.labelSmall) },
                                 modifier = Modifier.weight(1f)
                             )
@@ -593,8 +597,9 @@ fun MapSimulationScreen(
                 refreshKey = activePlannedPoints,
                 zoom = simulatedZoom,
                 onSendMap = { w, h ->
-                    messenger?.sendMap(displayPoints, w, h)
-                    scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Classic/Steel!") }
+                    messenger?.setMapZoom(simulatedZoom)
+                    messenger?.sendMap(displayPoints, w, h, simulatedZoom)
+                    scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to Pebble Classic/Steel!") }
                 }
             )
 
@@ -612,8 +617,9 @@ fun MapSimulationScreen(
                 refreshKey = activePlannedPoints,
                 zoom = simulatedZoom,
                 onSendMap = { w, h ->
-                    messenger?.sendMap(displayPoints, w, h)
-                    scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time!") }
+                    messenger?.setMapZoom(simulatedZoom)
+                    messenger?.sendMap(displayPoints, w, h, simulatedZoom)
+                    scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to Pebble Time!") }
                 }
             )
 
@@ -630,8 +636,9 @@ fun MapSimulationScreen(
                 refreshKey = activePlannedPoints,
                 zoom = simulatedZoom,
                 onSendMap = { w, h ->
-                    messenger?.sendMap(displayPoints, w, h)
-                    scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Round 2!") }
+                    messenger?.setMapZoom(simulatedZoom)
+                    messenger?.sendMap(displayPoints, w, h, simulatedZoom)
+                    scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to Pebble Round 2!") }
                 }
             )
 
@@ -648,8 +655,9 @@ fun MapSimulationScreen(
                 refreshKey = activePlannedPoints,
                 zoom = simulatedZoom,
                 onSendMap = { w, h ->
-                    messenger?.sendMap(displayPoints, w, h)
-                    scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time Round!") }
+                    messenger?.setMapZoom(simulatedZoom)
+                    messenger?.sendMap(displayPoints, w, h, simulatedZoom)
+                    scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to Pebble Time Round!") }
                 }
             )
 
@@ -666,8 +674,9 @@ fun MapSimulationScreen(
                 refreshKey = activePlannedPoints,
                 zoom = simulatedZoom,
                 onSendMap = { w, h ->
-                    messenger?.sendMap(displayPoints, w, h)
-                    scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble 2!") }
+                    messenger?.setMapZoom(simulatedZoom)
+                    messenger?.sendMap(displayPoints, w, h, simulatedZoom)
+                    scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to Pebble 2!") }
                 }
             )
 
@@ -683,8 +692,9 @@ fun MapSimulationScreen(
                 refreshKey = activePlannedPoints,
                 zoom = simulatedZoom,
                 onSendMap = { w, h ->
-                    messenger?.sendMap(displayPoints, w, h)
-                    scope.launch { snackbarHostState.showSnackbar("Map sent to Pebble Time 2!") }
+                    messenger?.setMapZoom(simulatedZoom)
+                    messenger?.sendMap(displayPoints, w, h, simulatedZoom)
+                    scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to Pebble Time 2!") }
                 }
             )
 
@@ -770,6 +780,7 @@ fun ResolutionPreview(
         
         val shape = if (isRound) CircleShape else RectangleShape
         
+        val panelHeight = height - mapHeight
         Box(
             modifier = Modifier
                 .size(width.dp, height.dp)
@@ -781,37 +792,63 @@ fun ResolutionPreview(
                     onLongClick = { onSendMap(mapWidth, mapHeight) }
                 )
         ) {
-            if (previewImage != null) {
-                Image(
-                    bitmap = previewImage!!,
-                    contentDescription = name,
+            // マップ領域（実機 Pebble 同様に上部配置）
+            Box(
+                modifier = Modifier
+                    .size(mapWidth.dp, mapHeight.dp)
+                    .align(Alignment.TopCenter)
+            ) {
+                if (previewImage != null) {
+                    Image(
+                        bitmap = previewImage!!,
+                        contentDescription = name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.FillBounds
+                    )
+                } else {
+                    Box(Modifier.fillMaxSize().background(Color(0xFF1E1E1E))) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp).align(Alignment.Center),
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(
+                                "Waiting for GPS...",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.Gray,
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        }
+                    }
+                }
+                
+                // マップ中心の十字線（実機の現在地マーカー位置と完全一致）
+                Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.25f)).align(Alignment.Center))
+                Box(Modifier.fillMaxHeight().width(1.dp).background(Color.White.copy(alpha = 0.25f)).align(Alignment.Center))
+            }
+
+            // 実機同様の下部情報パネル領域（TIME / DIST）
+            if (panelHeight > 0) {
+                Box(
                     modifier = Modifier
-                        .size(mapWidth.dp, mapHeight.dp)
-                        .align(Alignment.Center),
-                    contentScale = ContentScale.FillBounds
-                )
-            } else {
-                Box(Modifier.fillMaxSize().background(Color(0xFF1E1E1E))) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp).align(Alignment.Center),
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(
-                            "Waiting for GPS...",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.Gray,
-                            modifier = Modifier.align(Alignment.Center)
-                        )
+                        .fillMaxWidth()
+                        .height(panelHeight.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(Color.Black)
+                ) {
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(Color.DarkGray).align(Alignment.TopCenter))
+                    Row(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("TIME", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
+                        Text("DIST", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
                     }
                 }
             }
-            
-            // 中央の十字線（位置合わせ用）
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.2f)).align(Alignment.Center))
-            Box(Modifier.fillMaxHeight().width(1.dp).background(Color.White.copy(alpha = 0.2f)).align(Alignment.Center))
         }
 
         if (rleBytes > 0) {
