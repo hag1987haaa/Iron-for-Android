@@ -45,6 +45,13 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
             LowerDataSettingsContent(enabledLowerItems, viewModel)
         }
 
+        // 2. マップ表示・操作設定
+        Spacer(Modifier.height(24.dp))
+        SettingsSectionHeader(stringResource(Res.string.settings_section_map))
+        Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+            MapSettingsContent(viewModel)
+        }
+
 
 
         // 2. 心拍サンプリング設定
@@ -136,6 +143,56 @@ fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist:
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(Res.string.settings_notif_time_autolaunch), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
             Switch(checked = launchTime, onCheckedChange = { viewModel.updateAutoLaunchTimeEnabled(it) }, modifier = Modifier.scale(0.7f))
+        }
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
+
+        // --- 通知バイブレーション ---
+        val isVibrationEnabled by viewModel.isNotificationVibrationEnabled.collectAsState()
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.settings_notif_vibration_title), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.settings_notif_vibration_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+            Switch(checked = isVibrationEnabled, onCheckedChange = { viewModel.updateNotificationVibrationEnabled(it) }, modifier = Modifier.scale(0.7f))
+        }
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
+
+        // --- 通知・自動起動後のマップ自動表示 ---
+        val autoShowMapAfterNotifSec by viewModel.autoShowMapAfterNotificationSeconds.collectAsState()
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.settings_notif_auto_show_map_title), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.settings_notif_auto_show_map_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+            var expanded by remember { mutableStateOf(false) }
+            val displayValue = when (autoShowMapAfterNotifSec) {
+                0 -> stringResource(Res.string.settings_notif_auto_show_map_off)
+                3 -> stringResource(Res.string.settings_notif_auto_show_map_3s)
+                5 -> stringResource(Res.string.settings_notif_auto_show_map_5s)
+                10 -> stringResource(Res.string.settings_notif_auto_show_map_10s)
+                else -> "${autoShowMapAfterNotifSec}s"
+            }
+            Box {
+                TextButton(onClick = { expanded = true }) { Text(displayValue) }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    listOf(
+                        0 to stringResource(Res.string.settings_notif_auto_show_map_off),
+                        3 to stringResource(Res.string.settings_notif_auto_show_map_3s),
+                        5 to stringResource(Res.string.settings_notif_auto_show_map_5s),
+                        10 to stringResource(Res.string.settings_notif_auto_show_map_10s)
+                    ).forEach { (sec, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                viewModel.updateAutoShowMapAfterNotificationSeconds(sec)
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -296,6 +353,88 @@ fun LowerDataSettingsContent(enabledLowerItems: List<Int>, viewModel: SettingsVi
                     Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
                 }
             }
+        }
+    }
+}
+
+
+@Composable
+fun MapSettingsContent(viewModel: SettingsViewModel) {
+    val isAutoShowMapOnReady by viewModel.isAutoShowMapOnReadyEnabled.collectAsState()
+    val autoCloseTimeout by viewModel.mapAutoCloseTimeoutSeconds.collectAsState()
+    val isMapSwipePan by viewModel.isMapSwipePanEnabled.collectAsState()
+
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text(
+            text = stringResource(Res.string.settings_map_desc),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 1. マップ自動表示（準備完了時）
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.settings_map_auto_show_ready_title), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.settings_map_auto_show_ready_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+            Switch(
+                checked = isAutoShowMapOnReady,
+                onCheckedChange = { viewModel.updateAutoShowMapOnReadyEnabled(it) },
+                modifier = Modifier.scale(0.7f)
+            )
+        }
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
+
+        // 2. マップ自動終了タイマー
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.settings_map_auto_close_title), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.settings_map_auto_close_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+            var expanded by remember { mutableStateOf(false) }
+            val displayValue = if (autoCloseTimeout == 0) {
+                stringResource(Res.string.settings_map_auto_close_off)
+            } else {
+                "${autoCloseTimeout}s"
+            }
+            Box {
+                TextButton(onClick = { expanded = true }) { Text(displayValue) }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    listOf(
+                        0 to stringResource(Res.string.settings_map_auto_close_off),
+                        5 to "5s",
+                        10 to "10s",
+                        15 to "15s",
+                        30 to "30s",
+                        60 to "60s"
+                    ).forEach { (sec, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                viewModel.updateMapAutoCloseTimeoutSeconds(sec)
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
+
+        // 3. マップ表示中のスワイプ操作
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.settings_map_swipe_pan_title), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.settings_map_swipe_pan_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+            Switch(
+                checked = isMapSwipePan,
+                onCheckedChange = { viewModel.updateMapSwipePanEnabled(it) },
+                modifier = Modifier.scale(0.7f)
+            )
         }
     }
 }

@@ -43,15 +43,32 @@ fun MapSimulationScreen(
     val engineStats by KmpDependencies.trackerEngine.statistics.collectAsState()
 
     val settings = KmpDependencies.appSettings
-    var gpxCourses by remember { mutableStateOf(settings.savedGpxCourses) }
+    val gpxCourses by settings.savedGpxCoursesFlow.collectAsState()
     var pendingCourseForImport by remember { mutableStateOf<GpxCourse?>(null) }
     var editingCourse by remember { mutableStateOf<GpxCourse?>(null) }
     var courseNameInput by remember { mutableStateOf("") }
+    val messenger = KmpDependencies.trackerEngine.pebbleMessenger
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    fun updateCourses(newList: List<GpxCourse>) {
+        settings.savedGpxCourses = newList
+        val activePoints = newList.filter { it.isEnabled }.flatMap { it.points }
+        messenger?.setPlannedCourse(activePoints.ifEmpty { null })
+        val coursesDataStr = if (newList.isNotEmpty()) {
+            newList.joinToString("|") { "${if (it.isEnabled) 1 else 0},${it.name}" }
+        } else {
+            ""
+        }
+        messenger?.sendCoursesData(coursesDataStr)
+    }
 
     fun validateCourseName(input: String, currentCourseId: String? = null): String? {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return "Name cannot be empty"
         if (trimmed.length > 12) return "Max 12 characters"
+        val forbiddenChars = listOf(',', '.', '|', ':', ';', '/', '\\')
+        if (trimmed.any { it in forbiddenChars }) return "Commas, dots & symbols are forbidden"
         if (!Regex("^[a-zA-Z0-9_ -]+$").matches(trimmed)) return "Only A-Z, 0-9, -, _, space allowed"
         val isDuplicate = gpxCourses.any { it.id != currentCourseId && it.name.equals(trimmed, ignoreCase = true) }
         if (isDuplicate) return "Course name already exists"
@@ -72,31 +89,7 @@ fun MapSimulationScreen(
     }
 
     val scrollState = rememberScrollState()
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val messenger = KmpDependencies.trackerEngine.pebbleMessenger
 
-    // メモリ保持のみ: 画面離脱時は予定ルートを自動クリア
-    LaunchedEffect(activePlannedPoints) {
-        messenger?.setPlannedCourse(activePlannedPoints.ifEmpty { null })
-    }
-
-    // コース一覧の変更時に設定へ永続保存＆Pebbleへ一括区切り文字列を自動同期
-    LaunchedEffect(gpxCourses) {
-        settings.savedGpxCourses = gpxCourses
-        if (gpxCourses.isNotEmpty()) {
-            val coursesDataStr = gpxCourses.joinToString("|") { "${if (it.isEnabled) 1 else 0},${it.name}" }
-            messenger?.sendCoursesData(coursesDataStr)
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            messenger?.setPlannedCourse(null)
-        }
-    }
-
-    // コース名前入力・編集ダイアログ
     if (pendingCourseForImport != null || editingCourse != null) {
         val isNew = pendingCourseForImport != null
         val currentId = editingCourse?.id
@@ -118,8 +111,9 @@ fun MapSimulationScreen(
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = courseNameInput,
-                        onValueChange = {
-                            if (it.length <= 12) courseNameInput = it
+                        onValueChange = { input ->
+                            val sanitized = input.replace(Regex("[,.\\|:;/\\\\]"), "")
+                            if (sanitized.length <= 12) courseNameInput = sanitized
                         },
                         label = { Text("Course Name") },
                         singleLine = true,
@@ -143,15 +137,16 @@ fun MapSimulationScreen(
                         val sanitized = courseNameInput.trim()
                         if (isNew) {
                             val newCourse = pendingCourseForImport!!.copy(name = sanitized)
-                            gpxCourses = gpxCourses + newCourse
+                            updateCourses(gpxCourses + newCourse)
                             scope.launch {
                                 snackbarHostState.showSnackbar("Added: $sanitized (${newCourse.points.size} pts)")
                             }
                             pendingCourseForImport = null
                         } else {
-                            gpxCourses = gpxCourses.map {
+                            val updated = gpxCourses.map {
                                 if (it.id == editingCourse!!.id) it.copy(name = sanitized) else it
                             }
+                            updateCourses(updated)
                             scope.launch {
                                 snackbarHostState.showSnackbar("Renamed to: $sanitized")
                             }
@@ -419,9 +414,10 @@ fun MapSimulationScreen(
                                         Checkbox(
                                             checked = course.isEnabled,
                                             onCheckedChange = { isChecked ->
-                                                gpxCourses = gpxCourses.map {
+                                                val updated = gpxCourses.map {
                                                     if (it.id == course.id) it.copy(isEnabled = isChecked) else it
                                                 }
+                                                updateCourses(updated)
                                             }
                                         )
 
@@ -452,7 +448,8 @@ fun MapSimulationScreen(
 
                                         IconButton(
                                             onClick = {
-                                                gpxCourses = gpxCourses.filter { it.id != course.id }
+                                                val updated = gpxCourses.filter { it.id != course.id }
+                                                updateCourses(updated)
                                                 scope.launch { snackbarHostState.showSnackbar("Removed course: ${course.name}") }
                                             }
                                         ) {
@@ -473,7 +470,7 @@ fun MapSimulationScreen(
                         if (gpxCourses.isNotEmpty()) {
                             OutlinedButton(
                                 onClick = {
-                                    gpxCourses = emptyList()
+                                    updateCourses(emptyList())
                                     scope.launch { snackbarHostState.showSnackbar("All GPX courses cleared") }
                                 },
                                 modifier = Modifier.weight(1f)
@@ -584,119 +581,91 @@ fun MapSimulationScreen(
                 }
             }
 
-            ResolutionPreview(
-                name = "Pebble Classic / Steel",
-                width = 144,
-                height = 168,
-                mapWidth = 144,
-                mapHeight = 128,
-                points = displayPoints,
-                isHighlight = pebblePlatform?.contains("Classic") == true,
-                isMonochrome = true,
-                messenger = messenger,
-                refreshKey = activePlannedPoints,
-                zoom = simulatedZoom,
-                onSendMap = { w, h ->
-                    messenger?.setMapZoom(simulatedZoom)
-                    messenger?.sendMap(displayPoints, w, h, simulatedZoom)
-                    scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to Pebble Classic/Steel!") }
-                }
-            )
+            var showConnectedOnly by remember { mutableStateOf(true) }
+            val connectedSimPlatform = SimPlatform.values().find { it.matchesPlatform(pebblePlatform) }
+            val platformsToDisplay = if (showConnectedOnly) {
+                listOf(connectedSimPlatform ?: SimPlatform.TIME)
+            } else {
+                SimPlatform.values().toList()
+            }
 
-            ResolutionPreview(
-                name = "Pebble Time / Time Steel",
-                width = 144,
-                height = 168,
-                mapWidth = 144,
-                mapHeight = 128,
-                points = displayPoints,
-                isHighlight = pebblePlatform?.contains("Time") == true && 
-                             pebblePlatform?.contains("Round") == false && 
-                             pebblePlatform?.contains("2") == false,
-                messenger = messenger,
-                refreshKey = activePlannedPoints,
-                zoom = simulatedZoom,
-                onSendMap = { w, h ->
-                    messenger?.setMapZoom(simulatedZoom)
-                    messenger?.sendMap(displayPoints, w, h, simulatedZoom)
-                    scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to Pebble Time!") }
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.fillMaxWidth(0.9f)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.BatteryChargingFull,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Render Connected Only", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            }
+                            Text(
+                                "Saves battery & CPU by rendering map only for connected device (1/6 load)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            )
+                        }
+                        Switch(
+                            checked = showConnectedOnly,
+                            onCheckedChange = { showConnectedOnly = it }
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        color = if (showConnectedOnly) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface,
+                        shape = MaterialTheme.shapes.extraSmall
+                    ) {
+                        Text(
+                            text = if (showConnectedOnly) {
+                                if (connectedSimPlatform != null) {
+                                    "⚡ Optimized: Generating for ${connectedSimPlatform.displayName} only (83% load reduction)"
+                                } else {
+                                    "⚡ Optimized: Not connected (previewing ${SimPlatform.TIME.displayName})"
+                                }
+                            } else {
+                                "⚠ Full Simulation: Generating 6 platforms simultaneously (Higher battery/CPU usage)"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (showConnectedOnly) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
-            )
+            }
 
-            ResolutionPreview(
-                name = "Pebble Round 2 (260x260 Model)",
-                width = 260,
-                height = 260,
-                mapWidth = 260,
-                mapHeight = 198,
-                isRound = true,
-                points = displayPoints,
-                isHighlight = pebblePlatform?.contains("Round 2") == true,
-                messenger = messenger,
-                refreshKey = activePlannedPoints,
-                zoom = simulatedZoom,
-                onSendMap = { w, h ->
-                    messenger?.setMapZoom(simulatedZoom)
-                    messenger?.sendMap(displayPoints, w, h, simulatedZoom)
-                    scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to Pebble Round 2!") }
-                }
-            )
-
-            ResolutionPreview(
-                name = "Pebble Time Round",
-                width = 180,
-                height = 180,
-                mapWidth = 180,
-                mapHeight = 136,
-                isRound = true,
-                points = displayPoints,
-                isHighlight = pebblePlatform?.contains("Round") == true && pebblePlatform?.contains("Round 2") == false,
-                messenger = messenger,
-                refreshKey = activePlannedPoints,
-                zoom = simulatedZoom,
-                onSendMap = { w, h ->
-                    messenger?.setMapZoom(simulatedZoom)
-                    messenger?.sendMap(displayPoints, w, h, simulatedZoom)
-                    scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to Pebble Time Round!") }
-                }
-            )
-
-            ResolutionPreview(
-                name = "Pebble 2",
-                width = 144,
-                height = 168,
-                mapWidth = 144,
-                mapHeight = 128,
-                points = displayPoints,
-                isHighlight = pebblePlatform?.contains("Pebble 2") == true,
-                isMonochrome = true,
-                messenger = messenger,
-                refreshKey = activePlannedPoints,
-                zoom = simulatedZoom,
-                onSendMap = { w, h ->
-                    messenger?.setMapZoom(simulatedZoom)
-                    messenger?.sendMap(displayPoints, w, h, simulatedZoom)
-                    scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to Pebble 2!") }
-                }
-            )
-
-            ResolutionPreview(
-                name = "Pebble Time 2 (Prototype)",
-                width = 200,
-                height = 228,
-                mapWidth = 200,
-                mapHeight = 176,
-                points = displayPoints,
-                isHighlight = pebblePlatform?.contains("Time 2") == true,
-                messenger = messenger,
-                refreshKey = activePlannedPoints,
-                zoom = simulatedZoom,
-                onSendMap = { w, h ->
-                    messenger?.setMapZoom(simulatedZoom)
-                    messenger?.sendMap(displayPoints, w, h, simulatedZoom)
-                    scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to Pebble Time 2!") }
-                }
-            )
+            platformsToDisplay.forEach { sim ->
+                ResolutionPreview(
+                    name = sim.displayName,
+                    width = sim.width,
+                    height = sim.height,
+                    mapWidth = sim.mapWidth,
+                    mapHeight = sim.mapHeight,
+                    isRound = sim.isRound,
+                    points = displayPoints,
+                    isHighlight = (sim == connectedSimPlatform),
+                    isMonochrome = sim.isMonochrome,
+                    messenger = messenger,
+                    refreshKey = activePlannedPoints,
+                    zoom = simulatedZoom,
+                    onSendMap = { w, h ->
+                        messenger?.setMapZoom(simulatedZoom)
+                        messenger?.sendMap(displayPoints, w, h, simulatedZoom)
+                        scope.launch { snackbarHostState.showSnackbar("Map (z$simulatedZoom) sent to ${sim.displayName}!") }
+                    }
+                )
+            }
 
             Spacer(Modifier.height(32.dp))
         }
@@ -713,14 +682,44 @@ private fun formatGpxDistance(meters: Double): String {
     }
 }
 
-private fun getMapSizeForPlatform(platform: String?): Pair<Int, Int> {
-    return when {
-        platform?.contains("Classic") == true || (platform?.contains("Time") == true && !platform.contains("Round") && !platform.contains("2")) || platform?.contains("Pebble 2") == true -> Pair(144, 128)
-        platform?.contains("Round 2") == true -> Pair(260, 198)
-        platform?.contains("Round") == true -> Pair(180, 136)
-        platform?.contains("Time 2") == true -> Pair(200, 176)
-        else -> Pair(144, 128)
+
+enum class SimPlatform(
+    val displayName: String,
+    val width: Int,
+    val height: Int,
+    val mapWidth: Int,
+    val mapHeight: Int,
+    val isRound: Boolean = false,
+    val isMonochrome: Boolean = false
+) {
+    CLASSIC("Pebble Classic / Steel", 144, 168, 144, 128, isMonochrome = true),
+    TIME("Pebble Time / Time Steel", 144, 168, 144, 128),
+    ROUND_2("Pebble Round 2 (260x260 Model)", 260, 260, 260, 198, isRound = true),
+    TIME_ROUND("Pebble Time Round", 180, 180, 180, 136, isRound = true),
+    PEBBLE_2("Pebble 2", 144, 168, 144, 128, isMonochrome = true),
+    TIME_2("Pebble Time 2 (Prototype)", 200, 228, 200, 176);
+
+    fun matchesPlatform(platform: String?): Boolean {
+        if (platform == null) return false
+        return when (this) {
+            CLASSIC -> platform.contains("Classic", ignoreCase = true)
+            TIME -> platform.contains("Time", ignoreCase = true) &&
+                    !platform.contains("Round", ignoreCase = true) &&
+                    !platform.contains("2")
+            ROUND_2 -> platform.contains("Round 2", ignoreCase = true)
+            TIME_ROUND -> platform.contains("Round", ignoreCase = true) &&
+                    !platform.contains("Round 2", ignoreCase = true)
+            PEBBLE_2 -> platform.contains("Pebble 2", ignoreCase = true) ||
+                    platform.contains("Diorite", ignoreCase = true)
+            TIME_2 -> platform.contains("Time 2", ignoreCase = true) ||
+                    platform.contains("Emery", ignoreCase = true)
+        }
     }
+}
+
+private fun getMapSizeForPlatform(platform: String?): Pair<Int, Int> {
+    val sim = SimPlatform.values().find { it.matchesPlatform(platform) }
+    return if (sim != null) Pair(sim.mapWidth, sim.mapHeight) else Pair(144, 128)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -874,7 +873,7 @@ fun ResolutionPreview(
 var platformImageBitmapConverter: ((width: Int, height: Int, rgba: IntArray) -> ImageBitmap?)? = null
 
 private fun generateUniqueCourseName(baseName: String, existing: List<GpxCourse>): String {
-    var candidate = baseName.take(12).ifBlank { "COURSE" }
+    var candidate = baseName.replace(Regex("[,.\\|:;/\\\\]"), "_").take(12).ifBlank { "COURSE" }
     if (!existing.any { it.name.equals(candidate, ignoreCase = true) }) {
         return candidate
     }

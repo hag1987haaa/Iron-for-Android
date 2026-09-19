@@ -1304,6 +1304,22 @@ class AndroidPebbleMessenger(
         Log.d("PebbleMessenger", "Current Lower ID synced and saved: $id")
     }
 
+    override fun openMap() {
+        isMapActive = true
+        panOffsetPixelsX = 0.0
+        panOffsetPixelsY = 0.0
+        val defaultZoom = when (KmpDependencies.trackerEngine.statistics.value.activityType) {
+            hag1987haaa.pebble.iron.domain.model.ActivityType.WALKING,
+            hag1987haaa.pebble.iron.domain.model.ActivityType.HIKING -> 16
+            hag1987haaa.pebble.iron.domain.model.ActivityType.CYCLING -> 14
+            else -> 15
+        }
+        currentMapZoom = defaultZoom
+        Log.i("PebbleMessenger", "openMap: Triggering map screen, default zoom=$defaultZoom")
+        resetAutoCloseTimer()
+        scheduleMapRefresh(0L)
+    }
+
     override fun setMapState(isActive: Boolean) {
         isMapActive = isActive
         if (!isActive) {

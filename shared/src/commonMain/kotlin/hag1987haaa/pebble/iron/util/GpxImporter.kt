@@ -3,7 +3,12 @@ package hag1987haaa.pebble.iron.util
 import hag1987haaa.pebble.iron.domain.model.LocationPoint
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
+@Serializable
 data class GpxCourse(
     val id: String = Clock.System.now().toEpochMilliseconds().toString(),
     val name: String,
@@ -12,9 +17,23 @@ data class GpxCourse(
     val isEnabled: Boolean = true
 )
 
+val gpxJson = Json {
+    ignoreUnknownKeys = true
+    isLenient = true
+}
+
+fun List<GpxCourse>.toJson(): String = gpxJson.encodeToString(this)
+fun parseGpxCoursesJson(json: String): List<GpxCourse> = try {
+    gpxJson.decodeFromString<List<GpxCourse>>(json)
+} catch (_: Exception) {
+    emptyList()
+}
+
 object GpxImporter {
     fun sanitizeCourseName(rawName: String): String {
         var name = rawName.replace(Regex("\\.gpx$", RegexOption.IGNORE_CASE), "")
+        val forbiddenChars = setOf(',', '.', '|', ':', ';', '/', '\\')
+        name = name.map { if (it in forbiddenChars) '_' else it }.joinToString("")
         name = name.replace(Regex("[^a-zA-Z0-9_ -]"), "_").trim()
         if (name.length > 12) {
             name = name.take(12)
@@ -89,7 +108,7 @@ object GpxImporter {
     }
 
     private fun haversine(p1: LocationPoint, p2: LocationPoint): Double {
-        val r = 6371000.0 // 地球の半径 (メートル)
+        val r = 6371000.0 // 地球の半径(メートル)
         val lat1 = Math.toRadians(p1.latitude)
         val lat2 = Math.toRadians(p2.latitude)
         val dLat = Math.toRadians(p2.latitude - p1.latitude)

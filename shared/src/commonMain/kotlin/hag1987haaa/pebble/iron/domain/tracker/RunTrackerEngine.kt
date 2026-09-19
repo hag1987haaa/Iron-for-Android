@@ -452,6 +452,7 @@ class RunTrackerEngine(
 
     fun setCurrentMidId(id: Int) { pebbleMessenger?.setCurrentMidId(id) }
     fun setCurrentLowerId(id: Int) { pebbleMessenger?.setCurrentLowerId(id) }
+    fun openMap() { pebbleMessenger?.openMap() }
     fun setMapState(isActive: Boolean) { pebbleMessenger?.setMapState(isActive) }
 
     val isMapActive: Boolean get() = pebbleMessenger?.isMapActive ?: false
@@ -538,12 +539,16 @@ class RunTrackerEngine(
                 if (s.status != RunStatus.ACTIVE) continue
 
                 // --- 副作用の実行 (updateブロックの外で確実に1回) ---
+                var notifTriggered = false
                 if (triggerTimeNotif) {
                     val timeStep = appSettings?.notificationTimeSeconds ?: 0
                     lastNotifiedTimeCount = (s.totalSeconds / timeStep).toInt()
                     println("RunTrackerEngine: Triggering Time Notification at ${s.totalSeconds}s")
                     if (appSettings?.isAutoLaunchOnTimeNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
-                    pebbleMessenger?.sendNotification(1) // 1: 時間通知
+                    if (appSettings?.isNotificationVibrationEnabled != false) {
+                        pebbleMessenger?.sendNotification(1) // 1: 時間通知
+                    }
+                    notifTriggered = true
                 }
 
                 if (triggerDistNotif) {
@@ -553,7 +558,23 @@ class RunTrackerEngine(
                     lastNotifiedDistanceKm = (s.totalDistanceMeters / threshold).toInt()
                     println("RunTrackerEngine: Triggering Distance Notification at ${s.totalDistanceMeters}m")
                     if (appSettings?.isAutoLaunchOnDistanceNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
-                    pebbleMessenger?.sendNotification(0) // 0: 距離通知
+                    if (appSettings?.isNotificationVibrationEnabled != false) {
+                        pebbleMessenger?.sendNotification(0) // 0: 距離通知
+                    }
+                    notifTriggered = true
+                }
+
+                if (notifTriggered) {
+                    val mapDelay = appSettings?.autoShowMapAfterNotificationSeconds ?: 0
+                    if (mapDelay > 0) {
+                        scope.launch {
+                            delay(mapDelay * 1000L)
+                            if (_statistics.value.status == RunStatus.ACTIVE) {
+                                println("RunTrackerEngine: Auto-opening map $mapDelay s after notification")
+                                openMap()
+                            }
+                        }
+                    }
                 }
 
                 // --- 定期的なグラフデータ更新 (10秒おき) ---

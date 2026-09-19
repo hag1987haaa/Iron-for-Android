@@ -8,7 +8,23 @@ import hag1987haaa.pebble.iron.domain.model.ActivityType
 class AppSettings {
     var isMusicControlEnabled: Boolean = false
     var isTouchControlEnabled: Boolean = false
-    var isMapSwipePanEnabled: Boolean = false
+    private val _isMapSwipePanEnabled = MutableStateFlow(value = false)
+    val isMapSwipePanEnabledFlow: StateFlow<Boolean> = _isMapSwipePanEnabled.asStateFlow()
+    var isMapSwipePanEnabled: Boolean
+        get() = _isMapSwipePanEnabled.value
+        set(value) { _isMapSwipePanEnabled.value = value }
+
+    private val _isNotificationVibrationEnabled = MutableStateFlow(value = true)
+    val isNotificationVibrationEnabledFlow: StateFlow<Boolean> = _isNotificationVibrationEnabled.asStateFlow()
+    var isNotificationVibrationEnabled: Boolean
+        get() = _isNotificationVibrationEnabled.value
+        set(value) { _isNotificationVibrationEnabled.value = value }
+
+    private val _autoShowMapAfterNotificationSeconds = MutableStateFlow(value = 0)
+    val autoShowMapAfterNotificationSecondsFlow: StateFlow<Int> = _autoShowMapAfterNotificationSeconds.asStateFlow()
+    var autoShowMapAfterNotificationSeconds: Int
+        get() = _autoShowMapAfterNotificationSeconds.value
+        set(value) { _autoShowMapAfterNotificationSeconds.value = value }
     
     // ボタン長押しアクション設定
     var isLongPressEnabled: Boolean = false

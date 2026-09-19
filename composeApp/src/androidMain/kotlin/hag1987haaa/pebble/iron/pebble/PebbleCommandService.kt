@@ -36,6 +36,7 @@ class PebbleCommandService : BasePebbleListenerService() {
         private const val KEY_MAP_STATE = 10022u
         private const val KEY_PAN_DX = 10023u
         private const val KEY_PAN_DY = 10024u
+        private const val KEY_COURSES_DATA = 10025u
     }
 
     override fun onCreate() {
@@ -109,6 +110,12 @@ class PebbleCommandService : BasePebbleListenerService() {
             engine.setMapState(isActive)
         }
 
+        // Courses Data / Toggle (10025)
+        data[KEY_COURSES_DATA]?.let { parsePebbleItemToString(it) }?.let { coursesDataStr ->
+            Log.i("PebbleCommand", "Sync: Courses Data ($coursesDataStr)")
+            handleCoursesDataFromPebble(coursesDataStr)
+        }
+
         // 2. イベント・コマンドの処理
         var handledByEvent = false
         
@@ -167,30 +174,31 @@ class PebbleCommandService : BasePebbleListenerService() {
             if (settings.isMapSwipePanEnabled) {
                 // パン有効 -> 地図スクロール
                 engine.panMap(dx, dy)
+                return
             }
-        } else {
-            // 音楽操作モード（または通常画面）: 移動方向から曲送り・音量を判定
-            val absDx = Math.abs(dx)
-            val absDy = Math.abs(dy)
-            val SWIPE_THRESHOLD = 15
+        }
 
-            if (absDx >= SWIPE_THRESHOLD || absDy >= SWIPE_THRESHOLD) {
-                if (absDx > absDy) {
-                    if (dx > 0) {
-                        Log.i("PebbleCommand", "Touch Swipe interpreted as PREV (dx=$dx)")
-                        sendMediaKey(3) // Prev
-                    } else {
-                        Log.i("PebbleCommand", "Touch Swipe interpreted as NEXT (dx=$dx)")
-                        sendMediaKey(2) // Next
-                    }
+        // 音楽操作（通常時、またはマップ表示中でマップパンが無効な場合のフォールスルー）
+        val absDx = Math.abs(dx)
+        val absDy = Math.abs(dy)
+        val SWIPE_THRESHOLD = 15
+
+        if (absDx >= SWIPE_THRESHOLD || absDy >= SWIPE_THRESHOLD) {
+            if (absDx > absDy) {
+                if (dx > 0) {
+                    Log.i("PebbleCommand", "Touch Swipe interpreted as PREV (dx=$dx)")
+                    sendMediaKey(3) // Prev
                 } else {
-                    if (dy > 0) {
-                        Log.i("PebbleCommand", "Touch Swipe interpreted as VOL DOWN (dy=$dy)")
-                        sendMediaKey(5) // Vol Down
-                    } else {
-                        Log.i("PebbleCommand", "Touch Swipe interpreted as VOL UP (dy=$dy)")
-                        sendMediaKey(4) // Vol Up
-                    }
+                    Log.i("PebbleCommand", "Touch Swipe interpreted as NEXT (dx=$dx)")
+                    sendMediaKey(2) // Next
+                }
+            } else {
+                if (dy > 0) {
+                    Log.i("PebbleCommand", "Touch Swipe interpreted as VOL DOWN (dy=$dy)")
+                    sendMediaKey(5) // Vol Down
+                } else {
+                    Log.i("PebbleCommand", "Touch Swipe interpreted as VOL UP (dy=$dy)")
+                    sendMediaKey(4) // Vol Up
                 }
             }
         }
@@ -355,6 +363,10 @@ class PebbleCommandService : BasePebbleListenerService() {
                     Log.e("PebbleCommand", "Failed to launch assistant", e)
                 }
             }
+            LongPressMode.MAP -> {
+                Log.i("PebbleCommand", "Long Press Map Triggered (cmd=$cmd)")
+                KmpDependencies.trackerEngine.openMap()
+            }
             LongPressMode.INTENT -> {
                 if (settings.isAutomationEnabled) {
                     val isEnabled = when(cmd) {
@@ -383,6 +395,56 @@ class PebbleCommandService : BasePebbleListenerService() {
             LongPressMode.NONE -> {
                 Log.d("PebbleCommand", "Long Press ignored (Mode: NONE)")
             }
+        }
+    }
+
+    private fun parsePebbleItemToString(item: PebbleDictionaryItem): String? {
+        return when (item) {
+            is PebbleDictionaryItem.Text -> item.value
+            is PebbleDictionaryItem.Bytes -> try { String(item.value, Charsets.UTF_8) } catch (_: Exception) { null }
+            else -> null
+        }
+    }
+
+    private fun handleCoursesDataFromPebble(dataStr: String) {
+        val settings = KmpDependencies.appSettings
+        val currentCourses = settings.savedGpxCourses
+        if (currentCourses.isEmpty()) return
+
+        val updatedCourses = if (dataStr.contains("|")) {
+            val items = dataStr.split("|").mapNotNull { entry ->
+                val parts = entry.split(",")
+                if (parts.size >= 2) {
+                    val enabled = parts[0].trim() == "1"
+                    val name = parts.subList(1, parts.size).joinToString(",").trim()
+                    name to enabled
+                } else null
+            }.toMap()
+
+            currentCourses.map { course ->
+                items[course.name]?.let { course.copy(isEnabled = it) } ?: course
+            }
+        } else {
+            val parts = dataStr.split(",")
+            if (parts.size >= 2) {
+                val enabled = parts[0].trim() == "1"
+                val name = parts.subList(1, parts.size).joinToString(",").trim()
+                currentCourses.map { course ->
+                    if (course.name.equals(name, ignoreCase = true)) {
+                        course.copy(isEnabled = enabled)
+                    } else course
+                }
+            } else {
+                currentCourses
+            }
+        }
+
+        if (updatedCourses != currentCourses) {
+            settings.savedGpxCourses = updatedCourses
+            val activePlanned = updatedCourses.filter { it.isEnabled }.flatMap { it.points }
+            val engine = KmpDependencies.trackerEngine
+            engine.pebbleMessenger?.setPlannedCourse(activePlanned.ifEmpty { null })
+            Log.i("PebbleCommand", "Updated courses from watch. Active planned points: ${activePlanned.size}")
         }
     }
 

@@ -18,6 +18,8 @@ import hag1987haaa.pebble.iron.KmpDependencies
 import hag1987haaa.pebble.iron.Res
 import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.domain.settings.LongPressMode
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -176,9 +178,36 @@ fun AutomationSettingsContent(viewModel: SettingsViewModel, actions: AppActions)
         }
         if (isLongPressEnabled) {
             Spacer(Modifier.height(12.dp))
-            LongPressButtonSetting(stringResource(Res.string.settings_longpress_up), upLongPressMode, stringResource(Res.string.settings_longpress_mode_music_prev), stringResource(Res.string.settings_longpress_mode_assistant), stringResource(Res.string.settings_longpress_mode_intent), stringResource(Res.string.settings_longpress_mode_none), { viewModel.updateUpLongPressMode(it) }, "ACTION_LONGPRESS_UP", isCmd50Enabled, { viewModel.updateCommand50Enabled(it) }, actions)
-            LongPressButtonSetting(stringResource(Res.string.settings_longpress_select), selectLongPressMode, stringResource(Res.string.settings_longpress_mode_music_play), stringResource(Res.string.settings_longpress_mode_assistant), stringResource(Res.string.settings_longpress_mode_intent), stringResource(Res.string.settings_longpress_mode_none), { viewModel.updateSelectLongPressMode(it) }, "ACTION_LONGPRESS_SELECT", isCmd51Enabled, { viewModel.updateCommand51Enabled(it) }, actions)
-            LongPressButtonSetting(stringResource(Res.string.settings_longpress_down), downLongPressMode, stringResource(Res.string.settings_longpress_mode_music_next), stringResource(Res.string.settings_longpress_mode_assistant), stringResource(Res.string.settings_longpress_mode_intent), stringResource(Res.string.settings_longpress_mode_none), { viewModel.updateDownLongPressMode(it) }, "ACTION_LONGPRESS_DOWN", isCmd52Enabled, { viewModel.updateCommand52Enabled(it) }, actions)
+            LongPressButtonSettingDropdown(
+                buttonLabel = stringResource(Res.string.settings_longpress_up),
+                currentMode = upLongPressMode,
+                onModeChanged = { viewModel.updateUpLongPressMode(it) },
+                musicLabel = stringResource(Res.string.settings_longpress_mode_music_prev),
+                intentAction = "ACTION_LONGPRESS_UP",
+                isIntentEnabled = isCmd50Enabled,
+                onIntentEnabledChanged = { viewModel.updateCommand50Enabled(it) },
+                actions = actions
+            )
+            LongPressButtonSettingDropdown(
+                buttonLabel = stringResource(Res.string.settings_longpress_select),
+                currentMode = selectLongPressMode,
+                onModeChanged = { viewModel.updateSelectLongPressMode(it) },
+                musicLabel = stringResource(Res.string.settings_longpress_mode_music_play),
+                intentAction = "ACTION_LONGPRESS_SELECT",
+                isIntentEnabled = isCmd51Enabled,
+                onIntentEnabledChanged = { viewModel.updateCommand51Enabled(it) },
+                actions = actions
+            )
+            LongPressButtonSettingDropdown(
+                buttonLabel = stringResource(Res.string.settings_longpress_down),
+                currentMode = downLongPressMode,
+                onModeChanged = { viewModel.updateDownLongPressMode(it) },
+                musicLabel = stringResource(Res.string.settings_longpress_mode_music_next),
+                intentAction = "ACTION_LONGPRESS_DOWN",
+                isIntentEnabled = isCmd52Enabled,
+                onIntentEnabledChanged = { viewModel.updateCommand52Enabled(it) },
+                actions = actions
+            )
         }
         HorizontalDivider(Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -217,24 +246,151 @@ fun AutomationSettingsContent(viewModel: SettingsViewModel, actions: AppActions)
 }
 
 @Composable
-fun LongPressButtonSetting(label: String, currentMode: LongPressMode, musicLabel: String, assistantLabel: String, intentLabel: String, noneLabel: String, onModeChanged: (LongPressMode) -> Unit, intentAction: String, isIntentEnabled: Boolean, onIntentEnabledChanged: (Boolean) -> Unit, actions: AppActions) {
+fun LongPressButtonSettingDropdown(
+    buttonLabel: String,
+    currentMode: LongPressMode,
+    onModeChanged: (LongPressMode) -> Unit,
+    musicLabel: String,
+    intentAction: String,
+    isIntentEnabled: Boolean,
+    onIntentEnabledChanged: (Boolean) -> Unit,
+    actions: AppActions
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    val currentModeLabel = when (currentMode) {
+        LongPressMode.MUSIC -> musicLabel
+        LongPressMode.MAP -> stringResource(Res.string.settings_longpress_mode_map)
+        LongPressMode.ASSISTANT -> stringResource(Res.string.settings_longpress_mode_assistant)
+        LongPressMode.INTENT -> stringResource(Res.string.settings_longpress_mode_intent)
+        LongPressMode.NONE -> stringResource(Res.string.settings_longpress_mode_none)
+    }
+
+    val currentModeIcon = when (currentMode) {
+        LongPressMode.MUSIC -> Icons.Default.MusicNote
+        LongPressMode.MAP -> Icons.Default.Map
+        LongPressMode.ASSISTANT -> Icons.Default.Mic
+        LongPressMode.INTENT -> Icons.Default.Terminal
+        LongPressMode.NONE -> Icons.Default.Block
+    }
+
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text(text = label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onModeChanged(LongPressMode.MUSIC) }) {
-            RadioButton(selected = currentMode == LongPressMode.MUSIC, onClick = { onModeChanged(LongPressMode.MUSIC) }); Text(text = musicLabel, style = MaterialTheme.typography.bodyMedium)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = buttonLabel,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.width(90.dp)
+            )
+
+            Box(modifier = Modifier.weight(1f)) {
+                OutlinedCard(
+                    onClick = { expanded = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Icon(
+                                imageVector = currentModeIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = if (currentMode == LongPressMode.NONE) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = currentModeLabel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(musicLabel) },
+                        leadingIcon = { Icon(Icons.Default.MusicNote, null, modifier = Modifier.size(20.dp)) },
+                        onClick = {
+                            onModeChanged(LongPressMode.MUSIC)
+                            expanded = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.settings_longpress_mode_map)) },
+                        leadingIcon = { Icon(Icons.Default.Map, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
+                        onClick = {
+                            onModeChanged(LongPressMode.MAP)
+                            expanded = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.settings_longpress_mode_assistant)) },
+                        leadingIcon = { Icon(Icons.Default.Mic, null, modifier = Modifier.size(20.dp)) },
+                        onClick = {
+                            onModeChanged(LongPressMode.ASSISTANT)
+                            expanded = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.settings_longpress_mode_intent)) },
+                        leadingIcon = { Icon(Icons.Default.Terminal, null, modifier = Modifier.size(20.dp)) },
+                        onClick = {
+                            onModeChanged(LongPressMode.INTENT)
+                            expanded = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.settings_longpress_mode_none)) },
+                        leadingIcon = { Icon(Icons.Default.Block, null, modifier = Modifier.size(20.dp)) },
+                        onClick = {
+                            onModeChanged(LongPressMode.NONE)
+                            expanded = false
+                        }
+                    )
+                }
+            }
         }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onModeChanged(LongPressMode.ASSISTANT) }) {
-            RadioButton(selected = currentMode == LongPressMode.ASSISTANT, onClick = { onModeChanged(LongPressMode.ASSISTANT) }); Text(text = assistantLabel, style = MaterialTheme.typography.bodyMedium)
+
+        if (currentMode == LongPressMode.MAP) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(Res.string.map_snapshot_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 94.dp)
+            )
         }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onModeChanged(LongPressMode.INTENT) }) {
-            RadioButton(selected = currentMode == LongPressMode.INTENT, onClick = { onModeChanged(LongPressMode.INTENT) }); Text(text = intentLabel, style = MaterialTheme.typography.bodyMedium)
-        }
+
         if (currentMode == LongPressMode.INTENT) {
             val fullIntentName = "hag1987haaa.pebble.iron.$intentAction"
-            Column(modifier = Modifier.padding(start = 32.dp).fillMaxWidth()) {
-                Surface(color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f), shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.height(6.dp))
+            Column(modifier = Modifier.padding(start = 94.dp).fillMaxWidth()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
-                        Text(stringResource(Res.string.settings_auto_enable_label), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f)); Switch(checked = isIntentEnabled, onCheckedChange = onIntentEnabledChanged, modifier = Modifier.scale(0.7f))
+                        Text(stringResource(Res.string.settings_auto_enable_label), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Switch(checked = isIntentEnabled, onCheckedChange = onIntentEnabledChanged, modifier = Modifier.scale(0.7f))
                     }
                 }
                 if (isIntentEnabled) {
@@ -257,9 +413,6 @@ fun LongPressButtonSetting(label: String, currentMode: LongPressMode, musicLabel
                     }
                 }
             }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onModeChanged(LongPressMode.NONE) }) {
-            RadioButton(selected = currentMode == LongPressMode.NONE, onClick = { onModeChanged(LongPressMode.NONE) }); Text(text = noneLabel, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

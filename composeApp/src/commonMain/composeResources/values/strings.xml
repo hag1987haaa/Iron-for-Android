@@ -124,6 +124,11 @@
     <string name="settings_longpress_mode_music_prev">Music Control (Previous)</string>
     <string name="settings_longpress_mode_music_play">Music Control (Play/Pause)</string>
     <string name="settings_longpress_mode_music_next">Music Control (Next)</string>
+    <string name="settings_longpress_mode_map">Map (Location Snapshot)</string>
+    <string name="map_snapshot_hint">* Sends a static map snapshot of current location and GPX course to Pebble.</string>
+    <string name="home_courses_button">Courses</string>
+    <string name="gpx_courses_sheet_title">GPX Planned Courses</string>
+    <string name="gpx_courses_sheet_desc">Manage GPX courses to overlay on Pebble map snapshots.</string>
     <string name="settings_longpress_mode_assistant">Voice Assistant</string>
     <string name="settings_longpress_mode_intent">External Integration (Custom Intent)</string>
     <string name="settings_longpress_mode_none">Disabled</string>
@@ -304,4 +309,23 @@
     <string name="settings_section_lower_data">Lower Section Items</string>
     <string name="settings_lower_data_desc">Select and reorder metrics &amp; graphs displayed in the bottom section.</string>
     <string name="settings_graph_prefix">Graph: </string>
+    <!-- Notification Expansion & Map Settings -->
+    <string name="settings_notif_vibration_title">Notification Vibration</string>
+    <string name="settings_notif_vibration_desc">Vibrate watch when notification occurs. When OFF, auto-launches without vibrating.</string>
+    <string name="settings_notif_auto_show_map_title">Auto Show Map</string>
+    <string name="settings_notif_auto_show_map_desc">Switch to map screen after auto-launch / notification</string>
+    <string name="settings_notif_auto_show_map_off">Off</string>
+    <string name="settings_notif_auto_show_map_3s">After 3s</string>
+    <string name="settings_notif_auto_show_map_5s">After 5s</string>
+    <string name="settings_notif_auto_show_map_10s">After 10s</string>
+
+    <string name="settings_section_map">Map Screen &amp; Controls</string>
+    <string name="settings_map_desc">Display and control settings for Pebble map screen</string>
+    <string name="settings_map_auto_show_ready_title">Auto Show on Ready</string>
+    <string name="settings_map_auto_show_ready_desc">Automatically switch watch screen to map once map rendering is complete</string>
+    <string name="settings_map_auto_close_title">Auto-Close Timeout</string>
+    <string name="settings_map_auto_close_desc">Return to workout cockpit if no interaction occurs</string>
+    <string name="settings_map_auto_close_off">Off (Manual exit)</string>
+    <string name="settings_map_swipe_pan_title">Map Swipe Action</string>
+    <string name="settings_map_swipe_pan_desc">ON: Pan map with swipes / OFF: Keep music controls active on map screen</string>
 </resources>

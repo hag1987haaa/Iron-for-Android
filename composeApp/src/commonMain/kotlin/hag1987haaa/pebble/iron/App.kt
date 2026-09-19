@@ -248,6 +248,23 @@ fun RunScreen(actions: AppActions) {
     var isHeadingUp by rememberSaveable { mutableStateOf(false) }
     var zoomToTrackKey by remember { mutableStateOf(0) }
 
+    val savedCourses by KmpDependencies.appSettings.savedGpxCoursesFlow.collectAsState()
+    var showCourseSheet by rememberSaveable { mutableStateOf(false) }
+
+    val activePlannedPoints = remember(savedCourses) {
+        savedCourses.filter { it.isEnabled }.flatMap { it.points }
+    }
+    val currentLoc = stats.currentLocation
+    val mapPoints = remember(stats.route, activePlannedPoints, currentLoc) {
+        if (stats.route.isNotEmpty()) {
+            if (activePlannedPoints.isNotEmpty()) stats.route + activePlannedPoints else stats.route
+        } else if (activePlannedPoints.isNotEmpty()) {
+            activePlannedPoints
+        } else {
+            currentLoc?.let { listOf(it) } ?: emptyList()
+        }
+    }
+
     val currentBearing = stats.route.lastOrNull()?.bearing?.toFloat() ?: 0f
     val mapRotation = if (isHeadingUp) currentBearing else 0f
 
@@ -269,7 +286,7 @@ fun RunScreen(actions: AppActions) {
             ) {
                 if (!isMapFullScreen) {
                     RouteMapView(
-                        points = if (stats.route.isNotEmpty()) stats.route else (stats.currentLocation?.let { listOf(it) } ?: emptyList()),
+                        points = mapPoints,
                         modifier = Modifier.fillMaxSize(),
                         isPrivacyMode = isPrivacyMode,
                         isAutoCenter = isAutoCenter,
@@ -418,6 +435,30 @@ fun RunScreen(actions: AppActions) {
                         .align(Alignment.TopStart)
                         .padding(top = 64.dp, start = 8.dp)
                 )
+
+                // 前面層: コース管理バッジボタン（左のインジケーターの真反対）
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 64.dp, end = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CourseBadge(
+                        activeCount = savedCourses.count { it.isEnabled },
+                        totalCount = savedCourses.size,
+                        onClick = { showCourseSheet = true }
+                    )
+
+                    PrivacyBadge(
+                        isPrivacyMode = isPrivacyMode,
+                        onToggle = {
+                            val next = !isPrivacyMode
+                            KmpDependencies.appSettings.isPrivacyMapModeEnabled = next
+                            KmpDependencies.appSettings.save()
+                        }
+                    )
+                }
             }
         }
 
@@ -425,7 +466,7 @@ fun RunScreen(actions: AppActions) {
         if (isMapFullScreen) {
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 RouteMapView(
-                    points = if (stats.route.isNotEmpty()) stats.route else (stats.currentLocation?.let { listOf(it) } ?: emptyList()),
+                    points = mapPoints,
                     modifier = Modifier.fillMaxSize(),
                     isPrivacyMode = isPrivacyMode,
                     isAutoCenter = isAutoCenter,
@@ -511,6 +552,102 @@ fun RunScreen(actions: AppActions) {
                 )
             }
         }
+
+        if (showCourseSheet) {
+            GpxCoursesSheet(
+                actions = actions,
+                onDismissRequest = { showCourseSheet = false }
+            )
+        }
+    }
+}
+
+@Composable
+private fun CourseBadge(
+    activeCount: Int,
+    totalCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val hasActive = activeCount > 0
+    val activeColor = MaterialTheme.colorScheme.primary
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .background(if (hasActive) activeColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+            .padding(4.dp)
+    ) {
+        if (totalCount > 0) {
+            Text(
+                text = if (hasActive) "$activeCount ON" else "$totalCount",
+                fontSize = 9.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (hasActive) activeColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 9.sp
+            )
+        }
+        Icon(
+            imageVector = Icons.Default.AltRoute,
+            contentDescription = "Courses",
+            modifier = Modifier.size(if (totalCount > 0) 18.dp else 22.dp),
+            tint = if (hasActive) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "COURSE",
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (hasActive) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun PrivacyBadge(
+    isPrivacyMode: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val activeColor = MaterialTheme.colorScheme.primary
+    val backgroundColor = if (isPrivacyMode) {
+        activeColor.copy(alpha = 0.15f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+    }
+    val contentColor = if (isPrivacyMode) {
+        activeColor
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onToggle() }
+            .background(backgroundColor)
+            .padding(4.dp)
+    ) {
+        Text(
+            text = if (isPrivacyMode) "ON" else "OFF",
+            fontSize = 9.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = contentColor,
+            lineHeight = 9.sp
+        )
+        Icon(
+            imageVector = if (isPrivacyMode) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+            contentDescription = "Privacy Map",
+            modifier = Modifier.size(18.dp),
+            tint = contentColor
+        )
+        Text(
+            text = "PRIVACY",
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Bold,
+            color = contentColor
+        )
     }
 }
 

@@ -124,6 +124,11 @@
     <string name="settings_longpress_mode_music_prev">ミュージックコントロール（前の曲）</string>
     <string name="settings_longpress_mode_music_play">ミュージックコントロール（再生/一時停止）</string>
     <string name="settings_longpress_mode_music_next">ミュージックコントロール（次の曲）</string>
+    <string name="settings_longpress_mode_map">マップ（現在地スナップショット）</string>
+    <string name="map_snapshot_hint">※現在地と設定中GPXコースの静止画スナップショットをPebbleへ転送します</string>
+    <string name="home_courses_button">コース</string>
+    <string name="gpx_courses_sheet_title">GPX計画コース管理</string>
+    <string name="gpx_courses_sheet_desc">Pebbleのマップスナップショット上に重畳表示するGPXコースを管理します</string>
     <string name="settings_longpress_mode_assistant">ボイスアシスタント</string>
     <string name="settings_longpress_mode_intent">カスタムインテントの送信による外部連携機能</string>
     <string name="settings_longpress_mode_none">無効</string>
@@ -304,4 +309,23 @@
     <string name="settings_section_lower_data">下段の表示項目</string>
     <string name="settings_lower_data_desc">下段に表示する項目（数値・グラフ）と表示順を設定します。</string>
     <string name="settings_graph_prefix">グラフ: </string>
+    <!-- Notification Expansion & Map Settings -->
+    <string name="settings_notif_vibration_title">通知バイブレーション</string>
+    <string name="settings_notif_vibration_desc">通知発生時にウォッチを振動させます。OFFにすると振動なしで画面起動のみ行います。</string>
+    <string name="settings_notif_auto_show_map_title">通知後マップ自動表示</string>
+    <string name="settings_notif_auto_show_map_desc">自動起動や通知の後、指定秒数後に自動でマップ画面へ切り替えます</string>
+    <string name="settings_notif_auto_show_map_off">オフ</string>
+    <string name="settings_notif_auto_show_map_3s">3秒後</string>
+    <string name="settings_notif_auto_show_map_5s">5秒後</string>
+    <string name="settings_notif_auto_show_map_10s">10秒後</string>
+
+    <string name="settings_section_map">マップ表示・操作設定</string>
+    <string name="settings_map_desc">Pebbleウォッチ上でのマップ画面の表示や操作に関する設定です</string>
+    <string name="settings_map_auto_show_ready_title">準備完了時にマップ自動表示</string>
+    <string name="settings_map_auto_show_ready_desc">マップ画像の生成・転送が完了した際、自動でウォッチ画面をマップに切り替えます</string>
+    <string name="settings_map_auto_close_title">マップ自動終了時間</string>
+    <string name="settings_map_auto_close_desc">無操作のまま指定時間が経過すると、自動で計測画面に復帰します</string>
+    <string name="settings_map_auto_close_off">オフ (手動終了のみ)</string>
+    <string name="settings_map_swipe_pan_title">マップ表示中のスワイプ操作</string>
+    <string name="settings_map_swipe_pan_desc">ON: 地図スクロール（パン） / OFF: マップ表示中も音楽操作（曲送り・音量）を維持</string>
 </resources>

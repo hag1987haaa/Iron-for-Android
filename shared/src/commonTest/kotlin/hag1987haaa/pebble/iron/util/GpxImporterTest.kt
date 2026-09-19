@@ -38,7 +38,7 @@ class GpxImporterTest {
 
         val course = GpxImporter.parse(gpx)
         assertNotNull(course)
-        assertEquals("Tokyo Imperial Palace Loop", course.name)
+        assertEquals("Tokyo Imperi", course.name)
         assertEquals(3, course.points.size)
         assertEquals(35.6812, course.points[0].latitude)
         assertEquals(139.7671, course.points[0].longitude)
@@ -60,7 +60,7 @@ class GpxImporterTest {
 
         val course = GpxImporter.parse(gpx)
         assertNotNull(course)
-        assertEquals("Cycling Route", course.name)
+        assertEquals("Cycling Rout", course.name)
         assertEquals(2, course.points.size)
         assertEquals(35.6800, course.points[0].latitude)
         assertEquals(139.7600, course.points[0].longitude)
@@ -72,5 +72,13 @@ class GpxImporterTest {
         assertNull(GpxImporter.parse(""))
         assertNull(GpxImporter.parse("   "))
         assertNull(GpxImporter.parse("<gpx><name>No Points</name></gpx>"))
+    }
+
+    @Test
+    fun testSanitizeCourseName() {
+        assertEquals("COURSE", GpxImporter.sanitizeCourseName(""))
+        assertEquals("My_Route", GpxImporter.sanitizeCourseName("My,Route.gpx"))
+        assertEquals("Route_1_sub", GpxImporter.sanitizeCourseName("Route:1|sub"))
+        assertEquals("Tokyo Imperi", GpxImporter.sanitizeCourseName("Tokyo Imperial Palace"))
     }
 }

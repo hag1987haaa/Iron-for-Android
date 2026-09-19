@@ -61,6 +61,18 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _mapAutoCloseTimeoutSeconds = MutableStateFlow(settings.mapAutoCloseTimeoutSeconds)
     val mapAutoCloseTimeoutSeconds: StateFlow<Int> = _mapAutoCloseTimeoutSeconds.asStateFlow()
 
+    private val _isMapSwipePanEnabled = MutableStateFlow(settings.isMapSwipePanEnabled)
+    val isMapSwipePanEnabled: StateFlow<Boolean> = _isMapSwipePanEnabled.asStateFlow()
+
+    private val _isAutoShowMapOnReadyEnabled = MutableStateFlow(settings.isAutoShowMapOnReadyEnabled)
+    val isAutoShowMapOnReadyEnabled: StateFlow<Boolean> = _isAutoShowMapOnReadyEnabled.asStateFlow()
+
+    private val _isNotificationVibrationEnabled = MutableStateFlow(settings.isNotificationVibrationEnabled)
+    val isNotificationVibrationEnabled: StateFlow<Boolean> = _isNotificationVibrationEnabled.asStateFlow()
+
+    private val _autoShowMapAfterNotificationSeconds = MutableStateFlow(settings.autoShowMapAfterNotificationSeconds)
+    val autoShowMapAfterNotificationSeconds: StateFlow<Int> = _autoShowMapAfterNotificationSeconds.asStateFlow()
+
     private val _notifTime = MutableStateFlow(settings.notificationTimeSeconds)
     val notifTime: StateFlow<Int> = _notifTime.asStateFlow()
 
@@ -312,6 +324,30 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     fun updateMapAutoCloseTimeoutSeconds(seconds: Int) {
         settings.mapAutoCloseTimeoutSeconds = seconds
         _mapAutoCloseTimeoutSeconds.value = seconds
+        settings.save()
+    }
+
+    fun updateMapSwipePanEnabled(enabled: Boolean) {
+        settings.isMapSwipePanEnabled = enabled
+        _isMapSwipePanEnabled.value = enabled
+        settings.save()
+    }
+
+    fun updateAutoShowMapOnReadyEnabled(enabled: Boolean) {
+        settings.isAutoShowMapOnReadyEnabled = enabled
+        _isAutoShowMapOnReadyEnabled.value = enabled
+        settings.save()
+    }
+
+    fun updateNotificationVibrationEnabled(enabled: Boolean) {
+        settings.isNotificationVibrationEnabled = enabled
+        _isNotificationVibrationEnabled.value = enabled
+        settings.save()
+    }
+
+    fun updateAutoShowMapAfterNotificationSeconds(seconds: Int) {
+        settings.autoShowMapAfterNotificationSeconds = seconds
+        _autoShowMapAfterNotificationSeconds.value = seconds
         settings.save()
     }
 

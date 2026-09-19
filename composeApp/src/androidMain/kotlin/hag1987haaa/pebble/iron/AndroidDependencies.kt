@@ -7,6 +7,7 @@ import hag1987haaa.pebble.iron.data.repository.SqlRunRepository
 import hag1987haaa.pebble.iron.db.DatabaseDriverFactory
 import hag1987haaa.pebble.iron.db.PebbleTrackerDatabase
 import hag1987haaa.pebble.iron.domain.settings.AppSettings
+import kotlinx.serialization.encodeToString
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.tracker.RunTrackerEngine
 import hag1987haaa.pebble.iron.health.HealthConnectManager
@@ -76,6 +77,8 @@ object AndroidDependencies {
         settings.notificationTimeSeconds = prefs.getInt("notif_time", 0)
         settings.isAutoLaunchOnDistanceNotificationEnabled = prefs.getBoolean("auto_launch_dist", false)
         settings.isAutoLaunchOnTimeNotificationEnabled = prefs.getBoolean("auto_launch_time", false)
+        settings.isNotificationVibrationEnabled = prefs.getBoolean("notif_vibration", true)
+        settings.autoShowMapAfterNotificationSeconds = prefs.getInt("auto_show_map_after_notif_sec", 0)
         
         // Mid Data 設定の読み込み
         val midTypesStr = prefs.getString("mid_types", "0,4,1,5,10") ?: "0,4,1,5,10"
@@ -138,6 +141,18 @@ object AndroidDependencies {
         settings.isBleHeartRateEnabled = prefs.getBoolean("ble_hr_enabled", false)
         settings.preferBleHeartRate = prefs.getBoolean("ble_hr_prefer", true)
 
+        // GPXコース設定の読み込み (JSONファイル)
+        val coursesFile = java.io.File(appContext.filesDir, "saved_gpx_courses.json")
+        if (coursesFile.exists()) {
+            try {
+                val coursesJson = coursesFile.readText()
+                settings.savedGpxCourses = hag1987haaa.pebble.iron.util.parseGpxCoursesJson(coursesJson)
+                Log.d("AndroidDependencies", "Loaded ${settings.savedGpxCourses.size} saved GPX courses from disk")
+            } catch (e: Exception) {
+                Log.e("AndroidDependencies", "Failed to load saved GPX courses", e)
+            }
+        }
+
         // アプリバージョンの取得
         try {
             val packageInfo = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
@@ -148,6 +163,13 @@ object AndroidDependencies {
 
         // 保存用コールバックの登録
         settings.onSettingsChanged = {
+            // GPXコースの保存 (JSONファイル)
+            try {
+                val coursesJson = hag1987haaa.pebble.iron.util.gpxJson.encodeToString(settings.savedGpxCourses)
+                java.io.File(appContext.filesDir, "saved_gpx_courses.json").writeText(coursesJson)
+            } catch (e: Exception) {
+                Log.e("AndroidDependencies", "Failed to save GPX courses to disk", e)
+            }
             prefs.edit().apply {
                 putBoolean("music_enabled", settings.isMusicControlEnabled)
                 putBoolean("touch_enabled", settings.isTouchControlEnabled)
@@ -172,6 +194,8 @@ object AndroidDependencies {
                 putInt("notif_time", settings.notificationTimeSeconds)
                 putBoolean("auto_launch_dist", settings.isAutoLaunchOnDistanceNotificationEnabled)
                 putBoolean("auto_launch_time", settings.isAutoLaunchOnTimeNotificationEnabled)
+        putBoolean("notif_vibration", settings.isNotificationVibrationEnabled)
+        putInt("auto_show_map_after_notif_sec", settings.autoShowMapAfterNotificationSeconds)
                 
                 // Mid / Lower Data 設定の保存
                 putString("mid_types", settings.enabledMidTypes.joinToString(","))
@@ -229,6 +253,13 @@ object AndroidDependencies {
         )
         
         KmpDependencies.setup(repository, engine, settings, bleScanner, bleHeartRateManager)
+        
+        // 起動時に保存済みコースの有効ルートを復元
+        val activePlanned = settings.savedGpxCourses.filter { it.isEnabled }.flatMap { it.points }
+        if (activePlanned.isNotEmpty()) {
+            engine.pebbleMessenger?.setPlannedCourse(activePlanned)
+        }
+
         isInitialized = true
     }
 }

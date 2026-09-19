@@ -93,6 +93,8 @@ interface PebbleMessenger {
     /**
      * マップが表示中かどうか
      */
+    fun openMap() {}
+
     val isMapActive: Boolean get() = false
 
     /**
