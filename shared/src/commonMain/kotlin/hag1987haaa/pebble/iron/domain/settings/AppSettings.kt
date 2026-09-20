@@ -8,23 +8,66 @@ import hag1987haaa.pebble.iron.domain.model.ActivityType
 class AppSettings {
     var isMusicControlEnabled: Boolean = false
     var isTouchControlEnabled: Boolean = false
-    private val _isMapSwipePanEnabled = MutableStateFlow(value = false)
+    private val _isMapSwipePanEnabled = MutableStateFlow(value = true)
     val isMapSwipePanEnabledFlow: StateFlow<Boolean> = _isMapSwipePanEnabled.asStateFlow()
     var isMapSwipePanEnabled: Boolean
         get() = _isMapSwipePanEnabled.value
         set(value) { _isMapSwipePanEnabled.value = value }
 
-    private val _isNotificationVibrationEnabled = MutableStateFlow(value = true)
-    val isNotificationVibrationEnabledFlow: StateFlow<Boolean> = _isNotificationVibrationEnabled.asStateFlow()
-    var isNotificationVibrationEnabled: Boolean
-        get() = _isNotificationVibrationEnabled.value
-        set(value) { _isNotificationVibrationEnabled.value = value }
+    // 距離通知（オートラップ）用
+    private val _isDistNotificationVibrationEnabled = MutableStateFlow(value = true)
+    val isDistNotificationVibrationEnabledFlow: StateFlow<Boolean> = _isDistNotificationVibrationEnabled.asStateFlow()
+    var isDistNotificationVibrationEnabled: Boolean
+        get() = _isDistNotificationVibrationEnabled.value
+        set(value) {
+            _isDistNotificationVibrationEnabled.value = value
+            save()
+        }
 
-    private val _autoShowMapAfterNotificationSeconds = MutableStateFlow(value = 0)
-    val autoShowMapAfterNotificationSecondsFlow: StateFlow<Int> = _autoShowMapAfterNotificationSeconds.asStateFlow()
+    private val _autoShowMapAfterDistNotificationSeconds = MutableStateFlow(value = 0)
+    val autoShowMapAfterDistNotificationSecondsFlow: StateFlow<Int> = _autoShowMapAfterDistNotificationSeconds.asStateFlow()
+    var autoShowMapAfterDistNotificationSeconds: Int
+        get() = _autoShowMapAfterDistNotificationSeconds.value
+        set(value) {
+            _autoShowMapAfterDistNotificationSeconds.value = value
+            save()
+        }
+
+    // 時間通知（インターバル）用
+    private val _isTimeNotificationVibrationEnabled = MutableStateFlow(value = true)
+    val isTimeNotificationVibrationEnabledFlow: StateFlow<Boolean> = _isTimeNotificationVibrationEnabled.asStateFlow()
+    var isTimeNotificationVibrationEnabled: Boolean
+        get() = _isTimeNotificationVibrationEnabled.value
+        set(value) {
+            _isTimeNotificationVibrationEnabled.value = value
+            save()
+        }
+
+    private val _autoShowMapAfterTimeNotificationSeconds = MutableStateFlow(value = 0)
+    val autoShowMapAfterTimeNotificationSecondsFlow: StateFlow<Int> = _autoShowMapAfterTimeNotificationSeconds.asStateFlow()
+    var autoShowMapAfterTimeNotificationSeconds: Int
+        get() = _autoShowMapAfterTimeNotificationSeconds.value
+        set(value) {
+            _autoShowMapAfterTimeNotificationSeconds.value = value
+            save()
+        }
+
+    // 下位互換用
+    var isNotificationVibrationEnabled: Boolean
+        get() = _isDistNotificationVibrationEnabled.value
+        set(value) {
+            _isDistNotificationVibrationEnabled.value = value
+            _isTimeNotificationVibrationEnabled.value = value
+            save()
+        }
+
     var autoShowMapAfterNotificationSeconds: Int
-        get() = _autoShowMapAfterNotificationSeconds.value
-        set(value) { _autoShowMapAfterNotificationSeconds.value = value }
+        get() = _autoShowMapAfterDistNotificationSeconds.value
+        set(value) {
+            _autoShowMapAfterDistNotificationSeconds.value = value
+            _autoShowMapAfterTimeNotificationSeconds.value = value
+            save()
+        }
     
     // ボタン長押しアクション設定
     var isLongPressEnabled: Boolean = false
@@ -49,6 +92,68 @@ class AppSettings {
     var isAutoShowMapOnReadyEnabled: Boolean
         get() = _isAutoShowMapOnReadyEnabled.value
         set(value) { _isAutoShowMapOnReadyEnabled.value = value }
+
+    /**
+     * アクティビティ種別ごとのマップ拡大率（ズームレベル 11..18）
+     * 描画・通信速度優先のため、全ワークアウトでウォーキングと同じく Zoom 16 をデフォルトとし、サイクリングのみ 15 とします。
+     */
+    private val _activityMapZooms = MutableStateFlow<Map<String, Int>>(
+        mapOf(
+            ActivityType.RUNNING.name to 16,
+            ActivityType.WALKING.name to 16,
+            ActivityType.CYCLING.name to 16,
+            ActivityType.HIKING.name to 16,
+            ActivityType.OTHER.name to 16
+        )
+    )
+    val activityMapZoomsFlow: StateFlow<Map<String, Int>> = _activityMapZooms.asStateFlow()
+    var activityMapZooms: Map<String, Int>
+        get() = _activityMapZooms.value
+        set(value) {
+            _activityMapZooms.value = value
+            save()
+        }
+
+    fun getMapZoomForActivity(type: ActivityType): Int {
+        return activityMapZooms[type.name] ?: 16
+    }
+
+    fun setMapZoomForActivity(type: ActivityType, zoom: Int) {
+        val clamped = zoom.coerceIn(11, 18)
+        val current = activityMapZooms[type.name] ?: 16
+        if (current != clamped) {
+            val newMap = activityMapZooms.toMutableMap()
+            newMap[type.name] = clamped
+            activityMapZooms = newMap
+        }
+    }
+
+    private val _mapRouteColor = MutableStateFlow(MapColorPreset.RED)
+    val mapRouteColorFlow: StateFlow<MapColorPreset> = _mapRouteColor.asStateFlow()
+    var mapRouteColor: MapColorPreset
+        get() = _mapRouteColor.value
+        set(value) {
+            _mapRouteColor.value = value
+            save()
+        }
+
+    private val _mapPlannedColor = MutableStateFlow(MapColorPreset.YELLOW)
+    val mapPlannedColorFlow: StateFlow<MapColorPreset> = _mapPlannedColor.asStateFlow()
+    var mapPlannedColor: MapColorPreset
+        get() = _mapPlannedColor.value
+        set(value) {
+            _mapPlannedColor.value = value
+            save()
+        }
+
+    private val _mapLocationColor = MutableStateFlow(MapColorPreset.GREEN)
+    val mapLocationColorFlow: StateFlow<MapColorPreset> = _mapLocationColor.asStateFlow()
+    var mapLocationColor: MapColorPreset
+        get() = _mapLocationColor.value
+        set(value) {
+            _mapLocationColor.value = value
+            save()
+        }
 
     private val _mapAutoCloseTimeoutSeconds = MutableStateFlow(value = 10)
     val mapAutoCloseTimeoutSecondsFlow: StateFlow<Int> = _mapAutoCloseTimeoutSeconds.asStateFlow()

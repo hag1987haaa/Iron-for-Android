@@ -44,6 +44,9 @@ kotlin {
             implementation(libs.pebblekit2)
             implementation(libs.pebblekit2.ui)
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
     }
 }
 

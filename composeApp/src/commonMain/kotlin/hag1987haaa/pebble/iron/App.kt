@@ -33,6 +33,8 @@ import hag1987haaa.pebble.iron.domain.tracker.RunStatus
 import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.presentation.*
 import hag1987haaa.pebble.iron.theme.IronColors
+import hag1987haaa.pebble.iron.util.toActivePlannedCourses
+import hag1987haaa.pebble.iron.util.toActivePlannedPoints
 import hag1987haaa.pebble.iron.util.getDisplayName
 import org.jetbrains.compose.resources.stringResource
 import kotlinx.datetime.Instant
@@ -251,15 +253,17 @@ fun RunScreen(actions: AppActions) {
     val savedCourses by KmpDependencies.appSettings.savedGpxCoursesFlow.collectAsState()
     var showCourseSheet by rememberSaveable { mutableStateOf(false) }
 
-    val activePlannedPoints = remember(savedCourses) {
-        savedCourses.filter { it.isEnabled }.flatMap { it.points }
+    val mapRouteColor by KmpDependencies.appSettings.mapRouteColorFlow.collectAsState()
+    val mapPlannedColor by KmpDependencies.appSettings.mapPlannedColorFlow.collectAsState()
+    val mapLocationColor by KmpDependencies.appSettings.mapLocationColorFlow.collectAsState()
+
+    val activePlannedCourses = remember(savedCourses) {
+        savedCourses.toActivePlannedCourses()
     }
     val currentLoc = stats.currentLocation
-    val mapPoints = remember(stats.route, activePlannedPoints, currentLoc) {
+    val trackedPoints = remember(stats.route, currentLoc) {
         if (stats.route.isNotEmpty()) {
-            if (activePlannedPoints.isNotEmpty()) stats.route + activePlannedPoints else stats.route
-        } else if (activePlannedPoints.isNotEmpty()) {
-            activePlannedPoints
+            stats.route
         } else {
             currentLoc?.let { listOf(it) } ?: emptyList()
         }
@@ -286,8 +290,12 @@ fun RunScreen(actions: AppActions) {
             ) {
                 if (!isMapFullScreen) {
                     RouteMapView(
-                        points = mapPoints,
+                        points = trackedPoints,
                         modifier = Modifier.fillMaxSize(),
+                        plannedCourses = activePlannedCourses,
+                        routeColor = Color(mapRouteColor.argbColor),
+                        plannedCourseColor = Color(mapPlannedColor.argbColor),
+                        locationMarkerColor = Color(mapLocationColor.argbColor),
                         isPrivacyMode = isPrivacyMode,
                         isAutoCenter = isAutoCenter,
                         zoomToTrackKey = zoomToTrackKey,
@@ -466,8 +474,12 @@ fun RunScreen(actions: AppActions) {
         if (isMapFullScreen) {
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 RouteMapView(
-                    points = mapPoints,
+                    points = trackedPoints,
                     modifier = Modifier.fillMaxSize(),
+                    plannedCourses = activePlannedCourses,
+                    routeColor = Color(mapRouteColor.argbColor),
+                    plannedCourseColor = Color(mapPlannedColor.argbColor),
+                    locationMarkerColor = Color(mapLocationColor.argbColor),
                     isPrivacyMode = isPrivacyMode,
                     isAutoCenter = isAutoCenter,
                     zoomToTrackKey = zoomToTrackKey,

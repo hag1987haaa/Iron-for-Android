@@ -17,6 +17,7 @@ import hag1987haaa.pebble.iron.KmpDependencies
 import hag1987haaa.pebble.iron.Res
 import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.util.GpxCourse
+import hag1987haaa.pebble.iron.util.toActivePlannedPoints
 import hag1987haaa.pebble.iron.util.GpxImporter
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -38,7 +39,7 @@ fun GpxCoursesSheet(
 
     fun updateCourses(newList: List<GpxCourse>) {
         settings.savedGpxCourses = newList
-        val activePlannedPoints = newList.filter { it.isEnabled }.flatMap { it.points }
+        val activePlannedPoints = newList.toActivePlannedPoints()
         messenger?.setPlannedCourse(activePlannedPoints.ifEmpty { null })
         val coursesDataStr = if (newList.isNotEmpty()) {
             newList.joinToString("|") { "${if (it.isEnabled) 1 else 0},${it.name}" }

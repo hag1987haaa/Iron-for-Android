@@ -328,4 +328,28 @@
     <string name="settings_map_auto_close_off">オフ (手動終了のみ)</string>
     <string name="settings_map_swipe_pan_title">マップ表示中のスワイプ操作</string>
     <string name="settings_map_swipe_pan_desc">ON: 地図スクロール（パン） / OFF: マップ表示中も音楽操作（曲送り・音量）を維持</string>
+    <!-- Map Colors -->
+    <string name="settings_map_colors_header">マップ描画色設定</string>
+    <string name="settings_map_route_color_title">走行実績ルートの色</string>
+    <string name="settings_map_route_color_desc">走行・記録中の移動軌跡のライン色</string>
+    <string name="settings_map_planned_color_title">予定コース（GPX）の色</string>
+    <string name="settings_map_planned_color_desc">インポートした予定コースのライン色</string>
+    <string name="settings_map_location_color_title">現在地マーカーの色</string>
+    <string name="settings_map_location_color_desc">現在地を示す矢印・ドットの色</string>
+    <string name="map_color_red">レッド (赤)</string>
+    <string name="map_color_magenta">マゼンタ (紫)</string>
+    <string name="map_color_orange">オレンジ</string>
+    <string name="map_color_yellow">イエロー (黄)</string>
+    <string name="map_color_green">グリーン (緑)</string>
+    <string name="map_color_cyan">シアン (水色)</string>
+    <string name="map_color_blue">ブルー (青)</string>
+    <!-- Workout Map Zooms -->
+    <string name="settings_map_zooms_header">ワークアウト別マップ拡大率</string>
+    <string name="settings_map_zooms_desc">ワークアウト種別ごとの初期ズーム倍率を設定します。</string>
+    <string name="zoom_level_13">Zoom 13 (超広域)</string>
+    <string name="zoom_level_14">Zoom 14 (広域)</string>
+    <string name="zoom_level_15">Zoom 15 (中域)</string>
+    <string name="zoom_level_16">Zoom 16 (標準)</string>
+    <string name="zoom_level_17">Zoom 17 (詳細)</string>
+    <string name="zoom_level_18">Zoom 18 (最大拡大)</string>
 </resources>

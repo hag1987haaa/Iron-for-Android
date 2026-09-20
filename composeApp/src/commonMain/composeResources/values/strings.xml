@@ -328,4 +328,28 @@
     <string name="settings_map_auto_close_off">Off (Manual exit)</string>
     <string name="settings_map_swipe_pan_title">Map Swipe Action</string>
     <string name="settings_map_swipe_pan_desc">ON: Pan map with swipes / OFF: Keep music controls active on map screen</string>
+    <!-- Map Colors -->
+    <string name="settings_map_colors_header">Map Colors</string>
+    <string name="settings_map_route_color_title">Tracked Route Color</string>
+    <string name="settings_map_route_color_desc">Color for your recorded activity trajectory</string>
+    <string name="settings_map_planned_color_title">Planned Course Color</string>
+    <string name="settings_map_planned_color_desc">Color for imported GPX course lines</string>
+    <string name="settings_map_location_color_title">Location Marker Color</string>
+    <string name="settings_map_location_color_desc">Color for current position arrow or dot</string>
+    <string name="map_color_red">Red</string>
+    <string name="map_color_magenta">Magenta</string>
+    <string name="map_color_orange">Orange</string>
+    <string name="map_color_yellow">Yellow</string>
+    <string name="map_color_green">Green</string>
+    <string name="map_color_cyan">Cyan</string>
+    <string name="map_color_blue">Blue</string>
+    <!-- Workout Map Zooms -->
+    <string name="settings_map_zooms_header">Default Map Zoom by Workout</string>
+    <string name="settings_map_zooms_desc">Set initial map zoom level per workout type.</string>
+    <string name="zoom_level_13">Zoom 13 (Very Wide)</string>
+    <string name="zoom_level_14">Zoom 14 (Wide)</string>
+    <string name="zoom_level_15">Zoom 15 (Medium)</string>
+    <string name="zoom_level_16">Zoom 16 (Standard)</string>
+    <string name="zoom_level_17">Zoom 17 (Detailed)</string>
+    <string name="zoom_level_18">Zoom 18 (Max Zoom)</string>
 </resources>

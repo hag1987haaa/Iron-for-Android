@@ -1246,9 +1246,9 @@ class AndroidPebbleMessenger(
                 // カラー機 (Garmin スタンダード配色):
                 // 幹線道路は太い黒、一般道路は濃いグレー、水域は水色、計画ルートはマゼンタ、実績は赤、現在地はエレクトリックシアン
                 result[i] = when (t) {
-                    TYPE_ROUTE -> 0b11110000.toByte() // Red (走行実績)
-                    TYPE_PLANNED -> 0b11110011.toByte() // Magenta (GPX計画コース)
-                    TYPE_ARROW -> 0b11001100.toByte() // Vivid Green (現在地ドット/二等辺三角形)
+                    TYPE_ROUTE -> settings.mapRouteColor.pebbleColorByte
+                    TYPE_PLANNED -> settings.mapPlannedColor.pebbleColorByte
+                    TYPE_ARROW -> settings.mapLocationColor.pebbleColorByte
                     TYPE_HIGHWAY -> 0b11000000.toByte() // Black (Major Road - Thick)
                     TYPE_LOCAL_ROAD -> 0b11010101.toByte() // Dark Gray (Local Road - Thin)
                     TYPE_WATER -> 0b11011111.toByte() // Baby Blue Eyes (Water)
@@ -1308,14 +1308,10 @@ class AndroidPebbleMessenger(
         isMapActive = true
         panOffsetPixelsX = 0.0
         panOffsetPixelsY = 0.0
-        val defaultZoom = when (KmpDependencies.trackerEngine.statistics.value.activityType) {
-            hag1987haaa.pebble.iron.domain.model.ActivityType.WALKING,
-            hag1987haaa.pebble.iron.domain.model.ActivityType.HIKING -> 16
-            hag1987haaa.pebble.iron.domain.model.ActivityType.CYCLING -> 14
-            else -> 15
-        }
+        val currentActivity = KmpDependencies.trackerEngine.statistics.value.activityType
+        val defaultZoom = settings.getMapZoomForActivity(currentActivity)
         currentMapZoom = defaultZoom
-        Log.i("PebbleMessenger", "openMap: Triggering map screen, default zoom=$defaultZoom")
+        Log.i("PebbleMessenger", "openMap: Triggering map screen for $currentActivity, default zoom=$defaultZoom")
         resetAutoCloseTimer()
         scheduleMapRefresh(0L)
     }
@@ -1342,8 +1338,10 @@ class AndroidPebbleMessenger(
     override fun zoomInMap() {
         if (currentMapZoom < 18) {
             currentMapZoom++
+            val currentActivity = KmpDependencies.trackerEngine.statistics.value.activityType
+            settings.setMapZoomForActivity(currentActivity, currentMapZoom)
             resetAutoCloseTimer()
-            Log.i("PebbleMessenger", "Map Zoom In: level $currentMapZoom (instant refresh)")
+            Log.i("PebbleMessenger", "Map Zoom In: level $currentMapZoom for $currentActivity (instant refresh)")
             scheduleMapRefresh(0L)
         } else {
             Log.d("PebbleMessenger", "Map Zoom In: already at max zoom (18)")
@@ -1353,8 +1351,10 @@ class AndroidPebbleMessenger(
     override fun zoomOutMap() {
         if (currentMapZoom > 11) {
             currentMapZoom--
+            val currentActivity = KmpDependencies.trackerEngine.statistics.value.activityType
+            settings.setMapZoomForActivity(currentActivity, currentMapZoom)
             resetAutoCloseTimer()
-            Log.i("PebbleMessenger", "Map Zoom Out: level $currentMapZoom (instant refresh)")
+            Log.i("PebbleMessenger", "Map Zoom Out: level $currentMapZoom for $currentActivity (instant refresh)")
             scheduleMapRefresh(0L)
         } else {
             Log.d("PebbleMessenger", "Map Zoom Out: already at min zoom (11)")
@@ -1364,7 +1364,9 @@ class AndroidPebbleMessenger(
     override fun setMapZoom(zoom: Int) {
         val clamped = zoom.coerceIn(11, 18)
         currentMapZoom = clamped
-        Log.i("PebbleMessenger", "Map Zoom set to $currentMapZoom")
+        val currentActivity = KmpDependencies.trackerEngine.statistics.value.activityType
+        settings.setMapZoomForActivity(currentActivity, currentMapZoom)
+        Log.i("PebbleMessenger", "Map Zoom set to $currentMapZoom for $currentActivity")
     }
 
     override fun panMap(dx: Int, dy: Int) {
@@ -1387,15 +1389,11 @@ class AndroidPebbleMessenger(
     override fun resetAndToggleMapOrientation() {
         panOffsetPixelsX = 0.0
         panOffsetPixelsY = 0.0
-        val defaultZoom = when (KmpDependencies.trackerEngine.statistics.value.activityType) {
-            hag1987haaa.pebble.iron.domain.model.ActivityType.WALKING,
-            hag1987haaa.pebble.iron.domain.model.ActivityType.HIKING -> 16
-            hag1987haaa.pebble.iron.domain.model.ActivityType.CYCLING -> 14
-            else -> 15
-        }
+        val currentActivity = KmpDependencies.trackerEngine.statistics.value.activityType
+        val defaultZoom = settings.getMapZoomForActivity(currentActivity)
         currentMapZoom = defaultZoom
         isHeadingUp = !isHeadingUp
-        Log.i("PebbleMessenger", "resetAndToggleMapOrientation: Re-centered, zoom=$defaultZoom, isHeadingUp=$isHeadingUp")
+        Log.i("PebbleMessenger", "resetAndToggleMapOrientation: Re-centered for $currentActivity, zoom=$defaultZoom, isHeadingUp=$isHeadingUp")
         resetAutoCloseTimer()
         scheduleMapRefresh(0L)
     }

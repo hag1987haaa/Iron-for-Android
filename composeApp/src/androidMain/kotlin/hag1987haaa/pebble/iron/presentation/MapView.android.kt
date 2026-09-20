@@ -2,6 +2,7 @@ package hag1987haaa.pebble.iron.presentation
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -26,6 +27,10 @@ import androidx.lifecycle.LifecycleEventObserver
 actual fun PlatformMapView(
     points: List<LocationPoint>,
     modifier: Modifier,
+    plannedCourses: List<List<LocationPoint>>,
+    routeColor: androidx.compose.ui.graphics.Color,
+    plannedCourseColor: androidx.compose.ui.graphics.Color,
+    locationMarkerColor: androidx.compose.ui.graphics.Color,
     isPrivacyMode: Boolean,
     isAutoCenter: Boolean,
     selectedIndex: Int?,
@@ -108,32 +113,46 @@ actual fun PlatformMapView(
 
             view.overlays.clear()
 
+            val routeColorInt = routeColor.toArgb()
+            val plannedColorInt = plannedCourseColor.toArgb()
+            val locationMarkerColorInt = locationMarkerColor.toArgb()
+
+            // 1. 各予定コース（GPX）の独立描画（コース境界で完全に独立したPolyline）
+            plannedCourses.forEach { coursePoints ->
+                if (coursePoints.size >= 2) {
+                    val courseGeoPoints = coursePoints.map { GeoPoint(it.latitude, it.longitude) }
+                    view.overlays.add(Polyline().apply {
+                        setPoints(courseGeoPoints)
+                        color = plannedColorInt
+                        width = 7f
+                    })
+                }
+            }
+
+            // 2. 走行実績ルートの描画
             if (points.isNotEmpty()) {
                 val geoPoints = points.map { GeoPoint(it.latitude, it.longitude) }
 
-                // 1. ルート線 (通常区間は赤実線、一時停止区間はグレー破線)
                 val PAUSE_GAP_MS = 10_000L
                 val currentSegment = mutableListOf<GeoPoint>()
 
                 points.forEachIndexed { i, pt ->
                     val geoPoint = GeoPoint(pt.latitude, pt.longitude)
-                    
+
                     if (i > 0) {
                         val prevPt = points[i - 1]
                         val timeDiffMs = pt.timestamp.toEpochMilliseconds() - prevPt.timestamp.toEpochMilliseconds()
                         val isPauseGap = pt.isSegmentStart || timeDiffMs >= PAUSE_GAP_MS
 
                         if (isPauseGap) {
-                            // 直前の通常セグメントを描画
                             if (currentSegment.size >= 2) {
                                 view.overlays.add(Polyline().apply {
                                     setPoints(currentSegment.toList())
-                                    color = Color.RED
+                                    color = routeColorInt
                                     width = 8f
                                 })
                             }
-                            
-                            // 一時停止中の移動区間をグレー破線で描画 (直前の地点 -> 再開地点)
+
                             if (currentSegment.isNotEmpty()) {
                                 val lastGeo = currentSegment.last()
                                 val pauseLine = Polyline().apply {
@@ -144,71 +163,65 @@ actual fun PlatformMapView(
                                 }
                                 view.overlays.add(pauseLine)
                             }
-                            
+
                             currentSegment.clear()
                         }
                     }
                     currentSegment.add(geoPoint)
                 }
 
-                // 最後のセグメントを描画
                 if (currentSegment.size >= 2) {
                     view.overlays.add(Polyline().apply {
                         setPoints(currentSegment)
-                        color = Color.RED
+                        color = routeColorInt
                         width = 8f
                     })
                 }
 
-                // 2. スタートマーカー
-                view.overlays.add(Marker(view).apply {
-                    position = geoPoints.first()
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    title = "Start"
-                })
-
-                if (geoPoints.isNotEmpty()) {
-                    val lastIdx = selectedIndex ?: (geoPoints.size - 1)
-                    val targetPoint = geoPoints[lastIdx]
-                    
-                    // 改善：方位計算ロジック (360 - bearing で回転方向を反転させて同期)
-                    val bearing = if (selectedIndex != null) {
-                        (360f - (points[lastIdx].bearing?.toFloat() ?: 0f)) % 360f
-                    } else {
-                        calculateStableBearing(points, lastIdx)
-                    }
-
-                    // 初回GPS捕捉時、またはズームが低すぎる場合に自動拡大
-                    if (view.zoomLevelDouble < 10.0 && selectedIndex == null) {
-                        view.controller.setZoom(16.5)
-                        view.controller.setCenter(targetPoint)
-                    }
-
+                // スタートマーカー（2点以上記録されている場合）
+                if (points.size >= 2) {
                     view.overlays.add(Marker(view).apply {
-                        position = targetPoint
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        title = if (selectedIndex != null) "Selected" else "Current"
-                        
-                        if (selectedIndex != null) {
-                            icon = createPointIcon(view.context, Color.BLUE)
-                        } else {
-                            // 現在地アイコン（矢印状）
-                            icon = createDirectionIcon(view.context)
-                            rotation = bearing
-                            isFlat = true // 地図の回転に同期させる
-                        }
+                        position = geoPoints.first()
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                        title = "Start"
                     })
-
-                    // オートセンター（追従）
-                    if (isAutoCenter && selectedIndex == null) {
-                        view.controller.animateTo(targetPoint)
-                    } else if (selectedIndex != null) {
-                        // シーク中は選択地点を瞬時に表示
-                        view.controller.setCenter(targetPoint)
-                    }
                 }
 
-                // 3. 1kmごとのラップマーカー (一時停止区間の移動距離は除外して実走距離のみ積算)
+                val lastIdx = selectedIndex ?: (geoPoints.size - 1)
+                val targetPoint = geoPoints[lastIdx]
+
+                val bearing = if (selectedIndex != null) {
+                    (360f - (points[lastIdx].bearing?.toFloat() ?: 0f)) % 360f
+                } else {
+                    calculateStableBearing(points, lastIdx)
+                }
+
+                if (view.zoomLevelDouble < 10.0 && selectedIndex == null) {
+                    view.controller.setZoom(16.5)
+                    view.controller.setCenter(targetPoint)
+                }
+
+                view.overlays.add(Marker(view).apply {
+                    position = targetPoint
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    title = if (selectedIndex != null) "Selected" else "Current"
+
+                    if (selectedIndex != null) {
+                        icon = createPointIcon(view.context, locationMarkerColorInt)
+                    } else {
+                        icon = createDirectionIcon(view.context, locationMarkerColorInt)
+                        rotation = bearing
+                        isFlat = true
+                    }
+                })
+
+                if (isAutoCenter && selectedIndex == null) {
+                    view.controller.animateTo(targetPoint)
+                } else if (selectedIndex != null) {
+                    view.controller.setCenter(targetPoint)
+                }
+
+                // 3. 1kmごとのラップマーカー
                 var accumulatedDistance = 0.0
                 var nextLapDistance = 1000.0
 
@@ -217,7 +230,7 @@ actual fun PlatformMapView(
                         val prevPt = points[i - 1]
                         val timeDiffMs = pt.timestamp.toEpochMilliseconds() - prevPt.timestamp.toEpochMilliseconds()
                         val isPauseGap = pt.isSegmentStart || timeDiffMs >= PAUSE_GAP_MS
-                        
+
                         if (!isPauseGap) {
                             val prevGeo = GeoPoint(prevPt.latitude, prevPt.longitude)
                             val curGeo = GeoPoint(pt.latitude, pt.longitude)
@@ -241,14 +254,14 @@ actual fun PlatformMapView(
     )
 }
 
-private fun createDirectionIcon(context: Context): BitmapDrawable {
+private fun createDirectionIcon(context: Context, markerColor: Int): BitmapDrawable {
     val size = 80
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     
     // 矢印の描画（デフォルトで真上＝北を向く）
     val paint = Paint().apply {
-        color = Color.parseColor("#2196F3")
+        color = markerColor
         isAntiAlias = true
         style = Paint.Style.FILL
     }
@@ -261,6 +274,15 @@ private fun createDirectionIcon(context: Context): BitmapDrawable {
         close()
     }
     canvas.drawPath(path, paint)
+
+    // 視認性を高めるため、黒の細いフチ線を追加
+    val strokePaint = Paint().apply {
+        color = Color.BLACK
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeWidth = 2.5f
+    }
+    canvas.drawPath(path, strokePaint)
     
     return BitmapDrawable(context.resources, bitmap)
 }

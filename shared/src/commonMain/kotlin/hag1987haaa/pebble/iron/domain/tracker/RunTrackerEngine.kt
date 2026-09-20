@@ -539,16 +539,24 @@ class RunTrackerEngine(
                 if (s.status != RunStatus.ACTIVE) continue
 
                 // --- 副作用の実行 (updateブロックの外で確実に1回) ---
-                var notifTriggered = false
                 if (triggerTimeNotif) {
                     val timeStep = appSettings?.notificationTimeSeconds ?: 0
                     lastNotifiedTimeCount = (s.totalSeconds / timeStep).toInt()
                     println("RunTrackerEngine: Triggering Time Notification at ${s.totalSeconds}s")
                     if (appSettings?.isAutoLaunchOnTimeNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
-                    if (appSettings?.isNotificationVibrationEnabled != false) {
+                    if (appSettings?.isTimeNotificationVibrationEnabled != false) {
                         pebbleMessenger?.sendNotification(1) // 1: 時間通知
                     }
-                    notifTriggered = true
+                    val timeMapDelay = appSettings?.autoShowMapAfterTimeNotificationSeconds ?: 0
+                    if (timeMapDelay > 0) {
+                        scope.launch {
+                            delay(timeMapDelay * 1000L)
+                            if (_statistics.value.status == RunStatus.ACTIVE) {
+                                println("RunTrackerEngine: Auto-opening map $timeMapDelay s after time notification")
+                                openMap()
+                            }
+                        }
+                    }
                 }
 
                 if (triggerDistNotif) {
@@ -558,19 +566,15 @@ class RunTrackerEngine(
                     lastNotifiedDistanceKm = (s.totalDistanceMeters / threshold).toInt()
                     println("RunTrackerEngine: Triggering Distance Notification at ${s.totalDistanceMeters}m")
                     if (appSettings?.isAutoLaunchOnDistanceNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
-                    if (appSettings?.isNotificationVibrationEnabled != false) {
+                    if (appSettings?.isDistNotificationVibrationEnabled != false) {
                         pebbleMessenger?.sendNotification(0) // 0: 距離通知
                     }
-                    notifTriggered = true
-                }
-
-                if (notifTriggered) {
-                    val mapDelay = appSettings?.autoShowMapAfterNotificationSeconds ?: 0
-                    if (mapDelay > 0) {
+                    val distMapDelay = appSettings?.autoShowMapAfterDistNotificationSeconds ?: 0
+                    if (distMapDelay > 0) {
                         scope.launch {
-                            delay(mapDelay * 1000L)
+                            delay(distMapDelay * 1000L)
                             if (_statistics.value.status == RunStatus.ACTIVE) {
-                                println("RunTrackerEngine: Auto-opening map $mapDelay s after notification")
+                                println("RunTrackerEngine: Auto-opening map $distMapDelay s after dist notification")
                                 openMap()
                             }
                         }

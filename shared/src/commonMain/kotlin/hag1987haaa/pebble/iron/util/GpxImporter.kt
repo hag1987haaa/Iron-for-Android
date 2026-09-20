@@ -29,6 +29,25 @@ fun parseGpxCoursesJson(json: String): List<GpxCourse> = try {
     emptyList()
 }
 
+/**
+ * 有効なコースの全ポイントを抽出し、各コースの先頭ポイントに isSegmentStart = true を付与して
+ * コース同士が勝手に直線で結ばれないようにセグメント分離したリストを返します。
+ */
+fun List<GpxCourse>.toActivePlannedPoints(): List<LocationPoint> {
+    return filter { it.isEnabled }.flatMap { course ->
+        course.points.mapIndexed { idx, pt ->
+            if (idx == 0) pt.copy(isSegmentStart = true) else pt
+        }
+    }
+}
+
+/**
+ * 有効なコースを個別のポイントリストのリストとして返します（スマホ地図の独立Polyline描画用）。
+ */
+fun List<GpxCourse>.toActivePlannedCourses(): List<List<LocationPoint>> {
+    return filter { it.isEnabled }.map { it.points }
+}
+
 object GpxImporter {
     fun sanitizeCourseName(rawName: String): String {
         var name = rawName.replace(Regex("\\.gpx$", RegexOption.IGNORE_CASE), "")

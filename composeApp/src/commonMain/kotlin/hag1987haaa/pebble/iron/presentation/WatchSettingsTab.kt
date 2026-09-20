@@ -14,6 +14,12 @@ import androidx.compose.ui.unit.dp
 import hag1987haaa.pebble.iron.Res
 import hag1987haaa.pebble.iron.*
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
+import hag1987haaa.pebble.iron.domain.settings.MapColorPreset
+import hag1987haaa.pebble.iron.domain.model.ActivityType
 
 @Composable
 fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
@@ -45,15 +51,6 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
             LowerDataSettingsContent(enabledLowerItems, viewModel)
         }
 
-        // 2. マップ表示・操作設定
-        Spacer(Modifier.height(24.dp))
-        SettingsSectionHeader(stringResource(Res.string.settings_section_map))
-        Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-            MapSettingsContent(viewModel)
-        }
-
-
-
         // 2. 心拍サンプリング設定
         Spacer(Modifier.height(24.dp))
         SettingsSectionHeader(stringResource(Res.string.settings_section_hr_interval))
@@ -63,6 +60,13 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
                 Spacer(Modifier.height(12.dp))
                 HrIntervalSelector(hrInterval) { viewModel.updateHrSamplingInterval(it) }
             }
+        }
+
+        // 2. マップ表示・操作設定
+        Spacer(Modifier.height(24.dp))
+        SettingsSectionHeader(stringResource(Res.string.settings_section_map))
+        Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+            MapSettingsContent(viewModel)
         }
 
         // 3. デバイス連携
@@ -84,11 +88,24 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
 
 @Composable
 fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist: Boolean, launchTime: Boolean, isMetric: Boolean, viewModel: SettingsViewModel) {
+    val isDistVibEnabled by viewModel.isDistNotificationVibrationEnabled.collectAsState()
+    val distAutoShowMapSec by viewModel.autoShowMapAfterDistNotificationSeconds.collectAsState()
+
+    val isTimeVibEnabled by viewModel.isTimeNotificationVibrationEnabled.collectAsState()
+    val timeAutoShowMapSec by viewModel.autoShowMapAfterTimeNotificationSeconds.collectAsState()
+
     Column(modifier = Modifier.padding(12.dp)) {
         Text(text = stringResource(Res.string.settings_notif_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
         Spacer(modifier = Modifier.height(12.dp))
         
         // --- 距離通知 (オートラップ) ---
+        Text(
+            text = stringResource(Res.string.settings_notif_distance_label),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(Res.string.settings_notif_distance_label), style = MaterialTheme.typography.bodyMedium)
             var expanded by remember { mutableStateOf(false) }
@@ -124,10 +141,57 @@ fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist:
             Text(stringResource(Res.string.settings_notif_distance_autolaunch), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
             Switch(checked = launchDist, onCheckedChange = { viewModel.updateAutoLaunchDistEnabled(it) }, modifier = Modifier.scale(0.7f))
         }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.settings_notif_vibration_title), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.settings_notif_vibration_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+            Switch(checked = isDistVibEnabled, onCheckedChange = { viewModel.updateDistNotificationVibrationEnabled(it) }, modifier = Modifier.scale(0.7f))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.settings_notif_auto_show_map_title), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.settings_notif_auto_show_map_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+            var expanded by remember { mutableStateOf(false) }
+            val displayValue = when (distAutoShowMapSec) {
+                0 -> stringResource(Res.string.settings_notif_auto_show_map_off)
+                3 -> stringResource(Res.string.settings_notif_auto_show_map_3s)
+                5 -> stringResource(Res.string.settings_notif_auto_show_map_5s)
+                10 -> stringResource(Res.string.settings_notif_auto_show_map_10s)
+                else -> "${distAutoShowMapSec}s"
+            }
+            Box {
+                TextButton(onClick = { expanded = true }) { Text(displayValue) }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    listOf(
+                        0 to stringResource(Res.string.settings_notif_auto_show_map_off),
+                        3 to stringResource(Res.string.settings_notif_auto_show_map_3s),
+                        5 to stringResource(Res.string.settings_notif_auto_show_map_5s),
+                        10 to stringResource(Res.string.settings_notif_auto_show_map_10s)
+                    ).forEach { (sec, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                viewModel.updateAutoShowMapAfterDistNotificationSeconds(sec)
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
 
-        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
 
-        // --- 時間通知 ---
+        // --- 時間通知 (インターバル) ---
+        Text(
+            text = stringResource(Res.string.settings_notif_time_label),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(Res.string.settings_notif_time_label), style = MaterialTheme.typography.bodyMedium)
             var expanded by remember { mutableStateOf(false) }
@@ -144,35 +208,25 @@ fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist:
             Text(stringResource(Res.string.settings_notif_time_autolaunch), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
             Switch(checked = launchTime, onCheckedChange = { viewModel.updateAutoLaunchTimeEnabled(it) }, modifier = Modifier.scale(0.7f))
         }
-
-        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
-
-        // --- 通知バイブレーション ---
-        val isVibrationEnabled by viewModel.isNotificationVibrationEnabled.collectAsState()
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(Res.string.settings_notif_vibration_title), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(Res.string.settings_notif_vibration_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             }
-            Switch(checked = isVibrationEnabled, onCheckedChange = { viewModel.updateNotificationVibrationEnabled(it) }, modifier = Modifier.scale(0.7f))
+            Switch(checked = isTimeVibEnabled, onCheckedChange = { viewModel.updateTimeNotificationVibrationEnabled(it) }, modifier = Modifier.scale(0.7f))
         }
-
-        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
-
-        // --- 通知・自動起動後のマップ自動表示 ---
-        val autoShowMapAfterNotifSec by viewModel.autoShowMapAfterNotificationSeconds.collectAsState()
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(Res.string.settings_notif_auto_show_map_title), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(Res.string.settings_notif_auto_show_map_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             }
             var expanded by remember { mutableStateOf(false) }
-            val displayValue = when (autoShowMapAfterNotifSec) {
+            val displayValue = when (timeAutoShowMapSec) {
                 0 -> stringResource(Res.string.settings_notif_auto_show_map_off)
                 3 -> stringResource(Res.string.settings_notif_auto_show_map_3s)
                 5 -> stringResource(Res.string.settings_notif_auto_show_map_5s)
                 10 -> stringResource(Res.string.settings_notif_auto_show_map_10s)
-                else -> "${autoShowMapAfterNotifSec}s"
+                else -> "${timeAutoShowMapSec}s"
             }
             Box {
                 TextButton(onClick = { expanded = true }) { Text(displayValue) }
@@ -186,7 +240,7 @@ fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist:
                         DropdownMenuItem(
                             text = { Text(label) },
                             onClick = {
-                                viewModel.updateAutoShowMapAfterNotificationSeconds(sec)
+                                viewModel.updateAutoShowMapAfterTimeNotificationSeconds(sec)
                                 expanded = false
                             }
                         )
@@ -364,6 +418,11 @@ fun MapSettingsContent(viewModel: SettingsViewModel) {
     val autoCloseTimeout by viewModel.mapAutoCloseTimeoutSeconds.collectAsState()
     val isMapSwipePan by viewModel.isMapSwipePanEnabled.collectAsState()
 
+    val mapRouteColor by viewModel.mapRouteColor.collectAsState()
+    val mapPlannedColor by viewModel.mapPlannedColor.collectAsState()
+    val mapLocationColor by viewModel.mapLocationColor.collectAsState()
+    val activityZooms by viewModel.activityMapZooms.collectAsState()
+
     Column(modifier = Modifier.padding(16.dp)) {
         Text(
             text = stringResource(Res.string.settings_map_desc),
@@ -394,21 +453,15 @@ fun MapSettingsContent(viewModel: SettingsViewModel) {
                 Text(stringResource(Res.string.settings_map_auto_close_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             }
             var expanded by remember { mutableStateOf(false) }
-            val displayValue = if (autoCloseTimeout == 0) {
-                stringResource(Res.string.settings_map_auto_close_off)
-            } else {
-                "${autoCloseTimeout}s"
-            }
+            val displayValue = "${autoCloseTimeout}s"
             Box {
                 TextButton(onClick = { expanded = true }) { Text(displayValue) }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     listOf(
-                        0 to stringResource(Res.string.settings_map_auto_close_off),
                         5 to "5s",
                         10 to "10s",
                         15 to "15s",
-                        30 to "30s",
-                        60 to "60s"
+                        30 to "30s"
                     ).forEach { (sec, label) ->
                         DropdownMenuItem(
                             text = { Text(label) },
@@ -435,6 +488,213 @@ fun MapSettingsContent(viewModel: SettingsViewModel) {
                 onCheckedChange = { viewModel.updateMapSwipePanEnabled(it) },
                 modifier = Modifier.scale(0.7f)
             )
+        }
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
+
+        // 4. マップ描画色設定ヘッダー
+        Text(
+            text = stringResource(Res.string.settings_map_colors_header),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // 4-A. 走行実績ルートの色
+        MapColorSettingRow(
+            title = stringResource(Res.string.settings_map_route_color_title),
+            description = stringResource(Res.string.settings_map_route_color_desc),
+            currentColor = mapRouteColor,
+            onColorSelected = { viewModel.updateMapRouteColor(it) }
+        )
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
+
+        // 4-B. 予定コース（GPX）の色
+        MapColorSettingRow(
+            title = stringResource(Res.string.settings_map_planned_color_title),
+            description = stringResource(Res.string.settings_map_planned_color_desc),
+            currentColor = mapPlannedColor,
+            onColorSelected = { viewModel.updateMapPlannedColor(it) }
+        )
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
+
+        // 4-C. 現在地マーカーの色
+        MapColorSettingRow(
+            title = stringResource(Res.string.settings_map_location_color_title),
+            description = stringResource(Res.string.settings_map_location_color_desc),
+            currentColor = mapLocationColor,
+            onColorSelected = { viewModel.updateMapLocationColor(it) }
+        )
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
+
+        // 5. ワークアウト別マップ拡大率設定
+        Text(
+            text = stringResource(Res.string.settings_map_zooms_header),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Text(
+            text = stringResource(Res.string.settings_map_zooms_desc),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        listOf(
+            ActivityType.RUNNING,
+            ActivityType.WALKING,
+            ActivityType.CYCLING,
+            ActivityType.HIKING,
+            ActivityType.OTHER
+        ).forEach { act ->
+            val zoom = activityZooms[act.name] ?: 16
+            WorkoutZoomSettingRow(
+                activityType = act,
+                currentZoom = zoom,
+                onZoomSelected = { viewModel.updateActivityMapZoom(act, it) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun getZoomLevelLabel(zoom: Int): String {
+    return when (zoom) {
+        13 -> stringResource(Res.string.zoom_level_13)
+        14 -> stringResource(Res.string.zoom_level_14)
+        15 -> stringResource(Res.string.zoom_level_15)
+        16 -> stringResource(Res.string.zoom_level_16)
+        17 -> stringResource(Res.string.zoom_level_17)
+        18 -> stringResource(Res.string.zoom_level_18)
+        else -> "Zoom $zoom"
+    }
+}
+
+@Composable
+private fun WorkoutZoomSettingRow(
+    activityType: ActivityType,
+    currentZoom: Int,
+    onZoomSelected: (Int) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+    ) {
+        Text(
+            text = activityType.displayName,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Box {
+            TextButton(
+                onClick = { expanded = true },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Text(getZoomLevelLabel(currentZoom), style = MaterialTheme.typography.bodySmall)
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                listOf(13, 14, 15, 16, 17, 18).forEach { z ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = getZoomLevelLabel(z),
+                                style = if (z == currentZoom) MaterialTheme.typography.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) else MaterialTheme.typography.bodyMedium,
+                                color = if (z == currentZoom) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        onClick = {
+                            onZoomSelected(z)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun getMapColorName(color: MapColorPreset): String {
+    return when (color) {
+        MapColorPreset.RED -> stringResource(Res.string.map_color_red)
+        MapColorPreset.MAGENTA -> stringResource(Res.string.map_color_magenta)
+        MapColorPreset.ORANGE -> stringResource(Res.string.map_color_orange)
+        MapColorPreset.YELLOW -> stringResource(Res.string.map_color_yellow)
+        MapColorPreset.GREEN -> stringResource(Res.string.map_color_green)
+        MapColorPreset.CYAN -> stringResource(Res.string.map_color_cyan)
+        MapColorPreset.BLUE -> stringResource(Res.string.map_color_blue)
+    }
+}
+
+@Composable
+private fun MapColorSettingRow(
+    title: String,
+    description: String,
+    currentColor: MapColorPreset,
+    onColorSelected: (MapColorPreset) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium)
+            Text(description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        }
+        Box {
+            TextButton(
+                onClick = { expanded = true },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .background(Color(currentColor.argbColor), CircleShape)
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(getMapColorName(currentColor), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                MapColorPreset.entries.forEach { preset ->
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .background(Color(preset.argbColor), CircleShape)
+                                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(getMapColorName(preset), style = MaterialTheme.typography.bodyMedium)
+                            }
+                        },
+                        onClick = {
+                            onColorSelected(preset)
+                            expanded = false
+                        }
+                    )
+                }
+            }
         }
     }
 }

@@ -3,6 +3,8 @@ package hag1987haaa.pebble.iron.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import hag1987haaa.pebble.iron.domain.settings.AppSettings
+import hag1987haaa.pebble.iron.domain.settings.MapColorPreset
+import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.settings.LongPressMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -58,6 +60,11 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _notifDistanceStep = MutableStateFlow(settings.notificationDistanceStep)
     val notifDistanceStep: StateFlow<Float> = _notifDistanceStep.asStateFlow()
 
+    val mapRouteColor: StateFlow<MapColorPreset> = settings.mapRouteColorFlow
+    val mapPlannedColor: StateFlow<MapColorPreset> = settings.mapPlannedColorFlow
+    val mapLocationColor: StateFlow<MapColorPreset> = settings.mapLocationColorFlow
+    val activityMapZooms: StateFlow<Map<String, Int>> = settings.activityMapZoomsFlow
+
     private val _mapAutoCloseTimeoutSeconds = MutableStateFlow(settings.mapAutoCloseTimeoutSeconds)
     val mapAutoCloseTimeoutSeconds: StateFlow<Int> = _mapAutoCloseTimeoutSeconds.asStateFlow()
 
@@ -69,6 +76,11 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
 
     private val _isNotificationVibrationEnabled = MutableStateFlow(settings.isNotificationVibrationEnabled)
     val isNotificationVibrationEnabled: StateFlow<Boolean> = _isNotificationVibrationEnabled.asStateFlow()
+
+    val isDistNotificationVibrationEnabled: StateFlow<Boolean> = settings.isDistNotificationVibrationEnabledFlow
+    val autoShowMapAfterDistNotificationSeconds: StateFlow<Int> = settings.autoShowMapAfterDistNotificationSecondsFlow
+    val isTimeNotificationVibrationEnabled: StateFlow<Boolean> = settings.isTimeNotificationVibrationEnabledFlow
+    val autoShowMapAfterTimeNotificationSeconds: StateFlow<Int> = settings.autoShowMapAfterTimeNotificationSecondsFlow
 
     private val _autoShowMapAfterNotificationSeconds = MutableStateFlow(settings.autoShowMapAfterNotificationSeconds)
     val autoShowMapAfterNotificationSeconds: StateFlow<Int> = _autoShowMapAfterNotificationSeconds.asStateFlow()
@@ -321,6 +333,22 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.save()
     }
 
+    fun updateMapRouteColor(color: MapColorPreset) {
+        settings.mapRouteColor = color
+    }
+
+    fun updateMapPlannedColor(color: MapColorPreset) {
+        settings.mapPlannedColor = color
+    }
+
+    fun updateActivityMapZoom(type: ActivityType, zoom: Int) {
+        settings.setMapZoomForActivity(type, zoom)
+    }
+
+    fun updateMapLocationColor(color: MapColorPreset) {
+        settings.mapLocationColor = color
+    }
+
     fun updateMapAutoCloseTimeoutSeconds(seconds: Int) {
         settings.mapAutoCloseTimeoutSeconds = seconds
         _mapAutoCloseTimeoutSeconds.value = seconds
@@ -343,6 +371,22 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.isNotificationVibrationEnabled = enabled
         _isNotificationVibrationEnabled.value = enabled
         settings.save()
+    }
+
+    fun updateDistNotificationVibrationEnabled(enabled: Boolean) {
+        settings.isDistNotificationVibrationEnabled = enabled
+    }
+
+    fun updateAutoShowMapAfterDistNotificationSeconds(seconds: Int) {
+        settings.autoShowMapAfterDistNotificationSeconds = seconds
+    }
+
+    fun updateTimeNotificationVibrationEnabled(enabled: Boolean) {
+        settings.isTimeNotificationVibrationEnabled = enabled
+    }
+
+    fun updateAutoShowMapAfterTimeNotificationSeconds(seconds: Int) {
+        settings.autoShowMapAfterTimeNotificationSeconds = seconds
     }
 
     fun updateAutoShowMapAfterNotificationSeconds(seconds: Int) {

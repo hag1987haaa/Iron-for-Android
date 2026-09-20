@@ -15,6 +15,7 @@ import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.AppEventID
 import hag1987haaa.pebble.iron.domain.settings.LongPressMode
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
+import hag1987haaa.pebble.iron.util.toActivePlannedPoints
 import java.util.UUID
 
 class PebbleCommandService : BasePebbleListenerService() {
@@ -441,7 +442,7 @@ class PebbleCommandService : BasePebbleListenerService() {
 
         if (updatedCourses != currentCourses) {
             settings.savedGpxCourses = updatedCourses
-            val activePlanned = updatedCourses.filter { it.isEnabled }.flatMap { it.points }
+            val activePlanned = updatedCourses.toActivePlannedPoints()
             val engine = KmpDependencies.trackerEngine
             engine.pebbleMessenger?.setPlannedCourse(activePlanned.ifEmpty { null })
             Log.i("PebbleCommand", "Updated courses from watch. Active planned points: ${activePlanned.size}")

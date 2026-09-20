@@ -29,6 +29,7 @@ import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.domain.tracker.PebbleMessenger
 import hag1987haaa.pebble.iron.util.GpxImporter
 import hag1987haaa.pebble.iron.util.GpxCourse
+import hag1987haaa.pebble.iron.util.toActivePlannedPoints
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -53,7 +54,7 @@ fun MapSimulationScreen(
 
     fun updateCourses(newList: List<GpxCourse>) {
         settings.savedGpxCourses = newList
-        val activePoints = newList.filter { it.isEnabled }.flatMap { it.points }
+        val activePoints = newList.toActivePlannedPoints()
         messenger?.setPlannedCourse(activePoints.ifEmpty { null })
         val coursesDataStr = if (newList.isNotEmpty()) {
             newList.joinToString("|") { "${if (it.isEnabled) 1 else 0},${it.name}" }
@@ -75,8 +76,12 @@ fun MapSimulationScreen(
         return null
     }
 
+    val mapRouteColor by settings.mapRouteColorFlow.collectAsState()
+    val mapPlannedColor by settings.mapPlannedColorFlow.collectAsState()
+    val mapLocationColor by settings.mapLocationColorFlow.collectAsState()
+
     val activePlannedPoints = remember(gpxCourses) {
-        gpxCourses.filter { it.isEnabled }.flatMap { it.points }
+        gpxCourses.toActivePlannedPoints()
     }
 
     val currentLoc = stats.currentLocation ?: engineStats.currentLocation
@@ -657,7 +662,7 @@ fun MapSimulationScreen(
                     isHighlight = (sim == connectedSimPlatform),
                     isMonochrome = sim.isMonochrome,
                     messenger = messenger,
-                    refreshKey = activePlannedPoints,
+                    refreshKey = listOf(activePlannedPoints, mapRouteColor, mapPlannedColor, mapLocationColor),
                     zoom = simulatedZoom,
                     onSendMap = { w, h ->
                         messenger?.setMapZoom(simulatedZoom)

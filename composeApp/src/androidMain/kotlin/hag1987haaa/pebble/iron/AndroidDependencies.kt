@@ -7,6 +7,8 @@ import hag1987haaa.pebble.iron.data.repository.SqlRunRepository
 import hag1987haaa.pebble.iron.db.DatabaseDriverFactory
 import hag1987haaa.pebble.iron.db.PebbleTrackerDatabase
 import hag1987haaa.pebble.iron.domain.settings.AppSettings
+import hag1987haaa.pebble.iron.domain.settings.MapColorPreset
+import hag1987haaa.pebble.iron.util.toActivePlannedPoints
 import kotlinx.serialization.encodeToString
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.tracker.RunTrackerEngine
@@ -49,7 +51,7 @@ object AndroidDependencies {
         val prefs = appContext.getSharedPreferences("iron_settings", Context.MODE_PRIVATE)
         settings.isMusicControlEnabled = prefs.getBoolean("music_enabled", false)
         settings.isTouchControlEnabled = prefs.getBoolean("touch_enabled", false)
-        settings.isMapSwipePanEnabled = prefs.getBoolean("map_swipe_pan_enabled", false)
+        settings.isMapSwipePanEnabled = prefs.getBoolean("map_swipe_pan_enabled", true)
         settings.isLongPressEnabled = prefs.getBoolean("longpress_enabled", false)
         settings.upLongPressMode = hag1987haaa.pebble.iron.domain.settings.LongPressMode.valueOf(
             prefs.getString("longpress_up_mode", hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name) ?: hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name
@@ -66,7 +68,28 @@ object AndroidDependencies {
         settings.isCommand52Enabled = prefs.getBoolean("cmd52_enabled", true)
         settings.isPrivacyMapModeEnabled = prefs.getBoolean("privacy_map_enabled", false)
         settings.isAutoShowMapOnReadyEnabled = prefs.getBoolean("auto_show_map_on_ready", false)
-        settings.mapAutoCloseTimeoutSeconds = prefs.getInt("map_auto_close_timeout", 10)
+        val savedTimeout = prefs.getInt("map_auto_close_timeout", 10)
+        settings.mapAutoCloseTimeoutSeconds = if (savedTimeout <= 0 || savedTimeout > 30) 10 else savedTimeout
+        settings.mapRouteColor = MapColorPreset.fromId(prefs.getString("map_route_color", null), MapColorPreset.RED)
+        settings.mapPlannedColor = MapColorPreset.fromId(prefs.getString("map_planned_color", null), MapColorPreset.YELLOW)
+        settings.mapLocationColor = MapColorPreset.fromId(prefs.getString("map_location_color", null), MapColorPreset.GREEN)
+
+        val zoomsStr = prefs.getString("activity_map_zooms", null)
+        if (!zoomsStr.isNullOrEmpty()) {
+            val map = zoomsStr.split(",").mapNotNull { entry ->
+                val parts = entry.split(":")
+                if (parts.size == 2) {
+                    val actName = parts[0].trim()
+                    val z = parts[1].trim().toIntOrNull()
+                    if (z != null) actName to z else null
+                } else null
+            }.toMap()
+            if (map.isNotEmpty()) {
+                val current = settings.activityMapZooms.toMutableMap()
+                current.putAll(map)
+                settings.activityMapZooms = current
+            }
+        }
         settings.userWeightKg = prefs.getFloat("user_weight", 70.0f)
         settings.hasAskedHealthConnectOnboarding = prefs.getBoolean("hc_onboarding_asked", false)
         
@@ -77,8 +100,13 @@ object AndroidDependencies {
         settings.notificationTimeSeconds = prefs.getInt("notif_time", 0)
         settings.isAutoLaunchOnDistanceNotificationEnabled = prefs.getBoolean("auto_launch_dist", false)
         settings.isAutoLaunchOnTimeNotificationEnabled = prefs.getBoolean("auto_launch_time", false)
-        settings.isNotificationVibrationEnabled = prefs.getBoolean("notif_vibration", true)
-        settings.autoShowMapAfterNotificationSeconds = prefs.getInt("auto_show_map_after_notif_sec", 0)
+        val oldVib = prefs.getBoolean("notif_vibration", true)
+        settings.isDistNotificationVibrationEnabled = prefs.getBoolean("dist_notif_vibration", oldVib)
+        settings.isTimeNotificationVibrationEnabled = prefs.getBoolean("time_notif_vibration", oldVib)
+
+        val oldAutoShowMap = prefs.getInt("auto_show_map_after_notif_sec", 0)
+        settings.autoShowMapAfterDistNotificationSeconds = prefs.getInt("dist_auto_show_map_sec", oldAutoShowMap)
+        settings.autoShowMapAfterTimeNotificationSeconds = prefs.getInt("time_auto_show_map_sec", oldAutoShowMap)
         
         // Mid Data 設定の読み込み
         val midTypesStr = prefs.getString("mid_types", "0,4,1,5,10") ?: "0,4,1,5,10"
@@ -185,6 +213,10 @@ object AndroidDependencies {
                 putBoolean("privacy_map_enabled", settings.isPrivacyMapModeEnabled)
                 putBoolean("auto_show_map_on_ready", settings.isAutoShowMapOnReadyEnabled)
                 putInt("map_auto_close_timeout", settings.mapAutoCloseTimeoutSeconds)
+                putString("map_route_color", settings.mapRouteColor.id)
+                putString("map_planned_color", settings.mapPlannedColor.id)
+                putString("map_location_color", settings.mapLocationColor.id)
+                putString("activity_map_zooms", settings.activityMapZooms.entries.joinToString(",") { "${it.key}:${it.value}" })
                 putFloat("user_weight", settings.userWeightKg)
                 putBoolean("hc_onboarding_asked", settings.hasAskedHealthConnectOnboarding)
                 
@@ -194,8 +226,12 @@ object AndroidDependencies {
                 putInt("notif_time", settings.notificationTimeSeconds)
                 putBoolean("auto_launch_dist", settings.isAutoLaunchOnDistanceNotificationEnabled)
                 putBoolean("auto_launch_time", settings.isAutoLaunchOnTimeNotificationEnabled)
-        putBoolean("notif_vibration", settings.isNotificationVibrationEnabled)
-        putInt("auto_show_map_after_notif_sec", settings.autoShowMapAfterNotificationSeconds)
+        putBoolean("notif_vibration", settings.isDistNotificationVibrationEnabled)
+        putInt("auto_show_map_after_notif_sec", settings.autoShowMapAfterDistNotificationSeconds)
+        putBoolean("dist_notif_vibration", settings.isDistNotificationVibrationEnabled)
+        putBoolean("time_notif_vibration", settings.isTimeNotificationVibrationEnabled)
+        putInt("dist_auto_show_map_sec", settings.autoShowMapAfterDistNotificationSeconds)
+        putInt("time_auto_show_map_sec", settings.autoShowMapAfterTimeNotificationSeconds)
                 
                 // Mid / Lower Data 設定の保存
                 putString("mid_types", settings.enabledMidTypes.joinToString(","))
@@ -255,7 +291,7 @@ object AndroidDependencies {
         KmpDependencies.setup(repository, engine, settings, bleScanner, bleHeartRateManager)
         
         // 起動時に保存済みコースの有効ルートを復元
-        val activePlanned = settings.savedGpxCourses.filter { it.isEnabled }.flatMap { it.points }
+        val activePlanned = settings.savedGpxCourses.toActivePlannedPoints()
         if (activePlanned.isNotEmpty()) {
             engine.pebbleMessenger?.setPlannedCourse(activePlanned)
         }
