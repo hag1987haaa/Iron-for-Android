@@ -720,11 +720,7 @@ class AndroidPebbleMessenger(
 
                 if (mapSendJob?.isActive != true) return@launch
 
-                // 3. マップ表示コマンド送信
-                sendMapState(true)
-                delay(150)
-
-                // 4. ここからチャンク送信フェーズ（途中で中断させず最後まで安全に送り切る）
+                // 3. チャンク送信フェーズ（ウォッチがコックピット表示のままバックグラウンドで全チャンクを先行受信）
                 isTransmittingChunks = true
                 val chunkSize = 500 
                 val totalChunks = (totalSize + chunkSize - 1) / chunkSize
@@ -744,6 +740,10 @@ class AndroidPebbleMessenger(
                     delay(fixedDelayMs) 
                 }
                 Log.i("PebbleMessenger", "sendMap: Fully transmitted $totalSize bytes in $totalChunks chunks.")
+
+                // 4. 全チャンクが揃った時点でマップ表示コマンドを送信（待機時間ゼロで即座に完成マップを表示）
+                sendMapState(true)
+                delay(100)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 Log.d("PebbleMessenger", "sendMap: Pre-transmission generation cancelled in favor of newer request")
                 throw e
@@ -1113,29 +1113,25 @@ class AndroidPebbleMessenger(
                 types[i] = TYPE_WATER.toByte()
                 continue
             }
-            // 5. 一般道路・生活道路（ズーム倍率に応じたインテリジェント間引き）
+            // 5. 一般道路・生活道路（単色フラット化: 建物影等のグレーケーシングを排除し路面のみ抽出）
             if (zoom <= 14) {
                 // Zoom 13-14（引き・広域）: 生活道路・細道は完全間引き（表示しない）
                 // 幹線道路と水域のみを描画し、大局を把握＆データサイズを激減
             } else if (zoom == 15) {
-                // Zoom 15（中域）: 幅の広い主要一般道（路面が純白）のみ抽出。細い路地やケーシングは除外
+                // Zoom 15（中域）: 幅の広い主要一般道（路面が純白）のみ抽出
                 if (r >= 252 && g >= 252 && b >= 250) {
                     types[i] = TYPE_LOCAL_ROAD.toByte()
                     continue
                 }
             } else if (zoom == 16) {
-                // Zoom 16（標準）: 路面（純白）＋明確な道路ケーシング（明るいグレーのみ、ウォーターマーク誤検知防止）
-                val isRoadSurface = (r >= 250 && g >= 250 && b >= 248)
-                val isRoadCasing = (Math.abs(r - g) <= 4 && Math.abs(g - b) <= 4 && r in 226..240 && (r - b) < 4)
-                if (isRoadSurface || isRoadCasing) {
+                // Zoom 16（標準）: 道路路面（純白〜オフホワイト）のみ抽出。建物壁や影のグレーを背景（純白）へ丸め込みフラット化
+                if (r >= 250 && g >= 250 && b >= 248) {
                     types[i] = TYPE_LOCAL_ROAD.toByte()
                     continue
                 }
             } else {
-                // Zoom 17-18（詳細・拡大）: 路地や細い通路までしっかり表示
-                val isRoadSurface = (r >= 248 && g >= 248 && b >= 245)
-                val isRoadCasing = (Math.abs(r - g) <= 5 && Math.abs(g - b) <= 5 && r in 220..242)
-                if (isRoadSurface || isRoadCasing) {
+                // Zoom 17-18（詳細・拡大）: 道路路面のみ抽出。グレーテクスチャを排除してRLE圧縮効率を極大化
+                if (r >= 248 && g >= 248 && b >= 245) {
                     types[i] = TYPE_LOCAL_ROAD.toByte()
                     continue
                 }
@@ -1144,7 +1140,7 @@ class AndroidPebbleMessenger(
             types[i] = TYPE_BG.toByte()
         }
 
-        // 第2パス: 孤立点（点群ノイズ）の除去（線の接続性は維持）
+        // 第2パス: 孤立点（点群ノイズ）の除去（線の接続性は維持し、背景を完全フラット化）
         val cleanedTypes = types.clone()
         for (y in 1 until height - 1) {
             val yOffset = y * width
@@ -1169,8 +1165,7 @@ class AndroidPebbleMessenger(
                     continue
                 }
 
-                // 道路の孤立ノイズ除去
-                // 周囲8近傍に道路/ルートが1つもない完全孤立ドットのみ消去（角や端点を誤消去しない）
+                // 道路の孤立ノイズ除去（2近傍以上の線状接続のみ残し、孤立ドットを消去して背景白の連続長を極大化）
                 if (t == TYPE_LOCAL_ROAD || t == TYPE_HIGHWAY) {
                     var roadNeighbors = 0
                     for (dy in -1..1) {
@@ -1182,7 +1177,7 @@ class AndroidPebbleMessenger(
                             }
                         }
                     }
-                    if (roadNeighbors == 0) {
+                    if (roadNeighbors < 2) {
                         cleanedTypes[idx] = TYPE_BG.toByte()
                     }
                 }
