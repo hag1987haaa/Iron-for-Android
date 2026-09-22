@@ -780,13 +780,12 @@ class AndroidPebbleMessenger(
         // 1. 走行実績が2点以上ある場合は最新の走者位置
         // 2. 計画ルート（GPX）がある場合は計画ルートの始点
         // 3. それ以外は現在地またはフォールバック
-        val currentPoint = if (points.size >= 2 && points !== plannedPoints) {
-            points.last()
-        } else if (!plannedPoints.isNullOrEmpty()) {
-            plannedPoints.first()
-        } else {
-            points.lastOrNull() ?: return@withContext bitmap
-        }
+        val currentLoc = hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.statistics.value.currentLocation
+        val currentPoint = currentLoc
+            ?: (if (points.isNotEmpty() && points !== plannedPoints) points.last() else null)
+            ?: plannedPoints?.firstOrNull()
+            ?: points.lastOrNull()
+            ?: return@withContext bitmap
 
         // 1. 中心の決定 (最新の地点を画像の中央にする)
         val centerLat = currentPoint.latitude
@@ -880,9 +879,7 @@ class AndroidPebbleMessenger(
             (0..1).map { tx ->
                 val curX = xStartTile + tx
                 val curY = yStartTile + ty
-                val subdomains = arrayOf("a", "b", "c", "d")
-                val sub = subdomains[Math.abs(curX + curY) % subdomains.size]
-                val tileUrl = "https://$sub.basemaps.cartocdn.com/rastertiles/voyager_nolabels/$zoom/$curX/$curY.png"
+                val tileUrl = "https://tile.openstreetmap.org/$zoom/$curX/$curY.png"
                 async(Dispatchers.IO) {
                     try {
                         val cached = synchronized(tileCache) { tileCache.get(tileUrl) }
@@ -890,9 +887,9 @@ class AndroidPebbleMessenger(
                             cached
                         } else {
                             val connection = java.net.URL(tileUrl).openConnection() as java.net.HttpURLConnection
-                            connection.setRequestProperty("User-Agent", "TrackerIronAndroid/1.0")
-                            connection.connectTimeout = 2500
-                            connection.readTimeout = 2500
+                            connection.setRequestProperty("User-Agent", "IronPebbleTracker/1.0 (Android; hag1987haaa.pebble.iron)")
+                            connection.connectTimeout = 3000
+                            connection.readTimeout = 3000
                             val loaded = android.graphics.BitmapFactory.decodeStream(connection.inputStream)
                             if (loaded != null) {
                                 synchronized(tileCache) { tileCache.put(tileUrl, loaded) }
@@ -1007,34 +1004,23 @@ class AndroidPebbleMessenger(
         }
 
         if (isStopped) {
-            // 停止中: 半径 8px (直径 16px) のグリーン単色ドット
+            // 停止中: 半径8px (直径16px) のグリーン単色ドット
             canvas.drawCircle(cx, cy, 8f, locationPaint)
         } else {
             // 移動中: グリーン単色・二等辺三角形 (底辺幅16px, 全長22px)
-            if (rotateHeadingUp) {
-                // ノーズアップ: キャンバスが既に -bearing 回転しているので、二等辺三角形は真上(12時方向)を向く
-                val trianglePath = android.graphics.Path().apply {
-                    moveTo(cx, cy - 13f)       // 先端 (真上)
-                    lineTo(cx + 8f, cy + 9f)   // 右下
-                    lineTo(cx - 8f, cy + 9f)   // 左下
-                    close()
-                }
-                canvas.drawPath(trianglePath, locationPaint)
-            } else {
-                // ノースアップ: マップは北が上。二等辺三角形のみ bearing 角度回転
-                canvas.save()
-                canvas.rotate(bearing, cx, cy)
-                val trianglePath = android.graphics.Path().apply {
-                    moveTo(cx, cy - 13f)       // 先端
-                    lineTo(cx + 8f, cy + 9f)   // 右下
-                    lineTo(cx - 8f, cy + 9f)   // 左下
-                    close()
-                }
-                canvas.drawPath(trianglePath, locationPaint)
-                canvas.restore()
+            // ノーズアップ時はキャンバスが -bearing 回転しているため、+bearing 回転で相殺して画面真上(12時方向)を向く
+            // ノースアップ時はキャンバスが北上なので、+bearing 回転で進行方向を向く
+            canvas.save()
+            canvas.rotate(bearing, cx, cy)
+            val trianglePath = android.graphics.Path().apply {
+                moveTo(cx, cy - 13f)       // 先端
+                lineTo(cx + 8f, cy + 9f)   // 右下
+                lineTo(cx - 8f, cy + 9f)   // 左下
+                close()
             }
+            canvas.drawPath(trianglePath, locationPaint)
+            canvas.restore()
         }
-
         if (rotateHeadingUp) {
             canvas.restore()
         }
@@ -1103,35 +1089,53 @@ class AndroidPebbleMessenger(
                 continue
             }
             // 3. 幹線道路・高速（Voyager: 黄色・オレンジ系）-> 太い黒線
-            val isHighway = (r > 215 && g > 140 && b < 190 && (r - b) > 30)
+            val isHighway = (r > 230 && g in 120..210 && b < 150) ||
+                            (r > 240 && g in 190..230 && b < 170 && (r - b) > 60)
             if (isHighway) {
                 types[i] = TYPE_HIGHWAY.toByte()
                 continue
             }
-            // 4. 水域（海・河川）
-            if (b > 215 && g > 210 && r < 225 && b >= r) {
+            // 4. 水域 (OSM: #aad3df または青系水域)
+            val isWater = (r in 150..190 && g in 195..225 && b in 215..240) ||
+                          (b > 210 && g > 180 && r < 160 && b > r + 50)
+            if (isWater) {
                 types[i] = TYPE_WATER.toByte()
                 continue
             }
-            // 5. 一般道路・生活道路（単色フラット化: 建物影等のグレーケーシングを排除し路面のみ抽出）
+            // 5. 一般道路・生活道路・路地・歩道・トレイル・特殊道路 (OSM)
+            val isTertiary = (r > 245 && g > 235 && b in 140..195)
+            val isWhiteRoad = (r >= 248 && g >= 248 && b >= 245)
+            val isOffWhite = (zoom >= 16 && r >= 240 && g >= 240 && b >= 236)
+            // 狭い路地（路面白がなくケーシング単独線で描かれた小道・生活道路）
+            val isNarrowAlley = (zoom >= 16 && Math.abs(r - g) <= 3 && Math.abs(g - b) <= 3 && r in 205..234)
+            // 公園・緑道トレイル・遊歩道・階段（OSMではサーモンピンク/赤茶色系の破線や横縞）
+            val isTrailOrFootway = (zoom >= 15 && r in 180..252 && g in 70..185 && b in 70..175 && (r - g) >= 25 && Math.abs(g - b) <= 25)
+            // 農道・未舗装路・林道・土の道（OSMでは茶色/黄土色: #996600, #b37700）
+            val isTrack = (zoom >= 15 && r in 120..195 && g in 70..150 && b in 0..100 && (r - g) >= 15 && (g - b) >= 15)
+            // 工事中の道路（黄色/オレンジと茶色/グレーの破線・縞模様）
+            val isConstruction = (zoom >= 15 && r >= 200 && g in 140..220 && b <= 120 && (r - b) >= 70)
+            // 自転車専用道・CR（青/水色の破線: 多摩川・荒川等のサイクリングロード）
+            val isCycleway = (zoom >= 15 && b >= 160 && r <= 140 && (b - r) >= 40)
+            // トンネル内の道路（半透明薄グレー路面）
+            val isTunnel = (zoom >= 16 && r in 210..235 && g in 210..235 && b in 210..235 && Math.abs(r - g) <= 3 && Math.abs(g - b) <= 3)
+
+            val isSpecialWay = isTrailOrFootway || isTrack || isConstruction || isCycleway || isTunnel
+
             if (zoom <= 14) {
-                // Zoom 13-14（引き・広域）: 生活道路・細道は完全間引き（表示しない）
-                // 幹線道路と水域のみを描画し、大局を把握＆データサイズを激減
-            } else if (zoom == 15) {
-                // Zoom 15（中域）: 幅の広い主要一般道（路面が純白）のみ抽出
-                if (r >= 252 && g >= 252 && b >= 250) {
+                // Zoom 13-14 (引き・広域): 幹線・主要道のみ
+                if (isTertiary) {
                     types[i] = TYPE_LOCAL_ROAD.toByte()
                     continue
                 }
-            } else if (zoom == 16) {
-                // Zoom 16（標準）: 道路路面（純白〜オフホワイト）のみ抽出。建物壁や影のグレーを背景（純白）へ丸め込みフラット化
-                if (r >= 250 && g >= 250 && b >= 248) {
+            } else if (zoom == 15) {
+                // Zoom 15 (中域・広い視野): 主要一般道＋幅広路面のみ（細線クラッターによる団子化を防止）
+                if (isTertiary || isWhiteRoad) {
                     types[i] = TYPE_LOCAL_ROAD.toByte()
                     continue
                 }
             } else {
-                // Zoom 17-18（詳細・拡大）: 道路路面のみ抽出。グレーテクスチャを排除してRLE圧縮効率を極大化
-                if (r >= 248 && g >= 248 && b >= 245) {
+                // Zoom 16, 17, 18: 生活道路・狭い路地・歩道・トレイル・特殊道まで完全抽出
+                if (isTertiary || isWhiteRoad || isOffWhite || isNarrowAlley || isSpecialWay) {
                     types[i] = TYPE_LOCAL_ROAD.toByte()
                     continue
                 }
@@ -1140,21 +1144,162 @@ class AndroidPebbleMessenger(
             types[i] = TYPE_BG.toByte()
         }
 
-        // 第2パス: 孤立点（点群ノイズ）の除去（線の接続性は維持し、背景を完全フラット化）
-        val cleanedTypes = types.clone()
+        // 道路ケーシング（細道の線状接続）補完パス: 純白路面に隣接するケーシングを拾って細線の途切れを防止
+        val casingTypes = types.clone()
+        if (zoom >= 16) {
+            for (y in 1 until height - 1) {
+                val yOffset = y * width
+                for (x in 1 until width - 1) {
+                    val idx = yOffset + x
+                    if (types[idx].toInt() == TYPE_BG) {
+                        val color = pixels[idx]
+                        val r = Color.red(color)
+                        val g = Color.green(color)
+                        val b = Color.blue(color)
+                        if (Math.abs(r - g) <= 3 && Math.abs(g - b) <= 3 && r in 200..238) {
+                            var hasRoadNeighbor = false
+                            for (dy in -1..1) {
+                                for (dx in -1..1) {
+                                    if (types[(y + dy) * width + (x + dx)].toInt() == TYPE_LOCAL_ROAD) {
+                                        hasRoadNeighbor = true
+                                        break
+                                    }
+                                }
+                                if (hasRoadNeighbor) break
+                            }
+                            if (hasRoadNeighbor) {
+                                casingTypes[idx] = TYPE_LOCAL_ROAD.toByte()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 道路の実線化パス（破線＆道路名ラベルによる1〜3pxギャップ接続）:
+        // 道路と道路の間に挟まれた隙間（道路名テキストや破線による分断）を直線方向に繋ぎ、綺麗な実線に補間
+        val solidTypes = casingTypes.clone()
+
+        fun canFillGap(idx: Int): Boolean {
+            if (casingTypes[idx].toInt() != TYPE_BG) return false
+            val c = pixels[idx]
+            val cr = Color.red(c)
+            val cg = Color.green(c)
+            val cb = Color.blue(c)
+            val isGreen = (cg > cr + 15 && cg > cb + 15 && cg > 150)
+            return !isGreen
+        }
+
+        fun isRoadType(t: Byte): Boolean {
+            val v = t.toInt()
+            return v == TYPE_LOCAL_ROAD || v == TYPE_HIGHWAY
+        }
+
+        // 1. 1px ギャップ接続（水平・垂直・斜め）
         for (y in 1 until height - 1) {
             val yOffset = y * width
             for (x in 1 until width - 1) {
                 val idx = yOffset + x
-                val t = types[idx].toInt()
+                if (canFillGap(idx)) {
+                    val left = casingTypes[idx - 1]
+                    val right = casingTypes[idx + 1]
+                    val up = casingTypes[idx - width]
+                    val down = casingTypes[idx + width]
 
-                // 水域の点群ノイズ除去（孤立した水色ドットは陸地へ）
+                    val isHorizGap = isRoadType(left) && isRoadType(right)
+                    val isVertGap = isRoadType(up) && isRoadType(down)
+
+                    val ul = casingTypes[idx - width - 1]
+                    val br = casingTypes[idx + width + 1]
+                    val ur = casingTypes[idx - width + 1]
+                    val bl = casingTypes[idx + width - 1]
+                    val isDiagGap = (isRoadType(ul) && isRoadType(br)) ||
+                                    (isRoadType(ur) && isRoadType(bl))
+
+                    if (isHorizGap || isVertGap || isDiagGap) {
+                        solidTypes[idx] = TYPE_LOCAL_ROAD.toByte()
+                    }
+                }
+            }
+        }
+
+        // 2. 2px & 3px ギャップ接続（拡大ズーム Zoom 16以上限定: 広い視野で平行道路が癒着して団子化するのを完全に防止）
+        if (zoom >= 16) {
+            for (y in 0 until height) {
+            val yOffset = y * width
+            for (x in 0 until width - 3) {
+                val idx0 = yOffset + x
+                val idx3 = yOffset + x + 3
+                if (isRoadType(solidTypes[idx0]) && isRoadType(solidTypes[idx3])) {
+                    val idx1 = idx0 + 1
+                    val idx2 = idx0 + 2
+                    if (canFillGap(idx1) && canFillGap(idx2)) {
+                        solidTypes[idx1] = TYPE_LOCAL_ROAD.toByte()
+                        solidTypes[idx2] = TYPE_LOCAL_ROAD.toByte()
+                    }
+                }
+            }
+            for (x in 0 until width - 4) {
+                val idx0 = yOffset + x
+                val idx4 = yOffset + x + 4
+                if (isRoadType(solidTypes[idx0]) && isRoadType(solidTypes[idx4])) {
+                    val idx1 = idx0 + 1
+                    val idx2 = idx0 + 2
+                    val idx3 = idx0 + 3
+                    if (canFillGap(idx1) && canFillGap(idx2) && canFillGap(idx3)) {
+                        solidTypes[idx1] = TYPE_LOCAL_ROAD.toByte()
+                        solidTypes[idx2] = TYPE_LOCAL_ROAD.toByte()
+                        solidTypes[idx3] = TYPE_LOCAL_ROAD.toByte()
+                    }
+                }
+            }
+        }
+
+        for (x in 0 until width) {
+            for (y in 0 until height - 3) {
+                val idx0 = y * width + x
+                val idx3 = (y + 3) * width + x
+                if (isRoadType(solidTypes[idx0]) && isRoadType(solidTypes[idx3])) {
+                    val idx1 = (y + 1) * width + x
+                    val idx2 = (y + 2) * width + x
+                    if (canFillGap(idx1) && canFillGap(idx2)) {
+                        solidTypes[idx1] = TYPE_LOCAL_ROAD.toByte()
+                        solidTypes[idx2] = TYPE_LOCAL_ROAD.toByte()
+                    }
+                }
+            }
+            for (y in 0 until height - 4) {
+                val idx0 = y * width + x
+                val idx4 = (y + 4) * width + x
+                if (isRoadType(solidTypes[idx0]) && isRoadType(solidTypes[idx4])) {
+                    val idx1 = (y + 1) * width + x
+                    val idx2 = (y + 2) * width + x
+                    val idx3 = (y + 3) * width + x
+                    if (canFillGap(idx1) && canFillGap(idx2) && canFillGap(idx3)) {
+                        solidTypes[idx1] = TYPE_LOCAL_ROAD.toByte()
+                        solidTypes[idx2] = TYPE_LOCAL_ROAD.toByte()
+                        solidTypes[idx3] = TYPE_LOCAL_ROAD.toByte()
+                    }
+                }
+            }
+        }
+        }
+
+        // 第2パス: 孤立点（点群ノイズ）の除去（完全孤立点のみ消去し、実線化された細道や端点は保護）
+        val cleanedTypes = solidTypes.clone()
+        for (y in 1 until height - 1) {
+            val yOffset = y * width
+            for (x in 1 until width - 1) {
+                val idx = yOffset + x
+                val t = solidTypes[idx].toInt()
+
+                // 水域の点群ノイズ除去（孤立した水色ドットを陸地へ）
                 if (t == TYPE_WATER) {
                     var waterNeighbors = 0
                     for (dy in -1..1) {
                         for (dx in -1..1) {
                             if (dx == 0 && dy == 0) continue
-                            if (types[(y + dy) * width + (x + dx)].toInt() == TYPE_WATER) {
+                            if (solidTypes[(y + dy) * width + (x + dx)].toInt() == TYPE_WATER) {
                                 waterNeighbors++
                             }
                         }
@@ -1165,26 +1310,26 @@ class AndroidPebbleMessenger(
                     continue
                 }
 
-                // 道路の孤立ノイズ除去（2近傍以上の線状接続のみ残し、孤立ドットを消去して背景白の連続長を極大化）
+                // 道路の孤立ノイズ除去（完全孤立点のみ消去。端点やT字路を保護）
                 if (t == TYPE_LOCAL_ROAD || t == TYPE_HIGHWAY) {
                     var roadNeighbors = 0
                     for (dy in -1..1) {
                         for (dx in -1..1) {
                             if (dx == 0 && dy == 0) continue
-                            val neighborType = types[(y + dy) * width + (x + dx)].toInt()
+                            val neighborType = solidTypes[(y + dy) * width + (x + dx)].toInt()
                             if (neighborType == TYPE_LOCAL_ROAD || neighborType == TYPE_HIGHWAY || neighborType == TYPE_ROUTE || neighborType == TYPE_PLANNED) {
                                 roadNeighbors++
                             }
                         }
                     }
-                    if (roadNeighbors < 2) {
+                    if (roadNeighbors == 0) {
                         cleanedTypes[idx] = TYPE_BG.toByte()
                     }
                 }
             }
         }
 
-        // 第3パス: 道路の太線化・途切れ防止（ズーム連動モルフォロジー膨張）
+                // 第3パス: 道路の太線化・途切れ防止（ズーム連動モルフォロジー膨張）
         val dilatedTypes = cleanedTypes.clone()
         for (y in 1 until height - 1) {
             val yOffset = y * width
@@ -1434,9 +1579,28 @@ class AndroidPebbleMessenger(
         }
     }
 
+    override fun clearMapCache() {
+        lastMapPoints = null
+        panOffsetPixelsX = 0.0
+        panOffsetPixelsY = 0.0
+        try {
+            synchronized(tileCache) { tileCache.evictAll() }
+        } catch (_: Exception) {}
+        Log.i("PebbleMessenger", "clearMapCache: Cleared lastMapPoints, pan offsets and tile cache.")
+    }
+
     private fun executeMapRefresh() {
-        val statsRoute = KmpDependencies.trackerEngine.statistics.value.route
-        val points = if (statsRoute.isNotEmpty()) statsRoute else (lastMapPoints ?: emptyList())
+        val stats = KmpDependencies.trackerEngine.statistics.value
+        val curLoc = stats.currentLocation
+        val points = if (stats.route.isNotEmpty()) {
+            stats.route
+        } else if (curLoc != null) {
+            listOf(curLoc)
+        } else if (!lastMapPoints.isNullOrEmpty()) {
+            lastMapPoints!!
+        } else {
+            emptyList()
+        }
         if (points.isNotEmpty()) {
             sendMap(points, lastMapWidth, lastMapHeight)
         } else {

@@ -154,4 +154,9 @@ interface PebbleMessenger {
      * コース一覧データ文字列（例: "1,NAME1|0,NAME2"）をウォッチに一括送信する
      */
     fun sendCoursesData(coursesDataString: String) {}
+
+    /**
+     * マップの内部キャッシュ（前回の位置情報ポイント等）をクリアする
+     */
+    fun clearMapCache() {}
 }

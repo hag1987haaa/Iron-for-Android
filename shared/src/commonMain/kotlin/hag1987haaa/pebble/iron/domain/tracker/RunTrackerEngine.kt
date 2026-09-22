@@ -292,6 +292,7 @@ class RunTrackerEngine(
         lastAcceptedRawLocation = null; lastDistanceLocation = null
         elevationFilter.reset()
         rawLocationWindow.clear(); fullRoute.clear()
+        pebbleMessenger?.clearMapCache()
 
         // 歩数・通知カウンタ・心拍ソース等の内部状態を完全に初期化
         isStartPending = false
@@ -635,6 +636,8 @@ class RunTrackerEngine(
                         else -> 15
                     }
                     pebbleMessenger?.setMapZoom(defaultZoom)
+                    pebbleMessenger?.sendMap(listOf(location), 0, 0)
+                } else if (pebbleMessenger?.isMapActive == true) {
                     pebbleMessenger?.sendMap(listOf(location), 0, 0)
                 }
             }
