@@ -457,6 +457,15 @@ class AndroidPebbleMessenger(
 
     override fun sendState(status: RunStatus, stats: RunStatistics) {
         val settings = this.settings
+
+        // 状態が変わる重要な瞬間（PREPARE / READY / ACTIVE / PAUSED等）なので、
+        // 進行中の大容量マップ転送があれば即座にキャンセルしてステータス通知を最優先化
+        if (mapSendJob?.isActive == true) {
+            Log.d("PebbleMessenger", "sendState: Cancelling in-flight map transmission in favor of state transition ($status)")
+            mapSendJob?.cancel()
+            isTransmittingChunks = false
+            isMapTransferring = false
+        }
         
         // 状態が変わる重要な瞬間なので、送信待ちの古い統計やグラフデータを全て破棄する
         // これにより、ウォッチ側での「二転三転（情報の逆転）」を物理的に防ぐ

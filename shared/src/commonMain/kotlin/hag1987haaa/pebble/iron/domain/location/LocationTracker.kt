@@ -6,4 +6,5 @@ import hag1987haaa.pebble.iron.domain.model.LocationPoint
 interface LocationTracker {
     fun startTracking(): Flow<LocationPoint>
     fun stopTracking()
+    suspend fun getLastKnownLocation(): LocationPoint? = null
 }

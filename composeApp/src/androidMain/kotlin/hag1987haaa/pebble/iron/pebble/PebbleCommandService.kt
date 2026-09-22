@@ -64,6 +64,11 @@ class PebbleCommandService : BasePebbleListenerService() {
 
         val engine = KmpDependencies.trackerEngine
 
+        // アイドル時にウォッチからメッセージ（起動・同期）を受信したらGPSを先行ウォームアップ
+        if (engine.statistics.value.status == RunStatus.IDLE) {
+            engine.warmupGps()
+        }
+
         // 1. 同期項目の処理 (Activity Type, HR, Steps, Mid/Lower ID, Map State)
         
         // Activity Type (10012)
@@ -272,17 +277,31 @@ class PebbleCommandService : BasePebbleListenerService() {
 
         when (cmd) {
             1 -> { // UP ボタン
+                // OSのバックグラウンドサービス起動遅延を完全に迂回するため、まずその場で即座にエンジンをキック！
                 when (currentStatus) {
-                    RunStatus.IDLE -> sendCommandToService("PREPARE")
-                    RunStatus.PREPARING, RunStatus.READY -> sendCommandToService("START")
-                    RunStatus.ACTIVE -> sendCommandToService("PAUSE")
-                    RunStatus.PAUSED -> sendCommandToService("RESUME")
+                    RunStatus.IDLE -> {
+                        engine.prepare()
+                        sendCommandToService("PREPARE")
+                    }
+                    RunStatus.PREPARING, RunStatus.READY -> {
+                        engine.start()
+                        sendCommandToService("START")
+                    }
+                    RunStatus.ACTIVE -> {
+                        engine.pause()
+                        sendCommandToService("PAUSE")
+                    }
+                    RunStatus.PAUSED -> {
+                        engine.resume()
+                        sendCommandToService("RESUME")
+                    }
                     else -> Log.w("PebbleCommand", "UP ignored in $currentStatus")
                 }
             }
             2 -> { // SELECT ボタン
                 if (currentStatus == RunStatus.PAUSED) {
                     Log.i("PebbleCommand", "FINISH command received via SELECT (Cmd 2)")
+                    engine.finish()
                     sendCommandToService("FINISH")
                 } else if (currentStatus == RunStatus.ACTIVE) {
                     Log.i("PebbleCommand", "Rotate Mid Data via SELECT (Cmd 2)")

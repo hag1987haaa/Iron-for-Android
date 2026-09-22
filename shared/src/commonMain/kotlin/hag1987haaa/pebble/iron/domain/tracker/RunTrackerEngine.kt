@@ -241,6 +241,19 @@ class RunTrackerEngine(
         }
     }
 
+    fun warmupGps() {
+        if (_statistics.value.status != RunStatus.IDLE) return
+        scope.launch {
+            try {
+                val lastLoc = locationTracker.getLastKnownLocation()
+                if (lastLoc != null && _statistics.value.currentLocation == null) {
+                    _statistics.update { it.copy(currentLocation = lastLoc) }
+                    RunState.updateStats(_statistics.value)
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
     fun setActivityType(type: ActivityType) {
         _statistics.update { it.copy(activityType = type) }
         appSettings?.let { it.lastActivityType = type.name; it.save() }
@@ -271,6 +284,17 @@ class RunTrackerEngine(
         pebbleMessenger?.requestWatchInfo()
         pebbleMessenger?.sendState(RunStatus.PREPARING, _statistics.value)
         pebbleMessenger?.sendGraphData(_statistics.value)
+
+        // 直近キャッシュ位置の先行確認（即時初期位置セット）
+        scope.launch {
+            try {
+                val lastLoc = locationTracker.getLastKnownLocation()
+                if (lastLoc != null && !_statistics.value.hasGpsFix) {
+                    _statistics.update { it.copy(currentLocation = lastLoc) }
+                    RunState.updateStats(_statistics.value)
+                }
+            } catch (_: Exception) {}
+        }
 
         trackingJob = locationTracker.startTracking().onEach { handleNewLocation(it) }.launchIn(scope)
     }
@@ -628,6 +652,7 @@ class RunTrackerEngine(
                 )
                 resetTimeoutTimer()
 
+                // READY通知がウォッチに届く前に大容量マップ転送が帯域を塞がないよう遅延非同期実行
                 if (appSettings?.isAutoShowMapOnReadyEnabled == true) {
                     val defaultZoom = when (activityType) {
                         hag1987haaa.pebble.iron.domain.model.ActivityType.WALKING,
@@ -636,9 +661,19 @@ class RunTrackerEngine(
                         else -> 15
                     }
                     pebbleMessenger?.setMapZoom(defaultZoom)
-                    pebbleMessenger?.sendMap(listOf(location), 0, 0)
+                    scope.launch {
+                        kotlinx.coroutines.delay(600)
+                        if (RunState.status.value == RunStatus.READY) {
+                            pebbleMessenger?.sendMap(listOf(location), 0, 0)
+                        }
+                    }
                 } else if (pebbleMessenger?.isMapActive == true) {
-                    pebbleMessenger?.sendMap(listOf(location), 0, 0)
+                    scope.launch {
+                        kotlinx.coroutines.delay(600)
+                        if (pebbleMessenger?.isMapActive == true) {
+                            pebbleMessenger?.sendMap(listOf(location), 0, 0)
+                        }
+                    }
                 }
             }
         } else {

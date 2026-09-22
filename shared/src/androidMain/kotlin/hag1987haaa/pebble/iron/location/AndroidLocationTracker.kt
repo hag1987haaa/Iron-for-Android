@@ -9,6 +9,8 @@ import com.google.android.gms.location.*
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import hag1987haaa.pebble.iron.domain.location.LocationTracker
@@ -23,8 +25,40 @@ class AndroidLocationTracker(
     }
 
     @SuppressLint("MissingPermission")
+    override suspend fun getLastKnownLocation(): LocationPoint? = suspendCancellableCoroutine { cont ->
+        try {
+            client.lastLocation
+                .addOnSuccessListener { loc ->
+                    cont.resume(loc?.toLocationPoint())
+                }
+                .addOnFailureListener {
+                    cont.resume(null)
+                }
+        } catch (e: Exception) {
+            Log.w("GPS", "Failed to get last location", e)
+            cont.resume(null)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
     override fun startTracking(): Flow<LocationPoint> = callbackFlow {
         Log.d("GPS", "startTracking called")
+
+        // 起動直後: 直近の位置情報（2分以内）があれば初期測位として即座に通知し、コールドスタート待ちを解消
+        try {
+            client.lastLocation.addOnSuccessListener { loc ->
+                if (loc != null) {
+                    val ageMs = System.currentTimeMillis() - loc.time
+                    if (ageMs in 0..120_000L) {
+                        Log.d("GPS", "Immediate initial fix from fresh lastLocation (age=${ageMs}ms)")
+                        trySend(loc.toLocationPoint())
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("GPS", "Immediate lastLocation check skipped", e)
+        }
+
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
             .setMinUpdateDistanceMeters(0f)
             .build()
