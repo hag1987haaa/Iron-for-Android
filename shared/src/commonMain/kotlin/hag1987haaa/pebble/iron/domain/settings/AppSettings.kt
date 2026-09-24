@@ -14,16 +14,6 @@ class AppSettings {
         get() = _isMapSwipePanEnabled.value
         set(value) { _isMapSwipePanEnabled.value = value }
 
-    // CARTO API Key
-    private val _cartoApiKey = MutableStateFlow(value = "")
-    val cartoApiKeyFlow: StateFlow<String> = _cartoApiKey.asStateFlow()
-    var cartoApiKey: String
-        get() = _cartoApiKey.value
-        set(value) {
-            _cartoApiKey.value = value
-            save()
-        }
-
     // 距離通知（オートラップ）用
     private val _isDistNotificationVibrationEnabled = MutableStateFlow(value = true)
     val isDistNotificationVibrationEnabledFlow: StateFlow<Boolean> = _isDistNotificationVibrationEnabled.asStateFlow()

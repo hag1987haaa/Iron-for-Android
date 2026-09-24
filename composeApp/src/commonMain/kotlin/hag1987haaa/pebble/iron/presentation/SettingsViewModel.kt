@@ -70,7 +70,6 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
 
     private val _isMapSwipePanEnabled = MutableStateFlow(settings.isMapSwipePanEnabled)
     val isMapSwipePanEnabled: StateFlow<Boolean> = _isMapSwipePanEnabled.asStateFlow()
-    val cartoApiKey: StateFlow<String> = settings.cartoApiKeyFlow
 
     private val _isAutoShowMapOnReadyEnabled = MutableStateFlow(settings.isAutoShowMapOnReadyEnabled)
     val isAutoShowMapOnReadyEnabled: StateFlow<Boolean> = _isAutoShowMapOnReadyEnabled.asStateFlow()
@@ -360,10 +359,6 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.isMapSwipePanEnabled = enabled
         _isMapSwipePanEnabled.value = enabled
         settings.save()
-    }
-
-    fun updateCartoApiKey(key: String) {
-        settings.cartoApiKey = key.trim()
     }
 
     fun updateAutoShowMapOnReadyEnabled(enabled: Boolean) {
