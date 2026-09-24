@@ -752,6 +752,11 @@ class RunTrackerEngine(
     private fun resetTimeoutTimer() {
         val currentStatus = RunState.status.value
         if (currentStatus != RunStatus.PREPARING && currentStatus != RunStatus.READY) return
-        timeoutJob?.cancel(); timeoutJob = scope.launch { delay(5 * 60 * 1000L); reset() }
+        timeoutJob?.cancel()
+        timeoutJob = scope.launch {
+            delay(5 * 60 * 1000L)
+            println("RunTrackerEngine: Timeout reached in PREPARING/READY (5 min). Resetting to IDLE.")
+            reset()
+        }
     }
 }

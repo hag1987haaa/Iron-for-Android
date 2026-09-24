@@ -23,6 +23,7 @@ class AndroidLocationTracker(
     private val client: FusedLocationProviderClient by lazy {
         LocationServices.getFusedLocationProviderClient(context)
     }
+    private var activeCallback: LocationCallback? = null
 
     @SuppressLint("MissingPermission")
     override suspend fun getLastKnownLocation(): LocationPoint? = suspendCancellableCoroutine { cont ->
@@ -76,6 +77,7 @@ class AndroidLocationTracker(
             }
         }
 
+        activeCallback = locationCallback
         client.requestLocationUpdates(
             locationRequest,
             locationCallback,
@@ -87,10 +89,23 @@ class AndroidLocationTracker(
         awaitClose {
             Log.d("GPS", "stopTracking (awaitClose)")
             client.removeLocationUpdates(locationCallback)
+            if (activeCallback == locationCallback) {
+                activeCallback = null
+            }
         }
     }
 
-    override fun stopTracking() {}
+    override fun stopTracking() {
+        activeCallback?.let { callback ->
+            Log.d("GPS", "Explicit stopTracking called: removing updates")
+            try {
+                client.removeLocationUpdates(callback)
+            } catch (e: Exception) {
+                Log.w("GPS", "Error removing location updates in stopTracking", e)
+            }
+            activeCallback = null
+        }
+    }
 }
 
 fun Location.toLocationPoint(): LocationPoint = LocationPoint(

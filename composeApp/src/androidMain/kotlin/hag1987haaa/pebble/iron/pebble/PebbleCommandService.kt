@@ -279,7 +279,7 @@ class PebbleCommandService : BasePebbleListenerService() {
             1 -> { // UP ボタン
                 // OSのバックグラウンドサービス起動遅延を完全に迂回するため、まずその場で即座にエンジンをキック！
                 when (currentStatus) {
-                    RunStatus.IDLE -> {
+                    RunStatus.IDLE, RunStatus.RESULT -> {
                         engine.prepare()
                         sendCommandToService("PREPARE")
                     }
