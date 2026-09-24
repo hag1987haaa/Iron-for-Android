@@ -79,7 +79,7 @@ class AndroidPebbleMessenger(
     }
 
     private fun getTileFile(zoom: Int, x: Int, y: Int): java.io.File {
-        return java.io.File(tileDiskCacheDir, "carto_${zoom}_${x}_${y}.png")
+        return java.io.File(tileDiskCacheDir, "carto_clean_${zoom}_${x}_${y}.png")
     }
 
     private fun getTileBitmap(zoom: Int, x: Int, y: Int): Bitmap? {
@@ -111,7 +111,7 @@ class AndroidPebbleMessenger(
     private fun fetchAndSaveTile(zoom: Int, x: Int, y: Int, tileKey: String, diskFile: java.io.File): Bitmap? {
         val cartoKey = hag1987haaa.pebble.iron.BuildConfig.CARTO_API_KEY.trim()
         val tileUrl = if (cartoKey.isNotEmpty()) {
-            "https://a.basemaps.cartocdn.com/rastertiles/voyager_nolabels/$zoom/$x/$y.png?api_key=$cartoKey"
+            "https://a.basemaps.cartocdn.com/rastertiles/voyager_nolabels/$zoom/$x/$y.png?key=$cartoKey"
         } else {
             "https://tile.openstreetmap.org/$zoom/$x/$y.png"
         }
@@ -1153,202 +1153,66 @@ class AndroidPebbleMessenger(
                 types[i] = TYPE_PLANNED.toByte()
                 continue
             }
-            // 3. 幹線道路・高速（Voyager: 黄色・オレンジ系）-> 太い黒線
-            val isHighway = (r > 230 && g in 120..210 && b < 150) ||
+            // 4. Highway / Major Road (Voyager yellow/orange/red) -> Thick Black
+            val isHighway = (r > 240 && g in 180..235 && b < 160) ||
+                            (r > 230 && g in 120..180 && b < 120) ||
                             (r > 240 && g in 190..230 && b < 170 && (r - b) > 60)
             if (isHighway) {
                 types[i] = TYPE_HIGHWAY.toByte()
                 continue
             }
-            // 4. 水域 (OSM: #aad3df または青系水域)
-            val isWater = (r in 150..190 && g in 195..225 && b in 215..240) ||
-                          (b > 210 && g > 180 && r < 160 && b > r + 50)
+
+            // 5. Water / River / Canal / Ocean: Cyan / Light Blue
+            val isWater = (b >= 210 && g >= 200 && (b > r + 8 || (b >= r + 4 && g >= r + 2))) ||
+                          (r in 170..225 && g in 210..245 && b in 220..252 && b > r + 6) ||
+                          (b > 210 && g > 180 && r < 160 && b > r + 40)
             if (isWater) {
                 types[i] = TYPE_WATER.toByte()
                 continue
             }
-            // 5. 一般道路・生活道路・路地・歩道・トレイル・特殊道路 (OSM)
-            val isTertiary = (r > 245 && g > 235 && b in 140..195)
-            val isWhiteRoad = (r >= 248 && g >= 248 && b >= 245)
-            val isOffWhite = (zoom >= 16 && r >= 240 && g >= 240 && b >= 236)
-            // 狭い路地（路面白がなくケーシング単独線で描かれた小道・生活道路）
-            val isNarrowAlley = (zoom >= 16 && Math.abs(r - g) <= 3 && Math.abs(g - b) <= 3 && r in 205..234)
-            // 公園・緑道トレイル・遊歩道・階段（OSMではサーモンピンク/赤茶色系の破線や横縞）
-            val isTrailOrFootway = (zoom >= 15 && r in 180..252 && g in 70..185 && b in 70..175 && (r - g) >= 25 && Math.abs(g - b) <= 25)
-            // 農道・未舗装路・林道・土の道（OSMでは茶色/黄土色: #996600, #b37700）
-            val isTrack = (zoom >= 15 && r in 120..195 && g in 70..150 && b in 0..100 && (r - g) >= 15 && (g - b) >= 15)
-            // 工事中の道路（黄色/オレンジと茶色/グレーの破線・縞模様）
-            val isConstruction = (zoom >= 15 && r >= 200 && g in 140..220 && b <= 120 && (r - b) >= 70)
-            // 自転車専用道・CR（青/水色の破線: 多摩川・荒川等のサイクリングロード）
-            val isCycleway = (zoom >= 15 && b >= 160 && r <= 140 && (b - r) >= 40)
-            // トンネル内の道路（半透明薄グレー路面）
-            val isTunnel = (zoom >= 16 && r in 210..235 && g in 210..235 && b in 210..235 && Math.abs(r - g) <= 3 && Math.abs(g - b) <= 3)
 
-            val isSpecialWay = isTrailOrFootway || isTrack || isConstruction || isCycleway || isTunnel
+            // 6. Local Roads / Streets: Pure white or bright road surface
+            // Exclude buildings (beige/light grey) to keep background pure and clean
+            val isWhiteRoad = (r >= 251 && g >= 251 && b >= 246)
+            val isTertiary = (r > 245 && g > 230 && b in 140..210 && (r - b) > 30)
 
-            if (zoom <= 14) {
-                // Zoom 13-14 (引き・広域): 幹線・主要道のみ
-                if (isTertiary) {
-                    types[i] = TYPE_LOCAL_ROAD.toByte()
-                    continue
-                }
-            } else if (zoom == 15) {
-                // Zoom 15 (中域・広い視野): 主要一般道＋幅広路面のみ（細線クラッターによる団子化を防止）
-                if (isTertiary || isWhiteRoad) {
-                    types[i] = TYPE_LOCAL_ROAD.toByte()
-                    continue
-                }
-            } else {
-                // Zoom 16, 17, 18: 生活道路・狭い路地・歩道・トレイル・特殊道まで完全抽出
-                if (isTertiary || isWhiteRoad || isOffWhite || isNarrowAlley || isSpecialWay) {
-                    types[i] = TYPE_LOCAL_ROAD.toByte()
-                    continue
-                }
+            if (isWhiteRoad || isTertiary) {
+                types[i] = TYPE_LOCAL_ROAD.toByte()
+                continue
             }
 
+            // Everything else (Buildings, Parks, Shadows, Land) -> Pure White Background (TYPE_BG)
             types[i] = TYPE_BG.toByte()
         }
 
-        // 道路ケーシング（細道の線状接続）補完パス: 純白路面に隣接するケーシングを拾って細線の途切れを防止
-        val casingTypes = types.clone()
-        if (zoom >= 16) {
-            for (y in 1 until height - 1) {
-                val yOffset = y * width
-                for (x in 1 until width - 1) {
-                    val idx = yOffset + x
-                    if (types[idx].toInt() == TYPE_BG) {
-                        val color = pixels[idx]
-                        val r = Color.red(color)
-                        val g = Color.green(color)
-                        val b = Color.blue(color)
-                        if (Math.abs(r - g) <= 3 && Math.abs(g - b) <= 3 && r in 200..238) {
-                            var hasRoadNeighbor = false
-                            for (dy in -1..1) {
-                                for (dx in -1..1) {
-                                    if (types[(y + dy) * width + (x + dx)].toInt() == TYPE_LOCAL_ROAD) {
-                                        hasRoadNeighbor = true
-                                        break
-                                    }
-                                }
-                                if (hasRoadNeighbor) break
-                            }
-                            if (hasRoadNeighbor) {
-                                casingTypes[idx] = TYPE_LOCAL_ROAD.toByte()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 道路の実線化パス（破線＆道路名ラベルによる1〜3pxギャップ接続）:
-        // 道路と道路の間に挟まれた隙間（道路名テキストや破線による分断）を直線方向に繋ぎ、綺麗な実線に補間
-        val solidTypes = casingTypes.clone()
-
-        fun canFillGap(idx: Int): Boolean {
-            if (casingTypes[idx].toInt() != TYPE_BG) return false
-            val c = pixels[idx]
-            val cr = Color.red(c)
-            val cg = Color.green(c)
-            val cb = Color.blue(c)
-            val isGreen = (cg > cr + 15 && cg > cb + 15 && cg > 150)
-            return !isGreen
-        }
+        // 1px linear gap connection for roads (fills small gaps caused by labels/dashes)
+        val solidTypes = types.clone()
 
         fun isRoadType(t: Byte): Boolean {
             val v = t.toInt()
             return v == TYPE_LOCAL_ROAD || v == TYPE_HIGHWAY
         }
 
-        // 1. 1px ギャップ接続（水平・垂直・斜め）
         for (y in 1 until height - 1) {
             val yOffset = y * width
             for (x in 1 until width - 1) {
                 val idx = yOffset + x
-                if (canFillGap(idx)) {
-                    val left = casingTypes[idx - 1]
-                    val right = casingTypes[idx + 1]
-                    val up = casingTypes[idx - width]
-                    val down = casingTypes[idx + width]
+                if (types[idx].toInt() == TYPE_BG) {
+                    val left = types[idx - 1]
+                    val right = types[idx + 1]
+                    val up = types[idx - width]
+                    val down = types[idx + width]
 
                     val isHorizGap = isRoadType(left) && isRoadType(right)
                     val isVertGap = isRoadType(up) && isRoadType(down)
 
-                    val ul = casingTypes[idx - width - 1]
-                    val br = casingTypes[idx + width + 1]
-                    val ur = casingTypes[idx - width + 1]
-                    val bl = casingTypes[idx + width - 1]
-                    val isDiagGap = (isRoadType(ul) && isRoadType(br)) ||
-                                    (isRoadType(ur) && isRoadType(bl))
-
-                    if (isHorizGap || isVertGap || isDiagGap) {
+                    if (isHorizGap || isVertGap) {
                         solidTypes[idx] = TYPE_LOCAL_ROAD.toByte()
                     }
                 }
             }
         }
 
-        // 2. 2px & 3px ギャップ接続（拡大ズーム Zoom 16以上限定: 広い視野で平行道路が癒着して団子化するのを完全に防止）
-        if (zoom >= 16) {
-            for (y in 0 until height) {
-            val yOffset = y * width
-            for (x in 0 until width - 3) {
-                val idx0 = yOffset + x
-                val idx3 = yOffset + x + 3
-                if (isRoadType(solidTypes[idx0]) && isRoadType(solidTypes[idx3])) {
-                    val idx1 = idx0 + 1
-                    val idx2 = idx0 + 2
-                    if (canFillGap(idx1) && canFillGap(idx2)) {
-                        solidTypes[idx1] = TYPE_LOCAL_ROAD.toByte()
-                        solidTypes[idx2] = TYPE_LOCAL_ROAD.toByte()
-                    }
-                }
-            }
-            for (x in 0 until width - 4) {
-                val idx0 = yOffset + x
-                val idx4 = yOffset + x + 4
-                if (isRoadType(solidTypes[idx0]) && isRoadType(solidTypes[idx4])) {
-                    val idx1 = idx0 + 1
-                    val idx2 = idx0 + 2
-                    val idx3 = idx0 + 3
-                    if (canFillGap(idx1) && canFillGap(idx2) && canFillGap(idx3)) {
-                        solidTypes[idx1] = TYPE_LOCAL_ROAD.toByte()
-                        solidTypes[idx2] = TYPE_LOCAL_ROAD.toByte()
-                        solidTypes[idx3] = TYPE_LOCAL_ROAD.toByte()
-                    }
-                }
-            }
-        }
-
-        for (x in 0 until width) {
-            for (y in 0 until height - 3) {
-                val idx0 = y * width + x
-                val idx3 = (y + 3) * width + x
-                if (isRoadType(solidTypes[idx0]) && isRoadType(solidTypes[idx3])) {
-                    val idx1 = (y + 1) * width + x
-                    val idx2 = (y + 2) * width + x
-                    if (canFillGap(idx1) && canFillGap(idx2)) {
-                        solidTypes[idx1] = TYPE_LOCAL_ROAD.toByte()
-                        solidTypes[idx2] = TYPE_LOCAL_ROAD.toByte()
-                    }
-                }
-            }
-            for (y in 0 until height - 4) {
-                val idx0 = y * width + x
-                val idx4 = (y + 4) * width + x
-                if (isRoadType(solidTypes[idx0]) && isRoadType(solidTypes[idx4])) {
-                    val idx1 = (y + 1) * width + x
-                    val idx2 = (y + 2) * width + x
-                    val idx3 = (y + 3) * width + x
-                    if (canFillGap(idx1) && canFillGap(idx2) && canFillGap(idx3)) {
-                        solidTypes[idx1] = TYPE_LOCAL_ROAD.toByte()
-                        solidTypes[idx2] = TYPE_LOCAL_ROAD.toByte()
-                        solidTypes[idx3] = TYPE_LOCAL_ROAD.toByte()
-                    }
-                }
-            }
-        }
-        }
 
         // 第2パス: 孤立点（点群ノイズ）の除去（完全孤立点のみ消去し、実線化された細道や端点は保護）
         val cleanedTypes = solidTypes.clone()
