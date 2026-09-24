@@ -185,7 +185,11 @@ class MainActivity : ComponentActivity() {
                     val intent = Intent(this@MainActivity, TrackingService::class.java).apply { 
                         this.action = action 
                     }
-                    startForegroundService(intent)
+                    if (action == "STOP" || action == "RESET" || action == "SAVE" || action == "SAVE_TO_RESULT") {
+                        startService(intent)
+                    } else {
+                        startForegroundService(intent)
+                    }
                 } catch (e: Exception) {
                     Log.e("MainActivity", "Failed to send command: ${e.message}")
                 }

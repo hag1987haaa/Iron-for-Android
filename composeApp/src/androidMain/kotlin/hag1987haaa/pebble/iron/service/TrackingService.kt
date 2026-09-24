@@ -23,7 +23,7 @@ import hag1987haaa.pebble.iron.util.HealthUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
@@ -32,7 +32,6 @@ class TrackingService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var wakeLock: PowerManager.WakeLock? = null
     private var lastNotifContent: String? = null
-    private var hasBeenActive = false
 
     override fun onCreate() {
         super.onCreate()
@@ -49,9 +48,6 @@ class TrackingService : Service() {
             // 状態の変化を監視
             launch {
                 RunState.status.collect { status ->
-                    if (status != RunStatus.IDLE) {
-                        hasBeenActive = true
-                    }
                     updateNotificationByCurrentState()
                     
                     // 自動化アプリ向けインテントの送出
@@ -62,13 +58,6 @@ class TrackingService : Service() {
                             addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
                         }
                         sendBroadcast(intent)
-                    }
-
-                    // Auto-stop service and release notification and WakeLock when transitioned back to IDLE
-                    if (status == RunStatus.IDLE && hasBeenActive) {
-                        Log.i("TrackingService", "Engine status transitioned to IDLE (hasBeenActive=true). Auto-stopping service.")
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                        stopSelf()
                     }
                 }
             }
@@ -138,7 +127,6 @@ class TrackingService : Service() {
         // 終了・保存系以外のコマンドでは、GPS開始前に確実に即座にフォアグラウンド昇格 (startForeground) を完了させる
         // これにより、画面OFF時でも Android 14 の While-in-use 位置情報制限に引っかかることなく即座に GPS サーチが開始される
         if (action != "SAVE" && action != "SAVE_TO_RESULT" && action != "STOP" && action != "RESET") {
-            hasBeenActive = true
             val initialStatusName = when (action) {
                 "PREPARE" -> getString(R.string.status_preparing)
                 "START" -> getString(R.string.status_active)
@@ -414,7 +402,7 @@ class TrackingService : Service() {
                 Log.d("TrackingService", "WakeLock released")
             }
         }
-        serviceScope.cancel()
+        serviceScope.coroutineContext.cancelChildren()
         super.onDestroy()
     }
 

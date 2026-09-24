@@ -2,6 +2,7 @@ package hag1987haaa.pebble.iron
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import hag1987haaa.pebble.iron.data.repository.SqlRunRepository
 import hag1987haaa.pebble.iron.db.DatabaseDriverFactory
@@ -288,6 +289,18 @@ object AndroidDependencies {
             scope = MainScope()
         )
         
+        engine.onTimeout = {
+            try {
+                Log.i("AndroidDependencies", "Engine timeout reached: stopping TrackingService")
+                val intent = Intent(appContext, hag1987haaa.pebble.iron.service.TrackingService::class.java).apply {
+                    action = "STOP"
+                }
+                appContext.startService(intent)
+            } catch (e: Exception) {
+                Log.e("AndroidDependencies", "Failed to stop TrackingService on timeout", e)
+            }
+        }
+
         KmpDependencies.setup(repository, engine, settings, bleScanner, bleHeartRateManager)
         
         // 起動時に保存済みコースの有効ルートを復元

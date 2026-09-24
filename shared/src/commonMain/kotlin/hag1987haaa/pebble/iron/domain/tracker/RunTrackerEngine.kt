@@ -85,6 +85,7 @@ class RunTrackerEngine(
         } ?: ActivityType.RUNNING
     ))
     val statistics: StateFlow<RunStatistics> = _statistics.asStateFlow()
+    var onTimeout: (() -> Unit)? = null
 
     private var lastAcceptedRawLocation: LocationPoint? = null
     private var lastDistanceLocation: LocationPoint? = null
@@ -757,6 +758,7 @@ class RunTrackerEngine(
             delay(5 * 60 * 1000L)
             println("RunTrackerEngine: Timeout reached in PREPARING/READY (5 min). Resetting to IDLE.")
             reset()
+            onTimeout?.invoke()
         }
     }
 }
