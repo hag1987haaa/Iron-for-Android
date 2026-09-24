@@ -142,6 +142,39 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowSi
             }
         }
 
+        // 8. Offline Map Cache
+        Spacer(Modifier.height(24.dp))
+        SettingsSectionHeader("\u30aa\u30d5\u30e9\u30a4\u30f3\u5730\u56f3\u30ad\u30e3\u30c3\u30b7\u30e5")
+        val messenger = KmpDependencies.trackerEngine.pebbleMessenger
+        var cacheSizeBytes by remember { mutableStateOf(messenger?.getMapTileCacheSizeBytes() ?: 0L) }
+        Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    val sizeMb = cacheSizeBytes.toDouble() / (1024.0 * 1024.0)
+                    val sizeStr = if (sizeMb < 0.1) "${cacheSizeBytes / 1024} KB" else "${(sizeMb * 10).toInt() / 10.0} MB"
+                    Text("\u4fdd\u5b58\u5bb9\u91cf: $sizeStr", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "GPX\u30b3\u30fc\u30b9\u7b49\u306e\u5468\u8fba\u5730\u56f3\u30bf\u30a4\u30eb\u3092\u7aef\u672b\u5185\u306b\u4fdd\u5b58\u3057\u3001\u96fb\u6ce2\u306e\u5c4a\u304b\u306a\u3044\u570f\u5916\u3084\u30aa\u30d5\u30e9\u30a4\u30f3\u74b0\u5887\u3067\u3082Pebble\u306b\u5730\u56f3\u3092\u8868\u793a\u3057\u307e\u3059\u3002",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                OutlinedButton(
+                    onClick = {
+                        messenger?.clearDiskTileCache()
+                        cacheSizeBytes = messenger?.getMapTileCacheSizeBytes() ?: 0L
+                    }
+                ) {
+                    Text("\u524a\u9664")
+                }
+            }
+        }
+
         Spacer(Modifier.height(32.dp))
         Column(
             modifier = Modifier

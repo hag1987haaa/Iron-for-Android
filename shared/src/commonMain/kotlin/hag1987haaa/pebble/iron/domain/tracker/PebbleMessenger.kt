@@ -159,4 +159,28 @@ interface PebbleMessenger {
      * マップの内部キャッシュ（前回の位置情報ポイント等）をクリアする
      */
     fun clearMapCache() {}
+
+    /**
+     * Prefetch and cache map tiles along a GPX course for offline usage.
+     * @return newly downloaded tiles count
+     */
+    suspend fun prefetchTilesForCourse(
+        points: List<LocationPoint>,
+        onProgress: ((downloaded: Int, total: Int) -> Unit)? = null
+    ): Int = 0
+
+    /**
+     * Check if tiles along a GPX course are already cached on disk.
+     */
+    fun isCourseCached(points: List<LocationPoint>): Boolean = false
+
+    /**
+     * Get offline disk tile cache total size in bytes.
+     */
+    fun getMapTileCacheSizeBytes(): Long = 0L
+
+    /**
+     * Clear all cached map tiles from disk.
+     */
+    fun clearDiskTileCache() {}
 }

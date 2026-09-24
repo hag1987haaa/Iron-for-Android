@@ -71,7 +71,78 @@ class AndroidPebbleMessenger(
     private var lastMapPoints: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>? = null
     private var lastMapWidth: Int = 144
     private var lastMapHeight: Int = 168
-    private val tileCache = LruCache<String, Bitmap>(32)
+    private val tileCache = LruCache<String, Bitmap>(64)
+    private val tileDiskCacheDir by lazy {
+        java.io.File(context.filesDir, "carto_tiles").apply {
+            if (!exists()) mkdirs()
+        }
+    }
+
+    private fun getTileFile(zoom: Int, x: Int, y: Int): java.io.File {
+        return java.io.File(tileDiskCacheDir, "carto_${zoom}_${x}_${y}.png")
+    }
+
+    private fun getTileBitmap(zoom: Int, x: Int, y: Int): Bitmap? {
+        val tileKey = "$zoom/$x/$y"
+        // 1. RAM Cache
+        val memCached = synchronized(tileCache) { tileCache.get(tileKey) }
+        if (memCached != null && !memCached.isRecycled) {
+            return memCached
+        }
+
+        // 2. Disk Cache
+        val diskFile = getTileFile(zoom, x, y)
+        if (diskFile.exists() && diskFile.length() > 0L) {
+            try {
+                val loaded = android.graphics.BitmapFactory.decodeFile(diskFile.absolutePath)
+                if (loaded != null) {
+                    synchronized(tileCache) { tileCache.put(tileKey, loaded) }
+                    return loaded
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("PebbleMessenger", "Failed to decode disk tile: ${diskFile.name}")
+            }
+        }
+
+        // 3. Network Fetch
+        return fetchAndSaveTile(zoom, x, y, tileKey, diskFile)
+    }
+
+    private fun fetchAndSaveTile(zoom: Int, x: Int, y: Int, tileKey: String, diskFile: java.io.File): Bitmap? {
+        val cartoKey = hag1987haaa.pebble.iron.BuildConfig.CARTO_API_KEY.trim()
+        val tileUrl = if (cartoKey.isNotEmpty()) {
+            "https://a.basemaps.cartocdn.com/rastertiles/voyager_nolabels/$zoom/$x/$y.png?api_key=$cartoKey"
+        } else {
+            "https://tile.openstreetmap.org/$zoom/$x/$y.png"
+        }
+
+        return try {
+            val connection = java.net.URL(tileUrl).openConnection() as java.net.HttpURLConnection
+            connection.setRequestProperty("User-Agent", "IronPebbleTracker/1.0 (Android; hag1987haaa.pebble.iron)")
+            connection.connectTimeout = 4000
+            connection.readTimeout = 4000
+            if (connection.responseCode == 200) {
+                val bytes = connection.inputStream.use { it.readBytes() }
+                if (bytes.isNotEmpty()) {
+                    try {
+                        diskFile.outputStream().use { it.write(bytes) }
+                    } catch (e: Exception) {
+                        android.util.Log.w("PebbleMessenger", "Failed to write tile to disk: ${e.message}")
+                    }
+                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    if (bitmap != null) {
+                        synchronized(tileCache) { tileCache.put(tileKey, bitmap) }
+                    }
+                    bitmap
+                } else null
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PebbleMessenger", "Tile fetch failed ($zoom/$x/$y): ${e.message}")
+            null
+        }
+    }
 
     companion object {
         private val WATCHAPP_UUID = UUID.fromString("0ec71971-1191-4e05-87f5-27a3c749023c")
@@ -888,29 +959,9 @@ class AndroidPebbleMessenger(
             (0..1).map { tx ->
                 val curX = xStartTile + tx
                 val curY = yStartTile + ty
-                val cartoKey = hag1987haaa.pebble.iron.BuildConfig.CARTO_API_KEY.trim()
-                val tileUrl = if (cartoKey.isNotEmpty()) {
-                    "https://a.basemaps.cartocdn.com/rastertiles/voyager_nolabels/$zoom/$curX/$curY.png?api_key=$cartoKey"
-                } else {
-                    "https://tile.openstreetmap.org/$zoom/$curX/$curY.png"
-                }
                 async(Dispatchers.IO) {
                     try {
-                        val cached = synchronized(tileCache) { tileCache.get(tileUrl) }
-                        val tileBitmap = if (cached != null && !cached.isRecycled) {
-                            cached
-                        } else {
-                            val connection = java.net.URL(tileUrl).openConnection() as java.net.HttpURLConnection
-                            connection.setRequestProperty("User-Agent", "IronPebbleTracker/1.0 (Android; hag1987haaa.pebble.iron)")
-                            connection.connectTimeout = 3000
-                            connection.readTimeout = 3000
-                            val loaded = android.graphics.BitmapFactory.decodeStream(connection.inputStream)
-                            if (loaded != null) {
-                                synchronized(tileCache) { tileCache.put(tileUrl, loaded) }
-                            }
-                            loaded
-                        }
-
+                        val tileBitmap = getTileBitmap(zoom, curX, curY)
                         if (tileBitmap != null) {
                             val tileLeftWorld = curX * 256.0
                             val tileTopWorld = curY * 256.0
@@ -921,7 +972,7 @@ class AndroidPebbleMessenger(
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        Log.e("PebbleMessenger", "Tile fetch failed: $tileUrl, error: ${e.message}")
+                        Log.e("PebbleMessenger", "Tile fetch failed: $zoom/$curX/$curY, error: ${e.message}")
                         null
                     }
                 }
@@ -1600,7 +1651,85 @@ class AndroidPebbleMessenger(
         try {
             synchronized(tileCache) { tileCache.evictAll() }
         } catch (_: Exception) {}
-        Log.i("PebbleMessenger", "clearMapCache: Cleared lastMapPoints, pan offsets and tile cache.")
+        Log.i("PebbleMessenger", "clearMapCache: Cleared lastMapPoints, pan offsets and RAM tile cache.")
+    }
+
+    private fun getRequiredTilesForCourse(
+        points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>,
+        zooms: List<Int> = listOf(15, 16)
+    ): Set<Triple<Int, Int, Int>> {
+        val tiles = mutableSetOf<Triple<Int, Int, Int>>()
+        for (zoom in zooms) {
+            val n = 1 shl zoom
+            for (pt in points) {
+                val lat = pt.latitude
+                val lon = pt.longitude
+                val xCenterWorld = ((lon + 180.0) / 360.0 * n) * 256.0
+                val latRad = Math.toRadians(lat)
+                val yCenterWorld = ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n) * 256.0
+                val xtileCenter = Math.floor(xCenterWorld / 256.0).toInt()
+                val ytileCenter = Math.floor(yCenterWorld / 256.0).toInt()
+
+                // Margin around the point (-1..1) to cover surrounding view
+                for (dx in -1..1) {
+                    for (dy in -1..1) {
+                        tiles.add(Triple(zoom, xtileCenter + dx, ytileCenter + dy))
+                    }
+                }
+            }
+        }
+        return tiles
+    }
+
+    override fun isCourseCached(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>): Boolean {
+        if (points.isEmpty()) return false
+        val requiredTiles = getRequiredTilesForCourse(points)
+        if (requiredTiles.isEmpty()) return false
+        val cachedCount = requiredTiles.count { (z, x, y) -> getTileFile(z, x, y).exists() }
+        return cachedCount.toFloat() / requiredTiles.size >= 0.90f
+    }
+
+    override suspend fun prefetchTilesForCourse(
+        points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>,
+        onProgress: ((downloaded: Int, total: Int) -> Unit)?
+    ): Int = withContext(Dispatchers.IO) {
+        if (points.isEmpty()) return@withContext 0
+        val requiredTiles = getRequiredTilesForCourse(points)
+        val total = requiredTiles.size
+        var current = 0
+        var newlyDownloaded = 0
+
+        for ((z, x, y) in requiredTiles) {
+            val file = getTileFile(z, x, y)
+            val tileKey = "$z/$x/$y"
+            if (!file.exists() || file.length() == 0L) {
+                val bmp = fetchAndSaveTile(z, x, y, tileKey, file)
+                if (bmp != null) {
+                    newlyDownloaded++
+                }
+                kotlinx.coroutines.delay(20L)
+            }
+            current++
+            onProgress?.invoke(current, total)
+        }
+        Log.i("PebbleMessenger", "prefetchTilesForCourse: total=$total, newlyDownloaded=$newlyDownloaded")
+        return@withContext newlyDownloaded
+    }
+
+    override fun getMapTileCacheSizeBytes(): Long {
+        return try {
+            tileDiskCacheDir.listFiles()?.sumOf { it.length() } ?: 0L
+        } catch (_: Exception) {
+            0L
+        }
+    }
+
+    override fun clearDiskTileCache() {
+        try {
+            synchronized(tileCache) { tileCache.evictAll() }
+            tileDiskCacheDir.listFiles()?.forEach { it.delete() }
+            Log.i("PebbleMessenger", "clearDiskTileCache: Cleared all disk tile cache.")
+        } catch (_: Exception) {}
     }
 
     private fun executeMapRefresh() {

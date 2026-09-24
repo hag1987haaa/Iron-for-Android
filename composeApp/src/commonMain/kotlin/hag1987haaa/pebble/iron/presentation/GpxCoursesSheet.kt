@@ -36,6 +36,8 @@ fun GpxCoursesSheet(
     val scope = rememberCoroutineScope()
     val messenger = KmpDependencies.trackerEngine.pebbleMessenger
     val snackbarHostState = remember { SnackbarHostState() }
+    var cachingCourseId by remember { mutableStateOf<String?>(null) }
+    var cacheRefreshTrigger by remember { mutableStateOf(0) }
 
     fun updateCourses(newList: List<GpxCourse>) {
         settings.savedGpxCourses = newList
@@ -111,10 +113,15 @@ fun GpxCoursesSheet(
                             val newCourse = pendingCourseForImport!!.copy(name = sanitizedName, isEnabled = true)
                             val updated = savedCourses + newCourse
                             updateCourses(updated)
-                            scope.launch {
-                                snackbarHostState.showSnackbar("Added course: $sanitizedName")
-                            }
                             pendingCourseForImport = null
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Added course: $sanitizedName. Caching offline map...")
+                                cachingCourseId = newCourse.id
+                                val newly = messenger?.prefetchTilesForCourse(newCourse.points) ?: 0
+                                cacheRefreshTrigger++
+                                cachingCourseId = null
+                                snackbarHostState.showSnackbar("Offline map cached for $sanitizedName! ($newly tiles saved)")
+                            }
                         } else if (editingCourse != null) {
                             val updated = savedCourses.map {
                                 if (it.id == editingCourse!!.id) it.copy(name = sanitizedName) else it
@@ -269,6 +276,47 @@ fun GpxCoursesSheet(
                                     )
                                 }
 
+                                val isCached = remember(course.id, cachingCourseId, cacheRefreshTrigger) {
+                                    messenger?.isCourseCached(course.points) == true
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        if (cachingCourseId == null) {
+                                            cachingCourseId = course.id
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("Caching map tiles for ${course.name}...")
+                                                val newly = messenger?.prefetchTilesForCourse(course.points) ?: 0
+                                                cacheRefreshTrigger++
+                                                cachingCourseId = null
+                                                snackbarHostState.showSnackbar("Offline map ready for ${course.name}! ($newly tiles saved)")
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    if (cachingCourseId == course.id) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    } else if (isCached) {
+                                        Icon(
+                                            Icons.Default.CloudDone,
+                                            contentDescription = "Map Cached Offline",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Default.CloudDownload,
+                                            contentDescription = "Download Offline Map",
+                                            tint = MaterialTheme.colorScheme.outline,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+
                                 IconButton(
                                     onClick = {
                                         editingCourse = course
@@ -324,6 +372,30 @@ fun GpxCoursesSheet(
                         Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("Sync", style = MaterialTheme.typography.labelMedium)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            if (cachingCourseId == null) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Caching offline maps for all courses...")
+                                    var totalNewly = 0
+                                    savedCourses.forEach { c ->
+                                        cachingCourseId = c.id
+                                        totalNewly += messenger?.prefetchTilesForCourse(c.points) ?: 0
+                                    }
+                                    cacheRefreshTrigger++
+                                    cachingCourseId = null
+                                    snackbarHostState.showSnackbar("All courses cached! ($totalNewly new tiles saved)")
+                                }
+                            }
+                        },
+                        enabled = cachingCourseId == null,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Cache", style = MaterialTheme.typography.labelMedium)
                     }
                 }
 
