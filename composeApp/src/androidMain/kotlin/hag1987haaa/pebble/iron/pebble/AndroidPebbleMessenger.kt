@@ -888,7 +888,12 @@ class AndroidPebbleMessenger(
             (0..1).map { tx ->
                 val curX = xStartTile + tx
                 val curY = yStartTile + ty
-                val tileUrl = "https://tile.openstreetmap.org/$zoom/$curX/$curY.png"
+                val cartoKey = hag1987haaa.pebble.iron.BuildConfig.CARTO_API_KEY.trim()
+                val tileUrl = if (cartoKey.isNotEmpty()) {
+                    "https://a.basemaps.cartocdn.com/rastertiles/voyager_nolabels/$zoom/$curX/$curY.png?api_key=$cartoKey"
+                } else {
+                    "https://tile.openstreetmap.org/$zoom/$curX/$curY.png"
+                }
                 async(Dispatchers.IO) {
                     try {
                         val cached = synchronized(tileCache) { tileCache.get(tileUrl) }

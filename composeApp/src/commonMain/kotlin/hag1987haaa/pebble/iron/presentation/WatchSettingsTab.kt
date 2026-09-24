@@ -558,6 +558,12 @@ fun MapSettingsContent(viewModel: SettingsViewModel) {
                 onZoomSelected = { viewModel.updateActivityMapZoom(act, it) }
             )
         }
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
+        Text(
+            text = "Map Data: \u00a9 CARTO, \u00a9 OpenStreetMap contributors",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline
+        )
     }
 }
 

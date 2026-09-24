@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -54,12 +55,26 @@ android {
     @Suppress("ComposeModifierMissing")
     namespace = "hag1987haaa.pebble.iron"
     compileSdk = 36
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    val localProperties = Properties().apply {
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.inputStream().use { load(it) }
+        }
+    }
+    val cartoApiKey = localProperties.getProperty("CARTO_API_KEY", "")
+
     defaultConfig {
         applicationId = "hag1987haaa.pebble.iron"
         minSdk = 26
         targetSdk = 36
         versionCode = 31
         versionName = "2.1.3"
+        buildConfigField("String", "CARTO_API_KEY", "\"$cartoApiKey\"")
         
         // ネイティブライブラリ（SQLCipher等）のデバッグシンボルをAABに含める設定
         ndk {
