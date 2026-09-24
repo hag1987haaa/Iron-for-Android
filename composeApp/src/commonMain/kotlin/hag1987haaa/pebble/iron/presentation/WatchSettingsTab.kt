@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import hag1987haaa.pebble.iron.domain.settings.MapColorPreset
 import hag1987haaa.pebble.iron.domain.model.ActivityType
+import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
@@ -558,6 +559,8 @@ fun MapSettingsContent(viewModel: SettingsViewModel) {
                 onZoomSelected = { viewModel.updateActivityMapZoom(act, it) }
             )
         }
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
+        CartoApiKeySettingRow(viewModel)
     }
 }
 
@@ -696,5 +699,84 @@ private fun MapColorSettingRow(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CartoApiKeySettingRow(viewModel: SettingsViewModel) {
+    val cartoApiKey by viewModel.cartoApiKey.collectAsState()
+    var showApiKeyDialog by remember { mutableStateOf(false) }
+
+    Text(
+        text = "\u5730\u56f3\u30bf\u30a4\u30eb\u30d7\u30ed\u30d0\u30a4\u30c0\u30fc (CARTO API Key)",
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(bottom = 4.dp)
+    )
+    Text(
+        text = "CARTO\u306e\u7121\u6599API\u30ad\u30fc\u3092\u8a2d\u5b9a\u3059\u308b\u3068\u3001\u9053\u8def\u306e\u8996\u8a8d\u6027\u304c\u5411\u4e0a\u3057\u305f\u300cCARTO Voyager (No Labels)\u300d\u5730\u56f3\u304c\u4f7f\u7528\u3055\u308c\u307e\u3059\u3002\u672a\u5165\u529b\u306e\u5834\u5408\u306fOpenStreetMap\u6a19\u6e96\u5730\u56f3\u3092\u4f7f\u7528\u3057\u307e\u3059\u3002(\u30ad\u30fc\u306f\u7aef\u672b\u30ed\u30fc\u30ab\u30eb\u306b\u5b89\u5168\u306b\u4fdd\u5b58\u3055\u308c\u307e\u3059)",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.outline,
+        modifier = Modifier.padding(bottom = 8.dp)
+    )
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = if (cartoApiKey.isNotBlank()) "CARTO Voyager (\u6709\u52b9)" else "OpenStreetMap (\u6a19\u6e96)",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = if (cartoApiKey.isNotBlank()) "Key: " + cartoApiKey.take(4) + "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" + cartoApiKey.takeLast(4) else "API\u30ad\u30fc\u672a\u8a2d\u5b9a",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
+            )
+        }
+        TextButton(onClick = { showApiKeyDialog = true }) {
+            Text(if (cartoApiKey.isNotBlank()) "\u5909\u66f4" else "\u30ad\u30fc\u3092\u8a2d\u5b9a")
+        }
+    }
+
+    if (showApiKeyDialog) {
+        var tempKey by remember { mutableStateOf(cartoApiKey) }
+        AlertDialog(
+            onDismissRequest = { showApiKeyDialog = false },
+            title = { Text("CARTO API Key \u8a2d\u5b9a") },
+            text = {
+                Column {
+                    Text(
+                        text = "CARTO\u3067\u53d6\u5f97\u3057\u305fAPI Key\u3092\u8cbc\u308a\u4ed8\u3051\u3066\u304f\u3060\u3055\u3044\u3002\u5165\u529b\u3059\u308b\u3068\u81ea\u52d5\u3067CARTO Voyager\u5730\u56f3\u306b\u5207\u308a\u66ff\u308f\u308a\u307e\u3059\u3002(\u7a7a\u306b\u3057\u3066\u4fdd\u5b58\u3059\u308b\u3068OpenStreetMap\u6a19\u6e96\u306b\u623b\u308a\u307e\u3059)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = tempKey,
+                        onValueChange = { tempKey = it },
+                        label = { Text("API Key") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.updateCartoApiKey(tempKey)
+                    showApiKeyDialog = false
+                }) {
+                    Text("\u4fdd\u5b58")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showApiKeyDialog = false }) {
+                    Text("\u30ad\u30e3\u30f3\u30bb\u30eb")
+                }
+            }
+        )
     }
 }
