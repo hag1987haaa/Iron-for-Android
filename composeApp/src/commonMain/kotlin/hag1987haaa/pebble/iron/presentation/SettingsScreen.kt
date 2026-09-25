@@ -56,7 +56,7 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit, onShowSimula
             // 各タブの内容を表示
             Box(modifier = Modifier.weight(1f)) {
                 when (currentTab) {
-                    SettingsTab.PHONE -> PhoneSettingsTab(viewModel, actions, onShowSimulation)
+                    SettingsTab.PHONE -> PhoneSettingsTab(viewModel, actions, onShowLicenses, onShowSimulation)
                     SettingsTab.WATCH -> WatchSettingsTab(viewModel, actions)
                     SettingsTab.SENSORS -> SensorsSettingsTab(viewModel, actions)
                 }

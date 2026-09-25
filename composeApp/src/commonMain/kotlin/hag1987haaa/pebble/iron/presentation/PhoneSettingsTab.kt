@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +25,7 @@ import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowSimulation: () -> Unit) {
+fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLicenses: () -> Unit, onShowSimulation: () -> Unit) {
     val userWeight by viewModel.userWeight.collectAsState()
     val isMetric by viewModel.isMetric.collectAsState()
     val isPrivacyMapEnabled by viewModel.isPrivacyMapModeEnabled.collectAsState()
@@ -127,22 +128,7 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowSi
             }
         }
         
-        // 7. Map Data Attribution
-        Spacer(Modifier.height(24.dp))
-        SettingsSectionHeader("\u5730\u56f3\u30c7\u30fc\u30bf\u30af\u30ec\u30b8\u30c3\u30c8")
-        Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("\u00a9 CARTO, \u00a9 OpenStreetMap contributors", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "\u672c\u30a2\u30d7\u30ea\u306e\u5730\u56f3\u30bf\u30a4\u30eb\u306b\u306f CARTO Basemaps (Voyager) \u304a\u3088\u3073 OpenStreetMap \u306e\u30c7\u30fc\u30bf\u3092\u4f7f\u7528\u3057\u3066\u3044\u307e\u3059\u3002\n\u2022 CARTO: CC BY 3.0 / \u00a9 CARTO\n\u2022 OpenStreetMap: ODbL / \u00a9 OpenStreetMap contributors",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-            }
-        }
-
-        // 8. Offline Map Cache
+        // 7. Offline Map Cache
         Spacer(Modifier.height(24.dp))
         SettingsSectionHeader("\u30aa\u30d5\u30e9\u30a4\u30f3\u5730\u56f3\u30ad\u30e3\u30c3\u30b7\u30e5")
         val messenger = KmpDependencies.trackerEngine.pebbleMessenger
@@ -175,6 +161,40 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowSi
             }
         }
 
+        // Open Source Licenses & Map Attribution Navigation
+        Spacer(Modifier.height(24.dp))
+        Surface(
+            tonalElevation = 1.dp,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onShowLicenses
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(Res.string.settings_label_license),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        "CARTO, OpenStreetMap, OSS Libraries",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForwardIos,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.outline
+                )
+            }
+        }
         Spacer(Modifier.height(32.dp))
         Column(
             modifier = Modifier

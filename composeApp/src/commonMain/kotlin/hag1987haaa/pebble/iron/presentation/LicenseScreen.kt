@@ -26,6 +26,18 @@ data class LibraryLicense(
 fun LicenseScreen(onBack: () -> Unit) {
     val libraries = listOf(
         LibraryLicense(
+            "CARTO Basemaps (Voyager)",
+            "© CARTO, © OpenStreetMap contributors",
+            "Creative Commons Attribution 3.0 (CC BY 3.0)",
+            "Map tiles and cartography by CARTO under CC BY 3.0.\nData by OpenStreetMap, under ODbL.\n\nhttps://carto.com/attributions",
+        ),
+        LibraryLicense(
+            "OpenStreetMap Data",
+            "© OpenStreetMap contributors",
+            "Open Database License (ODbL) 1.0",
+            "OpenStreetMap is open data, licensed under the Open Data Commons Open Database License (ODbL) by the OpenStreetMap Foundation (OSMF).\n\nhttps://www.openstreetmap.org/copyright",
+        ),
+        LibraryLicense(
             "Kotlin & Kotlinx Libraries",
             "Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.",
             "Apache License 2.0",
