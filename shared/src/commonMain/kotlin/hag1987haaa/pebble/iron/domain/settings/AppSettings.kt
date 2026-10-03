@@ -103,6 +103,8 @@ class AppSettings {
             ActivityType.WALKING.name to 16,
             ActivityType.CYCLING.name to 16,
             ActivityType.HIKING.name to 16,
+            ActivityType.KAYAKING.name to 16,
+            ActivityType.ROWING.name to 16,
             ActivityType.OTHER.name to 16
         )
     )

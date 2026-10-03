@@ -117,6 +117,7 @@ class RunTrackerEngine(
     private var lastHrTimestamp: Long = 0L // 最後に何らかの心拍データが届いた時刻
     private var lastBleValueChangeTimestamp: Long = 0L // BLEの数値が最後に「変化」した時刻
     private var lastBleBpm: Int? = null // 最後に届いたBLEの数値
+    private var lastPebbleHrTimestamp: Long = 0L // Pebbleの心拍データが最後に届いた時刻
     private var lastBpmValue: Int? = null // 表示に使用している直近の有効な心拍数
 
     init {
@@ -160,10 +161,25 @@ class RunTrackerEngine(
         val isBleValidValue = (stats.latestBleHeartRate ?: 0) in 30..220
 
         val isBleReliable = isBleActive && !isBleStale && !isBleFrozen && isBleValidValue
+        val isPebbleStale = lastPebbleHrTimestamp > 0 && (now - lastPebbleHrTimestamp) > 20000L
+        val isPebbleReliable = (stats.latestPebbleHeartRate ?: 0) in 30..220 && (lastPebbleHrTimestamp > 0 && !isPebbleStale)
 
-        // 2. メインソースの決定（BLEが信頼でき、かつ優先設定ならBLE、そうでなければPEBBLE）
-        val newSource = if (isBleReliable && isBlePreferred) "BLE" else "PEBBLE"
-        val newBpm = if (newSource == "BLE") stats.latestBleHeartRate else stats.latestPebbleHeartRate
+        // 2. メインソースの決定
+        // - 両方利用可能な場合は、ユーザーの優先設定（preferBleHeartRate）に従う
+        // - 片方しか利用できない場合は、利用可能な方を自動採用（フェイルオーバー）
+        // - どちらも利用できない場合は、優先設定のソース名としつつ値は null とする
+        val (newSource, newBpm) = when {
+            isBleReliable && isPebbleReliable -> {
+                if (isBlePreferred) "BLE" to stats.latestBleHeartRate
+                else "PEBBLE" to stats.latestPebbleHeartRate
+            }
+            isBleReliable -> "BLE" to stats.latestBleHeartRate
+            isPebbleReliable -> "PEBBLE" to stats.latestPebbleHeartRate
+            else -> {
+                val fallbackSource = if (isBlePreferred) "BLE" else "PEBBLE"
+                fallbackSource to null
+            }
+        }
 
         if (stats.currentHeartRate != newBpm || stats.hrSource != newSource) {
             _statistics.update { it.copy(currentHeartRate = newBpm, hrSource = newSource) }
@@ -326,7 +342,7 @@ class RunTrackerEngine(
         lastNotifiedDistanceKm = 0; lastNotifiedTimeCount = 0
         lastTimeStep = -1; lastDistStep = -1.0f
         lastHrTimestamp = 0L; lastBpmValue = null
-        lastBleValueChangeTimestamp = 0L; lastBleBpm = null
+        lastBleValueChangeTimestamp = 0L; lastBleBpm = null; lastPebbleHrTimestamp = 0L
 
         // BLEセンサーを閉じる
         bleHrManager?.close()
@@ -426,6 +442,9 @@ class RunTrackerEngine(
             // Pebbleの場合：数値が変化した（または初回）場合のみ更新
             if (validBpm != null && validBpm != lastBpmValue) {
                 lastBpmValue = validBpm
+            }
+            if (validBpm != null) {
+                lastPebbleHrTimestamp = now
             }
         }
 

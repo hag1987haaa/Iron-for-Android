@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import hag1987haaa.pebble.iron.domain.settings.MapColorPreset
 import hag1987haaa.pebble.iron.domain.model.ActivityType
+import hag1987haaa.pebble.iron.util.getDisplayName
 
 @Composable
 fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
@@ -544,13 +545,7 @@ fun MapSettingsContent(viewModel: SettingsViewModel) {
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        listOf(
-            ActivityType.RUNNING,
-            ActivityType.WALKING,
-            ActivityType.CYCLING,
-            ActivityType.HIKING,
-            ActivityType.OTHER
-        ).forEach { act ->
+        ActivityType.entries.forEach { act ->
             val zoom = activityZooms[act.name] ?: 16
             WorkoutZoomSettingRow(
                 activityType = act,
@@ -594,7 +589,7 @@ private fun WorkoutZoomSettingRow(
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
     ) {
         Text(
-            text = activityType.displayName,
+            text = activityType.getDisplayName(),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f)
         )

@@ -376,8 +376,7 @@ class AndroidPebbleMessenger(
             }
             4 -> {
                 val hr = stats.currentHeartRate?.toString() ?: "--"
-                val label = if (stats.hrSource == "BLE") "HR (Ext)" else "HR (Int)"
-                Triple(label, hr, "bpm")
+                Triple("HEART", hr, "bpm")
             }
             5 -> Triple("CAL", stats.calories.toInt().toString(), "kcal")
             7 -> Triple("AVG PACE", formatPace(stats.totalDistanceMeters, stats.totalSeconds, settings.isMetric), unitStr)
@@ -1408,7 +1407,6 @@ class AndroidPebbleMessenger(
         if (currentMapZoom < 18) {
             currentMapZoom++
             val currentActivity = KmpDependencies.trackerEngine.statistics.value.activityType
-            settings.setMapZoomForActivity(currentActivity, currentMapZoom)
             resetAutoCloseTimer()
             Log.i("PebbleMessenger", "Map Zoom In: level $currentMapZoom for $currentActivity (instant refresh)")
             scheduleMapRefresh(0L)
@@ -1421,7 +1419,6 @@ class AndroidPebbleMessenger(
         if (currentMapZoom > 11) {
             currentMapZoom--
             val currentActivity = KmpDependencies.trackerEngine.statistics.value.activityType
-            settings.setMapZoomForActivity(currentActivity, currentMapZoom)
             resetAutoCloseTimer()
             Log.i("PebbleMessenger", "Map Zoom Out: level $currentMapZoom for $currentActivity (instant refresh)")
             scheduleMapRefresh(0L)
@@ -1434,7 +1431,6 @@ class AndroidPebbleMessenger(
         val clamped = zoom.coerceIn(11, 18)
         currentMapZoom = clamped
         val currentActivity = KmpDependencies.trackerEngine.statistics.value.activityType
-        settings.setMapZoomForActivity(currentActivity, currentMapZoom)
         Log.i("PebbleMessenger", "Map Zoom set to $currentMapZoom for $currentActivity")
     }
 

@@ -34,6 +34,7 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
     val tcxUri by viewModel.autoExportTcxUri.collectAsState()
     val gpxUri by viewModel.autoExportGpxUri.collectAsState()
     val preferBleHr by viewModel.preferBleHeartRate.collectAsState()
+    var showCourseSheet by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
 
@@ -113,7 +114,78 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
             }
         }
 
-        // 6. Data
+        // 6. マップ管理
+        Spacer(Modifier.height(24.dp))
+        SettingsSectionHeader(stringResource(Res.string.settings_section_map_management))
+        val messenger = KmpDependencies.trackerEngine.pebbleMessenger
+        var cacheSizeBytes by remember { mutableStateOf(messenger?.getMapTileCacheSizeBytes() ?: 0L) }
+        Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                // GPX計画コース管理の起動ボタン
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(Res.string.settings_gpx_course_title),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(Res.string.settings_gpx_course_desc),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { showCourseSheet = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Route, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(Res.string.settings_gpx_course_btn))
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp)
+
+                // オフライン地図キャッシュ
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        val sizeMb = cacheSizeBytes.toDouble() / (1024.0 * 1024.0)
+                        val sizeStr = if (sizeMb < 0.1) "${cacheSizeBytes / 1024} KB" else "${(sizeMb * 10).toInt() / 10.0} MB"
+                        Text(
+                            "オフライン地図キャッシュ (${sizeStr})",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "GPXコース等の周辺地図タイルを端末内に保存し、電波の届かない圏外やオフライン環境でもPebbleに地図を表示します。",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    OutlinedButton(
+                        onClick = {
+                            messenger?.clearDiskTileCache()
+                            cacheSizeBytes = messenger?.getMapTileCacheSizeBytes() ?: 0L
+                        }
+                    ) {
+                        Text("削除")
+                    }
+                }
+            }
+        }
+
+        // 7. Data (データ連携)
         Spacer(Modifier.height(24.dp))
         SettingsSectionHeader(stringResource(Res.string.settings_section_data))
         Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
@@ -124,39 +196,6 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = { actions.requestHealthPermissions() }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Favorite, null); Spacer(Modifier.width(8.dp)); Text(stringResource(Res.string.settings_hc_button_manage))
-                }
-            }
-        }
-        
-        // 7. Offline Map Cache
-        Spacer(Modifier.height(24.dp))
-        SettingsSectionHeader("\u30aa\u30d5\u30e9\u30a4\u30f3\u5730\u56f3\u30ad\u30e3\u30c3\u30b7\u30e5")
-        val messenger = KmpDependencies.trackerEngine.pebbleMessenger
-        var cacheSizeBytes by remember { mutableStateOf(messenger?.getMapTileCacheSizeBytes() ?: 0L) }
-        Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    val sizeMb = cacheSizeBytes.toDouble() / (1024.0 * 1024.0)
-                    val sizeStr = if (sizeMb < 0.1) "${cacheSizeBytes / 1024} KB" else "${(sizeMb * 10).toInt() / 10.0} MB"
-                    Text("\u4fdd\u5b58\u5bb9\u91cf: $sizeStr", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "GPX\u30b3\u30fc\u30b9\u7b49\u306e\u5468\u8fba\u5730\u56f3\u30bf\u30a4\u30eb\u3092\u7aef\u672b\u5185\u306b\u4fdd\u5b58\u3057\u3001\u96fb\u6ce2\u306e\u5c4a\u304b\u306a\u3044\u570f\u5916\u3084\u30aa\u30d5\u30e9\u30a4\u30f3\u74b0\u5887\u3067\u3082Pebble\u306b\u5730\u56f3\u3092\u8868\u793a\u3057\u307e\u3059\u3002",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                OutlinedButton(
-                    onClick = {
-                        messenger?.clearDiskTileCache()
-                        cacheSizeBytes = messenger?.getMapTileCacheSizeBytes() ?: 0L
-                    }
-                ) {
-                    Text("\u524a\u9664")
                 }
             }
         }
@@ -209,6 +248,13 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
             Text(text = "Version ${KmpDependencies.appSettings.appVersion}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
         }
         Spacer(Modifier.height(32.dp))
+    }
+
+    if (showCourseSheet) {
+        GpxCoursesSheet(
+            actions = actions,
+            onDismissRequest = { showCourseSheet = false }
+        )
     }
 }
 

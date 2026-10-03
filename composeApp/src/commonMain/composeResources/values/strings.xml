@@ -68,7 +68,7 @@
     <string name="settings_tab_sensors">Sensors</string>
     <string name="settings_section_sensor_priority">Data Priority</string>
     <string name="settings_label_ble_hr_priority">Prefer External HR Sensor</string>
-    <string name="settings_desc_ble_hr_priority">Prioritize recording from external BLE heart rate sensors. Automatically falls back to Pebble\'s internal HRM if disconnected or no data is received.</string>
+    <string name="settings_desc_ble_hr_priority">Prioritize BLE sensor when both HRM sources are available. If only one source is available, it will be automatically selected.</string>
     <string name="settings_section_device">Device Integration</string>
     <string name="settings_pebble_app_title">Select Pebble Provider App</string>
     <string name="settings_pebble_app_desc">Choose the app (Coreapp, Cobble, etc.) used for communication</string>
@@ -252,9 +252,9 @@
     <string name="settings_mid_item_dist">Total Distance</string>
     <string name="settings_mid_item_steps">Total Steps</string>
     <string name="settings_mid_item_alt">Current Altitude</string>
-    <string name="settings_mid_item_hr">Heart Rate (Recording)</string>
-    <string name="settings_mid_item_hr_ble">Heart Rate (BLE)</string>
-    <string name="settings_mid_item_hr_watch">Heart Rate (Watch)</string>
+    <string name="settings_mid_item_hr">Heart Rate (Recorded)</string>
+    <string name="settings_mid_item_hr_ble">BLE HR Sensor (Monitoring)</string>
+    <string name="settings_mid_item_hr_watch">Watch HR Sensor (Monitoring)</string>
     <string name="settings_mid_item_cal">Calories Burned</string>
     <string name="settings_mid_item_avg_pace">Average Pace (Overall)</string>
     <string name="settings_mid_item_speed">Current Speed</string>
@@ -320,9 +320,9 @@
     <string name="settings_notif_auto_show_map_10s">After 10s</string>
 
     <string name="settings_section_map">Map Screen &amp; Controls</string>
-    <string name="settings_map_desc">Display and control settings for Pebble map screen</string>
-    <string name="settings_map_auto_show_ready_title">Auto Show on Ready</string>
-    <string name="settings_map_auto_show_ready_desc">Automatically switch watch screen to map once map rendering is complete</string>
+    <string name="settings_map_desc">Display and control settings for the Pebble map screen.&#10;&#10;[How to Open Map on Pebble]&#10;1. Manually:&#10;Assign 'Map Screen' to any button (UP / SELECT / DOWN) in the 'Long Press Actions' section, then long press that button on your watch.&#10;&#10;2. Automatically:&#10;• Enable 'Auto Show on Workout Ready' below to open the map when GPS fix is acquired.&#10;• Enable 'Auto Show Map' in Distance or Time notification settings to open the map right after periodic notifications.</string>
+    <string name="settings_map_auto_show_ready_title">Auto Show on Workout Ready</string>
+    <string name="settings_map_auto_show_ready_desc">Automatically switch watch screen to map once GPS is acquired and workout is ready</string>
     <string name="settings_map_auto_close_title">Auto-Close Timeout</string>
     <string name="settings_map_auto_close_desc">Return to workout cockpit if no interaction occurs</string>
     <string name="settings_map_auto_close_off">Off (Manual exit)</string>
@@ -352,4 +352,8 @@
     <string name="zoom_level_16">Zoom 16 (Standard)</string>
     <string name="zoom_level_17">Zoom 17 (Detailed)</string>
     <string name="zoom_level_18">Zoom 18 (Max Zoom)</string>
+    <string name="settings_section_map_management">Map Management</string>
+    <string name="settings_gpx_course_title">GPX Planned Courses</string>
+    <string name="settings_gpx_course_desc">Import GPX files, toggle planned routes on map, and sync to watch</string>
+    <string name="settings_gpx_course_btn">Manage Courses</string>
 </resources>

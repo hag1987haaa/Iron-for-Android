@@ -68,7 +68,7 @@
     <string name="settings_tab_sensors">センサー</string>
     <string name="settings_section_sensor_priority">記録データの優先順位</string>
     <string name="settings_label_ble_hr_priority">心拍計測に外部BLEセンサーを優先</string>
-    <string name="settings_desc_ble_hr_priority">外部センサー接続時はその値を優先して記録します。未接続や数値が届かない場合は、Pebble内蔵心拍計に自動で切り替わります。</string>
+    <string name="settings_desc_ble_hr_priority">両方の心拍計が利用可能な場合にBLEセンサーを優先します。片方のみ利用可能な場合は利用可能な心拍計を自動採用します。</string>
     <string name="settings_section_device">デバイス連携</string>
     <string name="settings_pebble_app_title">Pebble 管理アプリの選択</string>
     <string name="settings_pebble_app_desc">通信に使用するアプリ（Coreapp/Cobble等）を指定します</string>
@@ -252,9 +252,9 @@
     <string name="settings_mid_item_dist">走行距離</string>
     <string name="settings_mid_item_steps">累積歩数</string>
     <string name="settings_mid_item_alt">現在高度</string>
-    <string name="settings_mid_item_hr">心拍数 (記録用メイン)</string>
-    <string name="settings_mid_item_hr_ble">心拍数 (外部BLE)</string>
-    <string name="settings_mid_item_hr_watch">心拍数 (Pebble)</string>
+    <string name="settings_mid_item_hr">心拍数 (記録値)</string>
+    <string name="settings_mid_item_hr_ble">BLE HR センサー (モニタリング用途)</string>
+    <string name="settings_mid_item_hr_watch">Watch HR センサー (モニタリング用途)</string>
     <string name="settings_mid_item_cal">消費カロリー</string>
     <string name="settings_mid_item_avg_pace">平均ペース (全体)</string>
     <string name="settings_mid_item_speed">現在速度</string>
@@ -320,9 +320,9 @@
     <string name="settings_notif_auto_show_map_10s">10秒後</string>
 
     <string name="settings_section_map">マップ表示・操作設定</string>
-    <string name="settings_map_desc">Pebbleウォッチ上でのマップ画面の表示や操作に関する設定です</string>
-    <string name="settings_map_auto_show_ready_title">準備完了時にマップ自動表示</string>
-    <string name="settings_map_auto_show_ready_desc">マップ画像の生成・転送が完了した際、自動でウォッチ画面をマップに切り替えます</string>
+    <string name="settings_map_desc">Pebbleウォッチ上でのマップ画面の表示や操作に関する設定です。&#10;&#10;【マップ画面の開き方】&#10;1. 手動で開く:&#10;「長押し操作の割り当て」設定で、ウォッチの各ボタン（UP / SELECT / DOWN）に「マップ表示」を割り当て、ウォッチ上でそのボタンを長押しします。&#10;&#10;2. 自動で開く:&#10;・「ワークアウト開始準備完了時にマップ自動表示」をオンにすると、GPS測位完了時に自動で開きます。&#10;・通知設定（距離通知・時間通知）の「通知後のマップ自動表示」をオンにすると、定期通知の直後に自動で開きます。</string>
+    <string name="settings_map_auto_show_ready_title">ワークアウト開始準備完了時にマップ自動表示</string>
+    <string name="settings_map_auto_show_ready_desc">GPS測位が完了してワークアウト開始準備が整った際、自動でウォッチ画面をマップに切り替えます</string>
     <string name="settings_map_auto_close_title">マップ自動終了時間</string>
     <string name="settings_map_auto_close_desc">無操作のまま指定時間が経過すると、自動で計測画面に復帰します</string>
     <string name="settings_map_auto_close_off">オフ (手動終了のみ)</string>
@@ -352,4 +352,8 @@
     <string name="zoom_level_16">Zoom 16 (標準)</string>
     <string name="zoom_level_17">Zoom 17 (詳細)</string>
     <string name="zoom_level_18">Zoom 18 (最大拡大)</string>
+    <string name="settings_section_map_management">マップ管理</string>
+    <string name="settings_gpx_course_title">GPX計画コース管理</string>
+    <string name="settings_gpx_course_desc">GPXファイルのインポート、予定ルートの表示・非表示、ウォッチへの転送などを管理します</string>
+    <string name="settings_gpx_course_btn">コース管理を開く</string>
 </resources>
