@@ -3,6 +3,7 @@ package hag1987haaa.pebble.iron.presentation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -245,6 +246,202 @@ fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist:
                                 expanded = false
                             }
                         )
+                    }
+                }
+            }
+        }
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
+
+        // --- 心拍ゾーン通知 ---
+        Text(
+            text = stringResource(Res.string.settings_notif_hr_zone_title),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+
+        val isHrZoneEnabled by viewModel.isHrZoneNotificationEnabled.collectAsState()
+        val activityMins by viewModel.activityHrZoneMins.collectAsState()
+        val activityMaxs by viewModel.activityHrZoneMaxs.collectAsState()
+        val hrZoneOutDuration by viewModel.hrZoneOutDurationSeconds.collectAsState()
+
+        var isHrZoneDetailsExpanded by remember { mutableStateOf(false) }
+        var selectedActivityType by remember { mutableStateOf(ActivityType.RUNNING) }
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.settings_notif_hr_zone_enable), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.settings_notif_hr_zone_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+            Switch(
+                checked = isHrZoneEnabled,
+                onCheckedChange = { viewModel.updateHrZoneNotificationEnabled(it) },
+                modifier = Modifier.scale(0.7f)
+            )
+        }
+
+        if (isHrZoneEnabled) {
+            val currentMin = activityMins[selectedActivityType.name] ?: 120
+            val currentMax = activityMaxs[selectedActivityType.name] ?: 160
+
+            // 折りたたみ（開閉）トグルバー
+            Surface(
+                onClick = { isHrZoneDetailsExpanded = !isHrZoneDetailsExpanded },
+                tonalElevation = 1.dp,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isHrZoneDetailsExpanded) {
+                                stringResource(Res.string.settings_notif_hr_zone_details_collapse)
+                            } else {
+                                stringResource(Res.string.settings_notif_hr_zone_details_expand)
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (!isHrZoneDetailsExpanded) {
+                            Text(
+                                text = "${selectedActivityType.getDisplayName()}: $currentMin - $currentMax bpm (${hrZoneOutDuration}s)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = if (isHrZoneDetailsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            if (isHrZoneDetailsExpanded) {
+                Spacer(Modifier.height(12.dp))
+
+                // 対象アクティビティ種別チップ
+                Text(
+                    text = stringResource(Res.string.settings_notif_hr_zone_target_activity),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Spacer(Modifier.height(4.dp))
+                val horizontalScrollState = rememberScrollState()
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(horizontalScrollState),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ActivityType.entries.forEach { type ->
+                        val isSelected = type == selectedActivityType
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedActivityType = type },
+                            label = { Text(type.getDisplayName()) }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // 下限 (Min) BPM 選択
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "${selectedActivityType.getDisplayName()} ${stringResource(Res.string.settings_notif_hr_zone_min)}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    var minExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        TextButton(onClick = { minExpanded = true }) {
+                            Text("$currentMin bpm")
+                        }
+                        DropdownMenu(expanded = minExpanded, onDismissRequest = { minExpanded = false }) {
+                            (60..180 step 5).forEach { bpm ->
+                                DropdownMenuItem(
+                                    text = { Text("$bpm bpm") },
+                                    onClick = {
+                                        viewModel.updateActivityHrZoneMin(selectedActivityType, bpm)
+                                        minExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 上限 (Max) BPM 選択
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "${selectedActivityType.getDisplayName()} ${stringResource(Res.string.settings_notif_hr_zone_max)}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    var maxExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        TextButton(onClick = { maxExpanded = true }) {
+                            Text("$currentMax bpm")
+                        }
+                        DropdownMenu(expanded = maxExpanded, onDismissRequest = { maxExpanded = false }) {
+                            (90..210 step 5).forEach { bpm ->
+                                DropdownMenuItem(
+                                    text = { Text("$bpm bpm") },
+                                    onClick = {
+                                        viewModel.updateActivityHrZoneMax(selectedActivityType, bpm)
+                                        maxExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    text = stringResource(Res.string.settings_notif_hr_zone_diff_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
+                )
+
+                HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+
+                // ゾーン外判定時間 (秒数) 選択
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(Res.string.settings_notif_hr_zone_out_duration), style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(Res.string.settings_notif_hr_zone_out_duration_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    }
+                    var durationExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        TextButton(onClick = { durationExpanded = true }) {
+                            Text("${hrZoneOutDuration}s")
+                        }
+                        DropdownMenu(expanded = durationExpanded, onDismissRequest = { durationExpanded = false }) {
+                            listOf(5, 10, 15, 20, 30, 45, 60).forEach { sec ->
+                                DropdownMenuItem(
+                                    text = { Text("${sec}s") },
+                                    onClick = {
+                                        viewModel.updateHrZoneOutDurationSeconds(sec)
+                                        durationExpanded = false
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }

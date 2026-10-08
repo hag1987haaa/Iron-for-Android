@@ -52,6 +52,109 @@ class AppSettings {
             save()
         }
 
+    // 心拍ゾーン通知用
+    private val _isHrZoneNotificationEnabled = MutableStateFlow(value = false)
+    val isHrZoneNotificationEnabledFlow: StateFlow<Boolean> = _isHrZoneNotificationEnabled.asStateFlow()
+    var isHrZoneNotificationEnabled: Boolean
+        get() = _isHrZoneNotificationEnabled.value
+        set(value) {
+            _isHrZoneNotificationEnabled.value = value
+            save()
+        }
+
+    private val defaultHrZoneMins = mapOf(
+        ActivityType.RUNNING.name to 130,
+        ActivityType.WALKING.name to 95,
+        ActivityType.CYCLING.name to 115,
+        ActivityType.HIKING.name to 100,
+        ActivityType.KAYAKING.name to 105,
+        ActivityType.ROWING.name to 115,
+        ActivityType.OTHER.name to 110
+    )
+
+    private val defaultHrZoneMaxs = mapOf(
+        ActivityType.RUNNING.name to 165,
+        ActivityType.WALKING.name to 125,
+        ActivityType.CYCLING.name to 150,
+        ActivityType.HIKING.name to 135,
+        ActivityType.KAYAKING.name to 140,
+        ActivityType.ROWING.name to 150,
+        ActivityType.OTHER.name to 145
+    )
+
+    private val _activityHrZoneMins = MutableStateFlow<Map<String, Int>>(defaultHrZoneMins)
+    val activityHrZoneMinsFlow: StateFlow<Map<String, Int>> = _activityHrZoneMins.asStateFlow()
+    var activityHrZoneMins: Map<String, Int>
+        get() = _activityHrZoneMins.value
+        set(value) {
+            _activityHrZoneMins.value = value
+            save()
+        }
+
+    private val _activityHrZoneMaxs = MutableStateFlow<Map<String, Int>>(defaultHrZoneMaxs)
+    val activityHrZoneMaxsFlow: StateFlow<Map<String, Int>> = _activityHrZoneMaxs.asStateFlow()
+    var activityHrZoneMaxs: Map<String, Int>
+        get() = _activityHrZoneMaxs.value
+        set(value) {
+            _activityHrZoneMaxs.value = value
+            save()
+        }
+
+    fun getHrZoneMin(type: ActivityType): Int = activityHrZoneMins[type.name] ?: defaultHrZoneMins[type.name] ?: 120
+    fun getHrZoneMax(type: ActivityType): Int = activityHrZoneMaxs[type.name] ?: defaultHrZoneMaxs[type.name] ?: 160
+
+    fun setHrZoneMin(type: ActivityType, min: Int) {
+        val clampedMin = min.coerceIn(50, 190)
+        val currentMax = getHrZoneMax(type)
+        val newMax = if (currentMax < clampedMin + 30) (clampedMin + 30).coerceAtMost(220) else currentMax
+        
+        val newMins = activityHrZoneMins.toMutableMap()
+        newMins[type.name] = clampedMin
+        _activityHrZoneMins.value = newMins
+
+        if (newMax != currentMax) {
+            val newMaxs = activityHrZoneMaxs.toMutableMap()
+            newMaxs[type.name] = newMax
+            _activityHrZoneMaxs.value = newMaxs
+        }
+        save()
+    }
+
+    fun setHrZoneMax(type: ActivityType, max: Int) {
+        val clampedMax = max.coerceIn(80, 220)
+        val currentMin = getHrZoneMin(type)
+        val newMin = if (currentMin > clampedMax - 30) (clampedMax - 30).coerceAtLeast(50) else currentMin
+        
+        val newMaxs = activityHrZoneMaxs.toMutableMap()
+        newMaxs[type.name] = clampedMax
+        _activityHrZoneMaxs.value = newMaxs
+
+        if (newMin != currentMin) {
+            val newMins = activityHrZoneMins.toMutableMap()
+            newMins[type.name] = newMin
+            _activityHrZoneMins.value = newMins
+        }
+        save()
+    }
+
+    // 下位互換用（RUNNINGを基準とする）
+    var hrZoneMinBpm: Int
+        get() = getHrZoneMin(ActivityType.RUNNING)
+        set(value) { setHrZoneMin(ActivityType.RUNNING, value) }
+
+    var hrZoneMaxBpm: Int
+        get() = getHrZoneMax(ActivityType.RUNNING)
+        set(value) { setHrZoneMax(ActivityType.RUNNING, value) }
+
+    private val _hrZoneOutDurationSeconds = MutableStateFlow(value = 10)
+    val hrZoneOutDurationSecondsFlow: StateFlow<Int> = _hrZoneOutDurationSeconds.asStateFlow()
+    var hrZoneOutDurationSeconds: Int
+        get() = _hrZoneOutDurationSeconds.value
+        set(value) {
+            _hrZoneOutDurationSeconds.value = value
+            save()
+        }
+
     // 下位互換用
     var isNotificationVibrationEnabled: Boolean
         get() = _isDistNotificationVibrationEnabled.value

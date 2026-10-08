@@ -11,19 +11,34 @@ import kotlin.math.min
 
 object GraphDataGenerator {
 
-    private const val MAX_DATA_POINTS = 45
     private const val MAX_SAFE_CHAR_LENGTH = 200 // Pebble's AppMessage buffer safety limit
     private const val VALUE_CLIP_MAX = 9999 
 
+    fun getMaxPointsForPlatform(platform: String?): Int {
+        return when {
+            platform?.contains("Classic", ignoreCase = true) == true || 
+            platform?.contains("aplite", ignoreCase = true) == true -> 12
+            platform?.contains("Time 2", ignoreCase = true) == true || 
+            platform?.contains("Round 2", ignoreCase = true) == true ||
+            platform?.contains("emery", ignoreCase = true) == true || 
+            platform?.contains("gabbro", ignoreCase = true) == true -> 40
+            else -> 25 // Diorite (Pebble 2), Basalt (Pebble Time), Chalk (Pebble Time Round), Flint etc.
+        }
+    }
+
     fun generateUnifiedGraph(stats: RunStatistics, typeId: Int, settings: AppSettings): String {
         return try {
+            val maxPoints = getMaxPointsForPlatform(settings.pebblePlatform)
+            val isWorkoutRunning = stats.status == hag1987haaa.pebble.iron.domain.tracker.RunStatus.ACTIVE || 
+                                   stats.status == hag1987haaa.pebble.iron.domain.tracker.RunStatus.PAUSED
+
             // 1. データとスケールの生成
             val (dataPart, xScaleLabel) = if (typeId == 0) {
                 // 距離ベース（ペース/速度）
-                if (stats.route.isEmpty() || stats.totalDistanceMeters < 10.0) {
+                if (!isWorkoutRunning || stats.route.isEmpty() || stats.totalDistanceMeters < 10.0) {
                     "0" to "X:0${if(settings.isMetric)"m" else "ft"}"
                 } else {
-                    val result = generateDistanceBasedGraphDataWithScale(stats)
+                    val result = generateDistanceBasedGraphDataWithScale(stats, maxPoints)
                     val scale = result.first
                     val unit = if (settings.isMetric) "m" else "ft"
                     val label = if (scale >= 1000) "X:${scale/1000}${if(settings.isMetric)"km" else "mi"}" else "X:${scale}${unit}"
@@ -32,11 +47,11 @@ object GraphDataGenerator {
             } else {
                 // 時間ベース
                 val totalSeconds = stats.totalSeconds
-                if (stats.route.isEmpty() || totalSeconds <= 0) {
+                if (!isWorkoutRunning || stats.route.isEmpty() || totalSeconds <= 0) {
                     "0" to "X:0min"
                 } else {
-                    val scaleMinutes = ceil(totalSeconds.toDouble() / 60.0 / 40.0).toInt().coerceAtLeast(1)
-                    val data = generateTimeBasedGraphDataOnly(stats, typeId, scaleMinutes, settings)
+                    val scaleMinutes = ceil(totalSeconds.toDouble() / 60.0 / maxPoints.toDouble()).toInt().coerceAtLeast(1)
+                    val data = generateTimeBasedGraphDataOnly(stats, typeId, scaleMinutes, settings, maxPoints)
                     data to "X:${scaleMinutes}min"
                 }
             }
@@ -49,36 +64,39 @@ object GraphDataGenerator {
                 }
                 1 -> { // Distance
                     val unit = if (settings.isMetric) "km" else "mi"
-                    "DIST($unit),$xScaleLabel,${stats.formattedDistance},0"
+                    val distStr = if (isWorkoutRunning) stats.formattedDistance else "0.00"
+                    "DIST($unit),$xScaleLabel,$distStr,0"
                 }
                 2 -> { // Steps
-                    "STEPS,$xScaleLabel,${stats.steps},0"
+                    val stepsStr = if (isWorkoutRunning) stats.steps.toString() else "0"
+                    "STEPS,$xScaleLabel,$stepsStr,0"
                 }
                 3 -> { // Altitude
-                    val max = stats.route.mapNotNull { it.altitude }.maxOrNull()?.roundToInt() ?: 0
-                    val min = stats.route.mapNotNull { it.altitude }.minOrNull()?.roundToInt() ?: 0
+                    val max = if (isWorkoutRunning) (stats.route.mapNotNull { it.altitude }.maxOrNull()?.roundToInt() ?: 0) else 0
+                    val min = if (isWorkoutRunning) (stats.route.mapNotNull { it.altitude }.minOrNull()?.roundToInt() ?: 0) else 0
                     "ALT,$xScaleLabel,${max}m,${min}m"
                 }
                 4 -> { // Heart Rate
-                    val max = stats.heartRates.maxOrNull() ?: 0
-                    val min = stats.heartRates.minOrNull() ?: 0
+                    val max = if (isWorkoutRunning) (stats.heartRates.maxOrNull() ?: 0) else 0
+                    val min = if (isWorkoutRunning) (stats.heartRates.minOrNull() ?: 0) else 0
                     "HR,$xScaleLabel,${max}bpm,${min}bpm"
                 }
                 5 -> { // Calories
-                    "CAL,$xScaleLabel,${stats.calories.toInt()}kcal,0"
+                    val calStr = if (isWorkoutRunning) stats.calories.toInt().toString() else "0"
+                    "CAL,$xScaleLabel,${calStr}kcal,0"
                 }
                 else -> "DATA,$xScaleLabel,MAX,MIN"
             }
 
             val fullCsv = "$typeId,$labelInfo,$dataPart"
-            enforceLengthLimit(fullCsv)
+            enforceLengthLimit(fullCsv, maxPoints)
         } catch (e: Exception) {
             Log.e("GraphGenerator", "Fatal error in generation", e)
             "$typeId,ERROR,X,0,0,0"
         }
     }
 
-    private fun generateTimeBasedGraphDataOnly(stats: RunStatistics, typeId: Int, scaleMinutes: Int, settings: AppSettings): String {
+    private fun generateTimeBasedGraphDataOnly(stats: RunStatistics, typeId: Int, scaleMinutes: Int, settings: AppSettings, maxPoints: Int): String {
         val totalSeconds = stats.totalSeconds
         if (stats.route.isEmpty()) return "0"
         
@@ -150,18 +168,21 @@ object GraphDataGenerator {
             resultData.add(safeV.roundToInt().coerceIn(0, VALUE_CLIP_MAX))
         }
 
-        return resultData.takeLast(MAX_DATA_POINTS).joinToString(",")
+        return resultData.takeLast(maxPoints).joinToString(",")
     }
 
-    private fun generateDistanceBasedGraphDataWithScale(stats: RunStatistics): Pair<Int, String> {
+    private fun generateDistanceBasedGraphDataWithScale(stats: RunStatistics, maxPoints: Int): Pair<Int, String> {
         val totalDist = stats.totalDistanceMeters
         val scaleValue: Int
         val bucketStepMeters: Double
         
-        if (totalDist <= 8000.0) { scaleValue = 200; bucketStepMeters = 200.0 }
-        else if (totalDist <= 20000.0) { scaleValue = 500; bucketStepMeters = 500.0 }
+        val thresh1 = maxPoints * 200.0
+        val thresh2 = maxPoints * 500.0
+
+        if (totalDist <= thresh1) { scaleValue = 200; bucketStepMeters = 200.0 }
+        else if (totalDist <= thresh2) { scaleValue = 500; bucketStepMeters = 500.0 }
         else {
-            val scaleKm = ceil((totalDist / 1000.0) / 40.0).toInt().coerceAtLeast(1)
+            val scaleKm = ceil((totalDist / 1000.0) / maxPoints.toDouble()).toInt().coerceAtLeast(1)
             scaleValue = scaleKm * 1000
             bucketStepMeters = scaleKm * 1000.0
         }
@@ -197,15 +218,16 @@ object GraphDataGenerator {
         val lastTime = stats.route.last().timestamp.toEpochMilliseconds()
         buckets.add(((lastTime - currentBucketStartTime) / 1000).toInt().coerceIn(0, VALUE_CLIP_MAX))
 
-        return scaleValue to buckets.takeLast(MAX_DATA_POINTS).joinToString(",")
+        return scaleValue to buckets.takeLast(maxPoints).joinToString(",")
     }
 
-    private fun enforceLengthLimit(csv: String): String {
-        if (csv.length <= MAX_SAFE_CHAR_LENGTH) return csv
+    private fun enforceLengthLimit(csv: String, maxPoints: Int): String {
+        val limit = if (maxPoints <= 12) 120 else MAX_SAFE_CHAR_LENGTH
+        if (csv.length <= limit) return csv
         
         val parts = csv.split(",").toMutableList()
         // ヘッダー(0:typeId, 1-4:ラベル関連)を維持し、古いデータ(index 5)から削除
-        while (parts.size > 5 && (parts.joinToString(",").length > MAX_SAFE_CHAR_LENGTH)) {
+        while (parts.size > 5 && (parts.joinToString(",").length > limit)) {
             parts.removeAt(5)
         }
         return parts.joinToString(",")

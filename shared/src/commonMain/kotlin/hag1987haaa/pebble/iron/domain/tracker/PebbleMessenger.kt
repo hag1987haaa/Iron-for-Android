@@ -46,7 +46,7 @@ interface PebbleMessenger {
 
     /**
      * 通知（バイブレーション）コマンドを送信する
-     * @param type 0: 距離ベース(長), 1: 時間ベース(短x2)
+     * @param type 0: 距離ベース(長), 1: 時間ベース(短x2), 20: 心拍ゾーン適正(短x2/ト・トン), 21: 心拍高すぎ(長x2), 22: 心拍低すぎ(短x4)
      */
     fun sendNotification(type: Int)
 

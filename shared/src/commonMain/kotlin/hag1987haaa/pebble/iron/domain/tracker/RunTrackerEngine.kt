@@ -120,6 +120,13 @@ class RunTrackerEngine(
     private var lastPebbleHrTimestamp: Long = 0L // Pebbleの心拍データが最後に届いた時刻
     private var lastBpmValue: Int? = null // 表示に使用している直近の有効な心拍数
 
+    // 心拍ゾーン通知管理用
+    private enum class HrZoneState { INITIAL, IN_ZONE, TOO_HIGH, TOO_LOW }
+    private var hrZoneState: HrZoneState = HrZoneState.INITIAL
+    private var secondsInTargetZone: Int = 0
+    private var secondsTooHigh: Int = 0
+    private var secondsTooLow: Int = 0
+
     init {
         scope.launch {
             bleHrManager?.heartRateBpm?.collect { bpm ->
@@ -343,6 +350,7 @@ class RunTrackerEngine(
         lastTimeStep = -1; lastDistStep = -1.0f
         lastHrTimestamp = 0L; lastBpmValue = null
         lastBleValueChangeTimestamp = 0L; lastBleBpm = null; lastPebbleHrTimestamp = 0L
+        resetHrZoneState()
 
         // BLEセンサーを閉じる
         bleHrManager?.close()
@@ -626,6 +634,13 @@ class RunTrackerEngine(
                     }
                 }
 
+                // --- 心拍ゾーン通知判定 ---
+                if (appSettings?.isHrZoneNotificationEnabled == true) {
+                    checkHeartRateZoneNotification(s.currentHeartRate)
+                } else {
+                    resetHrZoneState()
+                }
+
                 // --- 定期的なグラフデータ更新 (10秒おき) ---
                 if (s.totalSeconds % 10 == 0L) {
                     pebbleMessenger?.sendGraphData(s)
@@ -635,6 +650,78 @@ class RunTrackerEngine(
                 RunState.updateStats(s)
             }
         }
+    }
+
+    private fun checkHeartRateZoneNotification(currentHr: Int?) {
+        val settings = appSettings ?: return
+        if (!settings.isHrZoneNotificationEnabled) {
+            resetHrZoneState()
+            return
+        }
+
+        // 有効な心拍数が取得できていない場合は判定スキップ
+        if (currentHr == null || currentHr <= 0) {
+            secondsInTargetZone = 0
+            secondsTooHigh = 0
+            secondsTooLow = 0
+            return
+        }
+
+        val currentType = _statistics.value.activityType
+        val minBpm = settings.getHrZoneMin(currentType)
+        val maxBpm = settings.getHrZoneMax(currentType)
+        val outDuration = settings.hrZoneOutDurationSeconds.coerceAtLeast(3)
+
+        when {
+            currentHr > maxBpm -> {
+                secondsTooHigh++
+                secondsTooLow = 0
+                secondsInTargetZone = 0
+
+                // ゾーン上限超過が設定秒数連続した場合に通知（IN_ZONEからのみ遷移）
+                if (hrZoneState == HrZoneState.IN_ZONE && secondsTooHigh >= outDuration) {
+                    hrZoneState = HrZoneState.TOO_HIGH
+                    secondsTooHigh = 0
+                    println("RunTrackerEngine: HR too high ($currentHr bpm > $maxBpm bpm for ${outDuration}s)")
+                    pebbleMessenger?.sendNotification(21) // 21: HR TOO HIGH
+                }
+            }
+            currentHr < minBpm -> {
+                secondsTooLow++
+                secondsTooHigh = 0
+                secondsInTargetZone = 0
+
+                // ゾーン下限未満が設定秒数連続した場合に通知（IN_ZONEからのみ遷移）
+                if (hrZoneState == HrZoneState.IN_ZONE && secondsTooLow >= outDuration) {
+                    hrZoneState = HrZoneState.TOO_LOW
+                    secondsTooLow = 0
+                    println("RunTrackerEngine: HR too low ($currentHr bpm < $minBpm bpm for ${outDuration}s)")
+                    pebbleMessenger?.sendNotification(22) // 22: HR TOO LOW
+                }
+            }
+            else -> {
+                // 目標ゾーン内 (minBpm <= currentHr <= maxBpm)
+                secondsInTargetZone++
+                secondsTooHigh = 0
+                secondsTooLow = 0
+
+                // 初回ゾーン突入または復帰：ゾーン内で3秒連続安定した場合に通知
+                if ((hrZoneState == HrZoneState.INITIAL || hrZoneState == HrZoneState.TOO_HIGH || hrZoneState == HrZoneState.TOO_LOW)
+                    && secondsInTargetZone >= 3) {
+                    hrZoneState = HrZoneState.IN_ZONE
+                    secondsInTargetZone = 0
+                    println("RunTrackerEngine: HR in zone ($currentHr bpm in $minBpm..$maxBpm for 3s)")
+                    pebbleMessenger?.sendNotification(20) // 20: HR IN ZONE
+                }
+            }
+        }
+    }
+
+    private fun resetHrZoneState() {
+        hrZoneState = HrZoneState.INITIAL
+        secondsInTargetZone = 0
+        secondsTooHigh = 0
+        secondsTooLow = 0
     }
 
     private fun handleNewLocation(location: LocationPoint) {

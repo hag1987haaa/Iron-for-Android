@@ -82,6 +82,11 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     val isTimeNotificationVibrationEnabled: StateFlow<Boolean> = settings.isTimeNotificationVibrationEnabledFlow
     val autoShowMapAfterTimeNotificationSeconds: StateFlow<Int> = settings.autoShowMapAfterTimeNotificationSecondsFlow
 
+    val isHrZoneNotificationEnabled: StateFlow<Boolean> = settings.isHrZoneNotificationEnabledFlow
+    val hrZoneOutDurationSeconds: StateFlow<Int> = settings.hrZoneOutDurationSecondsFlow
+    val activityHrZoneMins: StateFlow<Map<String, Int>> = settings.activityHrZoneMinsFlow
+    val activityHrZoneMaxs: StateFlow<Map<String, Int>> = settings.activityHrZoneMaxsFlow
+
     private val _autoShowMapAfterNotificationSeconds = MutableStateFlow(settings.autoShowMapAfterNotificationSeconds)
     val autoShowMapAfterNotificationSeconds: StateFlow<Int> = _autoShowMapAfterNotificationSeconds.asStateFlow()
 
@@ -255,6 +260,33 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         _isAutoLaunchTimeEnabled.value = enabled
         settings.save()
     }
+
+    fun updateHrZoneNotificationEnabled(enabled: Boolean) {
+        settings.isHrZoneNotificationEnabled = enabled
+    }
+
+    fun updateHrZoneMinBpm(minBpm: Int) {
+        updateActivityHrZoneMin(ActivityType.RUNNING, minBpm)
+    }
+
+    fun updateHrZoneMaxBpm(maxBpm: Int) {
+        updateActivityHrZoneMax(ActivityType.RUNNING, maxBpm)
+    }
+
+    fun updateHrZoneOutDurationSeconds(seconds: Int) {
+        settings.hrZoneOutDurationSeconds = seconds.coerceIn(3, 120)
+    }
+
+    fun updateActivityHrZoneMin(type: ActivityType, min: Int) {
+        settings.setHrZoneMin(type, min)
+    }
+
+    fun updateActivityHrZoneMax(type: ActivityType, max: Int) {
+        settings.setHrZoneMax(type, max)
+    }
+
+    fun getHrZoneMin(type: ActivityType): Int = settings.getHrZoneMin(type)
+    fun getHrZoneMax(type: ActivityType): Int = settings.getHrZoneMax(type)
 
     fun updateAutoExportTcxEnabled(enabled: Boolean) {
         settings.isAutoExportTcxEnabled = enabled

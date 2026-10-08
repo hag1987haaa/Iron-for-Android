@@ -85,6 +85,17 @@
     <string name="settings_notif_time_label">Time Interval</string>
     <string name="settings_notif_time_autolaunch">Auto-launch Iron on Time Interval</string>
     <string name="settings_notif_desc">Vibration patterns: Distance (Long), Time (Short x2)\nAuto-launch ensures data sync (steps, etc.) by bringing Iron to the foreground.</string>
+    <string name="settings_notif_hr_zone_title">Heart Rate Zone Alert</string>
+    <string name="settings_notif_hr_zone_desc">Alerts via watch vibration when entering or leaving your target heart rate zone (configurable continuous seconds trigger warning; zone return triggers notification).</string>
+    <string name="settings_notif_hr_zone_enable">Enable Heart Rate Zone Alert</string>
+    <string name="settings_notif_hr_zone_min">Min Heart Rate (Min)</string>
+    <string name="settings_notif_hr_zone_max">Max Heart Rate (Max)</string>
+    <string name="settings_notif_hr_zone_diff_hint">*Min and Max must differ by at least 30 bpm</string>
+    <string name="settings_notif_hr_zone_out_duration">Out of Zone Duration</string>
+    <string name="settings_notif_hr_zone_out_duration_desc">Number of continuous seconds out of zone before triggering a warning alert. Increase if sensor readings fluctuate.</string>
+    <string name="settings_notif_hr_zone_details_expand">Show Target Zone Settings</string>
+    <string name="settings_notif_hr_zone_details_collapse">Hide Target Zone Settings</string>
+    <string name="settings_notif_hr_zone_target_activity">Target Activity</string>
     <string name="settings_notif_off">Off</string>
     <string name="settings_hc_title">Health Connect Settings</string>
     <string name="settings_hc_desc">Sync your workout records (distance, route, heart rate, steps, calories) with other health apps. You can choose which data to sync in the following system settings.</string>

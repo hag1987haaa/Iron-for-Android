@@ -109,6 +109,24 @@ object AndroidDependencies {
         settings.autoShowMapAfterDistNotificationSeconds = prefs.getInt("dist_auto_show_map_sec", oldAutoShowMap)
         settings.autoShowMapAfterTimeNotificationSeconds = prefs.getInt("time_auto_show_map_sec", oldAutoShowMap)
         
+        // 心拍ゾーン通知設定の読み込み
+        settings.isHrZoneNotificationEnabled = prefs.getBoolean("hr_zone_notif_enabled", false)
+        settings.hrZoneOutDurationSeconds = prefs.getInt("hr_zone_out_duration_sec", 10)
+        prefs.getString("activity_hr_mins", null)?.let { str ->
+            val map = str.split(",").filter { it.contains(":") }.associate {
+                val (k, v) = it.split(":")
+                k to v.toInt()
+            }
+            settings.activityHrZoneMins = settings.activityHrZoneMins + map
+        }
+        prefs.getString("activity_hr_maxs", null)?.let { str ->
+            val map = str.split(",").filter { it.contains(":") }.associate {
+                val (k, v) = it.split(":")
+                k to v.toInt()
+            }
+            settings.activityHrZoneMaxs = settings.activityHrZoneMaxs + map
+        }
+        
         // Mid Data 設定の読み込み
         val midTypesStr = prefs.getString("mid_types", "0,4,1,5,10") ?: "0,4,1,5,10"
         settings.enabledMidTypes = midTypesStr.split(",").filter { it.isNotEmpty() }.map { it.toInt() }
@@ -233,6 +251,10 @@ object AndroidDependencies {
         putBoolean("time_notif_vibration", settings.isTimeNotificationVibrationEnabled)
         putInt("dist_auto_show_map_sec", settings.autoShowMapAfterDistNotificationSeconds)
         putInt("time_auto_show_map_sec", settings.autoShowMapAfterTimeNotificationSeconds)
+        putBoolean("hr_zone_notif_enabled", settings.isHrZoneNotificationEnabled)
+        putInt("hr_zone_out_duration_sec", settings.hrZoneOutDurationSeconds)
+        putString("activity_hr_mins", settings.activityHrZoneMins.entries.joinToString(",") { "${it.key}:${it.value}" })
+        putString("activity_hr_maxs", settings.activityHrZoneMaxs.entries.joinToString(",") { "${it.key}:${it.value}" })
                 
                 // Mid / Lower Data 設定の保存
                 putString("mid_types", settings.enabledMidTypes.joinToString(","))

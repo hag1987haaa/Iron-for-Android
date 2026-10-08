@@ -541,18 +541,28 @@ class AndroidPebbleMessenger(
         // これにより、ウォッチ側での「二転三転（情報の逆転）」を物理的に防ぐ
         nextStatsRequest = null
         nextMidDataRequest = null
+        nextLowerDataRequest = null
         nextGraphRequest = null
         
-        // 状態が変わった（計測開始・準備・再開）際は、現在の設定に基づいてセッションリストをリセット
-        if (status == RunStatus.ACTIVE || status == RunStatus.READY || status == RunStatus.PREPARING) {
+        // 状態が変わった（計測開始・準備・再開・待機に戻る）際は、セッションリストをリセットして同期
+        if (status == RunStatus.ACTIVE || status == RunStatus.READY || status == RunStatus.PREPARING || status == RunStatus.IDLE) {
             sessionMidList = emptyList() // ensureSessionInitialized を強制的に走らせる
-            ensureSessionInitialized(status, settings)
+            sessionLowerList = emptyList()
+            if (status != RunStatus.IDLE) {
+                ensureSessionInitialized(status, settings)
+            }
         }
         
         val dict = mutableMapOf<UInt, PebbleDictionaryItem>(
             KEY_CMD to PebbleDictionaryItem.Int32(1), 
             KEY_STATE to PebbleDictionaryItem.Int32(mapToPebbleState(status))
         )
+
+        // ワークアウト終了(IDLE)や準備(PREPARING)時は、初期化されたクリーンなグラフデータを明示送信して完全クリア
+        if (status == RunStatus.IDLE || status == RunStatus.PREPARING) {
+            val emptyGraph = GraphDataGenerator.generateUnifiedGraph(stats, currentGraphTypeId.coerceAtLeast(0), settings)
+            dict[KEY_GRAPH_DATA] = PebbleDictionaryItem.Text(emptyGraph)
+        }
         
         if (sessionMidList.isNotEmpty()) {
             val pages = sessionMidList.mapNotNull { typeId -> generateMidPageString(typeId, stats, settings) }
@@ -600,7 +610,12 @@ class AndroidPebbleMessenger(
     }
 
     override fun sendNotification(type: Int) {
-        val cmdId = if (type == 0) 10 else 11
+        val cmdId = when (type) {
+            0 -> 10
+            1 -> 11
+            20, 21, 22 -> type
+            else -> type
+        }
         commandQueue.trySend(PebbleMessageRequest("NOTIFICATION", mapOf(KEY_CMD to PebbleDictionaryItem.Int32(cmdId)), retryCount = 3))
     }
 
