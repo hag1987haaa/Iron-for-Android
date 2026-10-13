@@ -652,7 +652,7 @@ class RunTrackerEngine(
         }
     }
 
-    private fun checkHeartRateZoneNotification(currentHr: Int?) {
+    internal fun checkHeartRateZoneNotification(currentHr: Int?) {
         val settings = appSettings ?: return
         if (!settings.isHrZoneNotificationEnabled) {
             resetHrZoneState()
@@ -671,6 +671,7 @@ class RunTrackerEngine(
         val minBpm = settings.getHrZoneMin(currentType)
         val maxBpm = settings.getHrZoneMax(currentType)
         val outDuration = settings.hrZoneOutDurationSeconds.coerceAtLeast(3)
+        val repeatInterval = settings.hrZoneRepeatIntervalSeconds
 
         when {
             currentHr > maxBpm -> {
@@ -678,11 +679,16 @@ class RunTrackerEngine(
                 secondsTooLow = 0
                 secondsInTargetZone = 0
 
-                // ゾーン上限超過が設定秒数連続した場合に通知（IN_ZONEからのみ遷移）
-                if (hrZoneState == HrZoneState.IN_ZONE && secondsTooHigh >= outDuration) {
+                // ゾーン上限超過が設定秒数連続した場合に通知（初回や他状態から遷移）
+                if (hrZoneState != HrZoneState.TOO_HIGH && secondsTooHigh >= outDuration) {
                     hrZoneState = HrZoneState.TOO_HIGH
                     secondsTooHigh = 0
                     println("RunTrackerEngine: HR too high ($currentHr bpm > $maxBpm bpm for ${outDuration}s)")
+                    pebbleMessenger?.sendNotification(21) // 21: HR TOO HIGH
+                } else if (hrZoneState == HrZoneState.TOO_HIGH && repeatInterval > 0 && secondsTooHigh >= repeatInterval) {
+                    // 上限超過状態が継続している場合の再通知
+                    secondsTooHigh = 0
+                    println("RunTrackerEngine: HR still too high ($currentHr bpm > $maxBpm bpm, repeated after ${repeatInterval}s)")
                     pebbleMessenger?.sendNotification(21) // 21: HR TOO HIGH
                 }
             }
@@ -691,11 +697,16 @@ class RunTrackerEngine(
                 secondsTooHigh = 0
                 secondsInTargetZone = 0
 
-                // ゾーン下限未満が設定秒数連続した場合に通知（IN_ZONEからのみ遷移）
-                if (hrZoneState == HrZoneState.IN_ZONE && secondsTooLow >= outDuration) {
+                // ゾーン下限未満が設定秒数連続した場合に通知（初回や他状態から遷移）
+                if (hrZoneState != HrZoneState.TOO_LOW && secondsTooLow >= outDuration) {
                     hrZoneState = HrZoneState.TOO_LOW
                     secondsTooLow = 0
                     println("RunTrackerEngine: HR too low ($currentHr bpm < $minBpm bpm for ${outDuration}s)")
+                    pebbleMessenger?.sendNotification(22) // 22: HR TOO LOW
+                } else if (hrZoneState == HrZoneState.TOO_LOW && repeatInterval > 0 && secondsTooLow >= repeatInterval) {
+                    // 下限未満状態が継続している場合の再通知
+                    secondsTooLow = 0
+                    println("RunTrackerEngine: HR still too low ($currentHr bpm < $minBpm bpm, repeated after ${repeatInterval}s)")
                     pebbleMessenger?.sendNotification(22) // 22: HR TOO LOW
                 }
             }
@@ -706,8 +717,7 @@ class RunTrackerEngine(
                 secondsTooLow = 0
 
                 // 初回ゾーン突入または復帰：ゾーン内で3秒連続安定した場合に通知
-                if ((hrZoneState == HrZoneState.INITIAL || hrZoneState == HrZoneState.TOO_HIGH || hrZoneState == HrZoneState.TOO_LOW)
-                    && secondsInTargetZone >= 3) {
+                if (hrZoneState != HrZoneState.IN_ZONE && secondsInTargetZone >= 3) {
                     hrZoneState = HrZoneState.IN_ZONE
                     secondsInTargetZone = 0
                     println("RunTrackerEngine: HR in zone ($currentHr bpm in $minBpm..$maxBpm for 3s)")
@@ -717,7 +727,7 @@ class RunTrackerEngine(
         }
     }
 
-    private fun resetHrZoneState() {
+    internal fun resetHrZoneState() {
         hrZoneState = HrZoneState.INITIAL
         secondsInTargetZone = 0
         secondsTooHigh = 0

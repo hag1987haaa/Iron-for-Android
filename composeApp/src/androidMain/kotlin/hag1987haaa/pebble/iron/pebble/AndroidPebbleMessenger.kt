@@ -173,6 +173,10 @@ class AndroidPebbleMessenger(
         scope.launch {
             while (isActive) {
                 try {
+                    if (isTransmittingChunks) {
+                        delay(100)
+                        continue
+                    }
                     var handledAnything = false
                     val cmd = commandQueue.tryReceive().getOrNull()
                     if (cmd != null) {
@@ -616,7 +620,7 @@ class AndroidPebbleMessenger(
             20, 21, 22 -> type
             else -> type
         }
-        commandQueue.trySend(PebbleMessageRequest("NOTIFICATION", mapOf(KEY_CMD to PebbleDictionaryItem.Int32(cmdId)), retryCount = 3))
+        commandQueue.trySend(PebbleMessageRequest("NOTIFICATION", mapOf(KEY_CMD to PebbleDictionaryItem.Int32(cmdId)), retryCount = 0))
     }
 
     override fun sendLowerData(lowerDataString: String) {
@@ -814,30 +818,49 @@ class AndroidPebbleMessenger(
 
                 if (mapSendJob?.isActive != true) return@launch
 
-                // 3. チャンク送信フェーズ（ウォッチがコックピット表示のままバックグラウンドで全チャンクを先行受信）
+                // 3. チャンク送信フェーズ（確実に1チャンクずつ順序通り送信し、完了するまでロックを維持）
                 isTransmittingChunks = true
                 val chunkSize = 500 
                 val totalChunks = (totalSize + chunkSize - 1) / chunkSize
-                val fixedDelayMs = 130L 
+                val targets = PebbleCommandService.lastConnectedWatch?.let { listOf(it) }
 
+                var allChunksSucceeded = true
                 for (i in 0 until totalChunks) {
-                    if (!commandQueue.isEmpty) {
-                        delay(120)
-                    }
+                    if (mapSendJob?.isActive != true) return@launch
                     val start = i * chunkSize
                     val end = minOf(start + chunkSize, totalSize)
                     val chunk = rleData.sliceArray(start until end)
                     
-                    Log.d("PebbleMessenger", "sendMap: Sending chunk ${i + 1}/$totalChunks (${chunk.size} bytes)")
-                    sendMapChunk(chunk, i, totalChunks)
+                    val dict = mapOf(
+                        KEY_MAP_DATA to PebbleDictionaryItem.Bytes(chunk),
+                        KEY_MAP_CHUNK_IDX to PebbleDictionaryItem.Int32(i),
+                        KEY_MAP_TOTAL_CHUNKS to PebbleDictionaryItem.Int32(totalChunks)
+                    )
                     
-                    delay(fixedDelayMs) 
+                    Log.d("PebbleMessenger", "sendMap: Transmitting chunk ${i + 1}/$totalChunks (${chunk.size} bytes)")
+                    var chunkSuccess = false
+                    for (retry in 0..2) {
+                        if (mapSendJob?.isActive != true) return@launch
+                        chunkSuccess = sendAttempt("MAP_CHUNK", dict, targets)
+                        if (chunkSuccess) break
+                        Log.w("PebbleMessenger", "sendMap: Chunk ${i + 1}/$totalChunks send failed, retry #$retry")
+                        delay(150)
+                    }
+                    if (!chunkSuccess) {
+                        Log.e("PebbleMessenger", "sendMap: Aborting map transfer due to chunk failure at ${i + 1}/$totalChunks")
+                        allChunksSucceeded = false
+                        break
+                    }
+                    delay(30)
                 }
-                Log.i("PebbleMessenger", "sendMap: Fully transmitted $totalSize bytes in $totalChunks chunks.")
 
-                // 4. 全チャンクが揃った時点でマップ表示コマンドを送信（待機時間ゼロで即座に完成マップを表示）
-                sendMapState(true)
-                delay(100)
+                if (allChunksSucceeded && mapSendJob?.isActive == true) {
+                    Log.i("PebbleMessenger", "sendMap: Fully transmitted $totalSize bytes in $totalChunks chunks.")
+                    // 4. 全チャンクが揃った時点でマップ表示コマンドを送信（待機時間ゼロで即座に完成マップを表示）
+                    sendAttempt("MAP_STATE", mapOf(KEY_MAP_STATE to PebbleDictionaryItem.Int32(1)), targets)
+                    isMapActive = true
+                    delay(50)
+                }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 Log.d("PebbleMessenger", "sendMap: Pre-transmission generation cancelled in favor of newer request")
                 throw e

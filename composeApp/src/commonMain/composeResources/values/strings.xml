@@ -93,6 +93,8 @@
     <string name="settings_notif_hr_zone_diff_hint">*Min and Max must differ by at least 30 bpm</string>
     <string name="settings_notif_hr_zone_out_duration">Out of Zone Duration</string>
     <string name="settings_notif_hr_zone_out_duration_desc">Number of continuous seconds out of zone before triggering a warning alert. Increase if sensor readings fluctuate.</string>
+    <string name="settings_notif_hr_zone_repeat_interval">Repeat Alert Interval</string>
+    <string name="settings_notif_hr_zone_repeat_interval_desc">Interval to repeat alert if heart rate remains out of target zone after the initial warning.</string>
     <string name="settings_notif_hr_zone_details_expand">Show Target Zone Settings</string>
     <string name="settings_notif_hr_zone_details_collapse">Hide Target Zone Settings</string>
     <string name="settings_notif_hr_zone_target_activity">Target Activity</string>

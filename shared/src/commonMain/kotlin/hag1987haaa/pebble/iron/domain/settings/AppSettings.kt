@@ -155,6 +155,15 @@ class AppSettings {
             save()
         }
 
+    private val _hrZoneRepeatIntervalSeconds = MutableStateFlow(value = 20)
+    val hrZoneRepeatIntervalSecondsFlow: StateFlow<Int> = _hrZoneRepeatIntervalSeconds.asStateFlow()
+    var hrZoneRepeatIntervalSeconds: Int
+        get() = _hrZoneRepeatIntervalSeconds.value
+        set(value) {
+            _hrZoneRepeatIntervalSeconds.value = value
+            save()
+        }
+
     // 下位互換用
     var isNotificationVibrationEnabled: Boolean
         get() = _isDistNotificationVibrationEnabled.value

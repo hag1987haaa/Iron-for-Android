@@ -84,6 +84,7 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
 
     val isHrZoneNotificationEnabled: StateFlow<Boolean> = settings.isHrZoneNotificationEnabledFlow
     val hrZoneOutDurationSeconds: StateFlow<Int> = settings.hrZoneOutDurationSecondsFlow
+    val hrZoneRepeatIntervalSeconds: StateFlow<Int> = settings.hrZoneRepeatIntervalSecondsFlow
     val activityHrZoneMins: StateFlow<Map<String, Int>> = settings.activityHrZoneMinsFlow
     val activityHrZoneMaxs: StateFlow<Map<String, Int>> = settings.activityHrZoneMaxsFlow
 
@@ -275,6 +276,10 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
 
     fun updateHrZoneOutDurationSeconds(seconds: Int) {
         settings.hrZoneOutDurationSeconds = seconds.coerceIn(3, 120)
+    }
+
+    fun updateHrZoneRepeatIntervalSeconds(seconds: Int) {
+        settings.hrZoneRepeatIntervalSeconds = if (seconds <= 0) 0 else seconds.coerceIn(5, 120)
     }
 
     fun updateActivityHrZoneMin(type: ActivityType, min: Int) {

@@ -265,6 +265,7 @@ fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist:
         val activityMins by viewModel.activityHrZoneMins.collectAsState()
         val activityMaxs by viewModel.activityHrZoneMaxs.collectAsState()
         val hrZoneOutDuration by viewModel.hrZoneOutDurationSeconds.collectAsState()
+        val hrZoneRepeatInterval by viewModel.hrZoneRepeatIntervalSeconds.collectAsState()
 
         var isHrZoneDetailsExpanded by remember { mutableStateOf(false) }
         var selectedActivityType by remember { mutableStateOf(ActivityType.RUNNING) }
@@ -307,8 +308,9 @@ fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist:
                             color = MaterialTheme.colorScheme.primary
                         )
                         if (!isHrZoneDetailsExpanded) {
+                            val repeatText = if (hrZoneRepeatInterval > 0) " / ${hrZoneRepeatInterval}s" else ""
                             Text(
-                                text = "${selectedActivityType.getDisplayName()}: $currentMin - $currentMax bpm (${hrZoneOutDuration}s)",
+                                text = "${selectedActivityType.getDisplayName()}: $currentMin - $currentMax bpm (${hrZoneOutDuration}s$repeatText)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -438,6 +440,35 @@ fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist:
                                     onClick = {
                                         viewModel.updateHrZoneOutDurationSeconds(sec)
                                         durationExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // ゾーン外再通知間隔 (秒数) 選択
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(Res.string.settings_notif_hr_zone_repeat_interval), style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(Res.string.settings_notif_hr_zone_repeat_interval_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    }
+                    var repeatExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        TextButton(onClick = { repeatExpanded = true }) {
+                            Text(if (hrZoneRepeatInterval == 0) stringResource(Res.string.settings_notif_off) else "${hrZoneRepeatInterval}s")
+                        }
+                        DropdownMenu(expanded = repeatExpanded, onDismissRequest = { repeatExpanded = false }) {
+                            listOf(0, 5, 10, 15, 20, 30, 45, 60).forEach { sec ->
+                                DropdownMenuItem(
+                                    text = { Text(if (sec == 0) stringResource(Res.string.settings_notif_off) else "${sec}s") },
+                                    onClick = {
+                                        viewModel.updateHrZoneRepeatIntervalSeconds(sec)
+                                        repeatExpanded = false
                                     }
                                 )
                             }

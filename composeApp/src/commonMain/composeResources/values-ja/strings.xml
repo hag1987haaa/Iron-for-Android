@@ -93,6 +93,8 @@
     <string name="settings_notif_hr_zone_diff_hint">※下限と上限の間は30 bpm以上の間隔が必要です</string>
     <string name="settings_notif_hr_zone_out_duration">ゾーン外判定時間</string>
     <string name="settings_notif_hr_zone_out_duration_desc">ゾーンを外れてから警告通知を送るまでの継続秒数です。センサーのブレが大きい場合は長めに設定してください。</string>
+    <string name="settings_notif_hr_zone_repeat_interval">ゾーン外の再通知間隔</string>
+    <string name="settings_notif_hr_zone_repeat_interval_desc">警告後に心拍数がゾーン外のまま維持されている場合、再度アラームを鳴らす間隔です。</string>
     <string name="settings_notif_hr_zone_details_expand">目標設定の詳細を開く</string>
     <string name="settings_notif_hr_zone_details_collapse">目標設定の詳細を閉じる</string>
     <string name="settings_notif_hr_zone_target_activity">対象アクティビティ</string>

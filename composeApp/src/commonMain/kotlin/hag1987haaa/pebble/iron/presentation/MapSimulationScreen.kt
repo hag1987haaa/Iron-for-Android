@@ -236,6 +236,64 @@ fun MapSimulationScreen(
                 }
             }
 
+            // Custom Vibration Test Card
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.fillMaxWidth(0.9f)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Heart Rate Vibration Test", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Test custom vibration patterns on connected Pebble",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                messenger?.sendNotification(21) // 21: HR TOO HIGH (Imperial March)
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Sent HR Too High (Imperial March) to Pebble!")
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text("Too High (Vader)", style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        Button(
+                            onClick = {
+                                messenger?.sendNotification(22) // 22: HR TOO LOW (Walking on Sunshine)
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Sent HR Too Low (Walking on Sunshine) to Pebble!")
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("Too Low (Sunshine)", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            messenger?.sendNotification(20) // 20: HR IN ZONE
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Sent HR In Zone to Pebble!")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("In Zone (Normal)", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+
             var isSwipePanMode by remember { mutableStateOf(KmpDependencies.appSettings.isMapSwipePanEnabled) }
 
             Card(
