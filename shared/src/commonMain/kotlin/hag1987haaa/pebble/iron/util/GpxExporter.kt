@@ -12,7 +12,8 @@ object GpxExporter {
      * 一時停止区間（isSegmentStart または 10秒以上のタイムスタンプギャップ）で
      * <trkseg> を分割出力し、Strava, Garmin Connect 等での正確なポーズ時間除外・平均ペース計算を実現します。
      */
-    fun export(run: RunActivity): String {
+    fun export(rawRun: RunActivity): String {
+        val run = rawRun.withSanitizedTimestamps()
         val sb = StringBuilder()
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         sb.append("<gpx version=\"1.1\" creator=\"PebbleTrackerKMP\" \n")

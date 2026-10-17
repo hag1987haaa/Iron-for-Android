@@ -11,7 +11,8 @@ object TcxExporter {
      * - 一時停止（isSegmentStart または 10秒以上のタイムスタンプギャップ）で <Track> を分割出力し、
      *   Strava, Garmin Connect, TrainingPeaks 等でポーズ時間を正確に除外。
      */
-    fun export(run: RunActivity): String {
+    fun export(rawRun: RunActivity): String {
+        val run = rawRun.withSanitizedTimestamps()
         val sb = StringBuilder()
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         sb.append("<TrainingCenterDatabase \n")

@@ -241,20 +241,23 @@ class TrackingService : Service() {
                     maxHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.maxOrNull()?.toDouble() else null,
                     elevationGain = stats.totalElevationGain,
                     route = stats.route
-                )
+                ).withSanitizedTimestamps()
 
-                // Health Connect 同期を試行
+                // 1. まずデータベースへ即座に保存（Health Connect の応答待ちで保存が遅れたり UI 側と競合するのを防止）
+                val savedId = KmpDependencies.runRepository.saveRun(run)
+
+                // 2. Health Connect 同期を試行し、成功したら DB の healthConnectId を更新
                 var hcId: String? = null
                 try {
                     hcId = AndroidDependencies.healthConnectManager.writeRunActivity(run)
+                    if (hcId != null && savedId != 0L) {
+                        KmpDependencies.runRepository.updateHealthConnectId(savedId, hcId)
+                    }
                 } catch (e: Exception) {
                     Log.e("TrackingService", "Health Connect sync failed", e)
                 }
                 
-                // データベース保存
-                val savedId = KmpDependencies.runRepository.saveRun(run.copy(healthConnectId = hcId))
-                
-                // データベースから「保存完了した完全なデータ（route/ID含む）」を読み直して自動エクスポートを実行
+                // 3. データベースから「保存完了した完全なデータ（route/ID含む）」を読み直して自動エクスポートを実行
                 val savedRun = KmpDependencies.runRepository.getRunDetails(savedId)
                 if (savedRun != null) {
                     AutoExporter.execute(applicationContext, savedRun)
@@ -309,20 +312,23 @@ class TrackingService : Service() {
                     maxHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.maxOrNull()?.toDouble() else null,
                     elevationGain = stats.totalElevationGain,
                     route = stats.route
-                )
+                ).withSanitizedTimestamps()
                 
-                // Health Connect 同期を試行
+                // 1. まずデータベースへ即座に保存
+                val savedId = KmpDependencies.runRepository.saveRun(run)
+
+                // 2. Health Connect 同期を試行し、成功したら DB の healthConnectId を更新
                 var hcId: String? = null
                 try {
                     hcId = AndroidDependencies.healthConnectManager.writeRunActivity(run)
+                    if (hcId != null && savedId != 0L) {
+                        KmpDependencies.runRepository.updateHealthConnectId(savedId, hcId)
+                    }
                 } catch (e: Exception) {
                     Log.e("TrackingService", "Health Connect sync failed", e)
                 }
 
-                // データベース保存
-                val savedId = KmpDependencies.runRepository.saveRun(run.copy(healthConnectId = hcId))
-                
-                // 自動エクスポートを実行
+                // 3. 自動エクスポートを実行
                 val savedRun = KmpDependencies.runRepository.getRunDetails(savedId)
                 if (savedRun != null) {
                     AutoExporter.execute(applicationContext, savedRun)

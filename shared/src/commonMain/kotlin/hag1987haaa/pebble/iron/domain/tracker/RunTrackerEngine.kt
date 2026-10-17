@@ -800,6 +800,14 @@ class RunTrackerEngine(
 
         if (RunState.status.value != RunStatus.ACTIVE) return
 
+        val startTime = _statistics.value.startTime
+        // startTime より15秒以上古い位置情報は start() 前の古いキャッシュ位置情報（最大2分前）であるため、ACTIVE ルートからは除外する
+        if (startTime != null &&
+            location.timestamp.toEpochMilliseconds() < startTime.toEpochMilliseconds() - 15_000L
+        ) {
+            return
+        }
+
         // Keep Iron's existing lightweight smoothing, but only allow plausible
         // fixes into the smoothing window.
         rawLocationWindow.add(location)
@@ -844,7 +852,17 @@ class RunTrackerEngine(
             isSegmentStart = isSegStart,
         )
 
+        // タイムスタンプが直前のポイントより逆転しないように単調増加を保証
+        val prevTimestampMs = fullRoute.lastOrNull()?.timestamp?.toEpochMilliseconds() ?: Long.MIN_VALUE
+        val safeTimestampMs = maxOf(filteredLocation.timestamp.toEpochMilliseconds(), prevTimestampMs)
+        val safeTimestamp = if (safeTimestampMs == filteredLocation.timestamp.toEpochMilliseconds()) {
+            filteredLocation.timestamp
+        } else {
+            Instant.fromEpochMilliseconds(safeTimestampMs)
+        }
+
         val finalLocation = filteredLocation.copy(
+            timestamp = safeTimestamp,
             heartRate = location.heartRate ?: _statistics.value.currentHeartRate,
             steps = _statistics.value.steps,
             isSegmentStart = isSegStart,

@@ -203,16 +203,24 @@ class MainActivity : ComponentActivity() {
             
             override fun saveTracking() {
                 sendCommand("SAVE_TO_RESULT")
-                // フォアグラウンドのUI層からも保存直後のHealth Connect自動書き込みを確実にトリガー
+                // TrackingService 側での DB 保存＆HC 同期完了（ステータスが RESULT または IDLE に遷移）を待ってから、
+                // 万が一バックグラウンド制限等で HC 未同期だった場合のみ UI 層からフォールバック同期を実行する（二重書き込み競合の防止）
                 lifecycleScope.launch {
                     try {
-                        kotlinx.coroutines.delay(500) // サービスのDB保存完了をわずかに待機
+                        var waitedMs = 0L
+                        while (RunState.status.value != hag1987haaa.pebble.iron.domain.tracker.RunStatus.RESULT &&
+                            RunState.status.value != hag1987haaa.pebble.iron.domain.tracker.RunStatus.IDLE &&
+                            waitedMs < 5000L
+                        ) {
+                            kotlinx.coroutines.delay(150)
+                            waitedMs += 150
+                        }
                         val latestRuns = KmpDependencies.runRepository.getAllRunsWithDetails()
                         val lastRun = latestRuns.firstOrNull()
                         if (lastRun != null && lastRun.healthConnectId == null) {
-                            Log.i("MainActivity", "Auto-syncing workout ${lastRun.id} to Health Connect from UI layer...")
+                            Log.i("MainActivity", "Fallback auto-syncing workout ${lastRun.id} to Health Connect from UI layer...")
                             syncWithHealthConnect(lastRun) { success, _ ->
-                                Log.i("MainActivity", "Auto-sync result for run ${lastRun.id}: $success")
+                                Log.i("MainActivity", "Fallback auto-sync result for run ${lastRun.id}: $success")
                             }
                         }
                     } catch (e: Exception) {
