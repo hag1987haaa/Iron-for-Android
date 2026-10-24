@@ -29,6 +29,11 @@
     <string name="detail_stat_elevation">Elevation Gain</string>
     <string name="detail_stat_calories">Calories</string>
     <string name="detail_stat_steps">Steps</string>
+    <string name="detail_splits_title">Splits (Pace per Unit)</string>
+    <string name="detail_splits_distance">Distance</string>
+    <string name="detail_splits_pace">Pace</string>
+    <string name="detail_splits_time">Time</string>
+    <string name="detail_splits_fastest">Fastest</string>
     <string name="detail_chart_altitude">Altitude (m)</string>
     <string name="detail_chart_heart_rate">Heart Rate (bpm)</string>
     <string name="detail_chart_speed">Speed (km/h)</string>

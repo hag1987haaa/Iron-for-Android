@@ -28,6 +28,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
+import hag1987haaa.pebble.iron.assistant.AssistantActionHandler
 import hag1987haaa.pebble.iron.health.HealthSyncResult
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
@@ -611,6 +612,16 @@ class MainActivity : ComponentActivity() {
         
         // アプリ起動時の初期権限チェック（シーケンス開始）
         startPermissionChain()
+
+        // アシスタント / App Actions からの起動 Intent の処理
+        AssistantActionHandler.handleIntent(this, intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // 既存インスタンス再利用時のアシスタント Intent 処理
+        AssistantActionHandler.handleIntent(this, intent)
     }
 
     override fun onResume() {

@@ -64,6 +64,7 @@ object AndroidDependencies {
             prefs.getString("longpress_down_mode", hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name) ?: hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name
         )
         settings.isAutomationEnabled = prefs.getBoolean("auto_enabled", false)
+        settings.isAssistantIntegrationEnabled = prefs.getBoolean("assistant_integration_enabled", false)
         settings.isCommand50Enabled = prefs.getBoolean("cmd50_enabled", true)
         settings.isCommand51Enabled = prefs.getBoolean("cmd51_enabled", true)
         settings.isCommand52Enabled = prefs.getBoolean("cmd52_enabled", true)
@@ -227,6 +228,7 @@ object AndroidDependencies {
                 putString("longpress_select_mode", settings.selectLongPressMode.name)
                 putString("longpress_down_mode", settings.downLongPressMode.name)
                 putBoolean("auto_enabled", settings.isAutomationEnabled)
+                putBoolean("assistant_integration_enabled", settings.isAssistantIntegrationEnabled)
                 putBoolean("cmd50_enabled", settings.isCommand50Enabled)
                 putBoolean("cmd51_enabled", settings.isCommand51Enabled)
                 putBoolean("cmd52_enabled", settings.isCommand52Enabled)

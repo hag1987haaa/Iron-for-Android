@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="running_synonyms">
+        <item>Run</item>
+        <item>Running</item>
+        <item>Jog</item>
+        <item>Jogging</item>
+    </string-array>
+
+    <string-array name="walking_synonyms">
+        <item>Walk</item>
+        <item>Walking</item>
+        <item>Stroll</item>
+    </string-array>
+
+    <string-array name="cycling_synonyms">
+        <item>Cycle</item>
+        <item>Cycling</item>
+        <item>Bike</item>
+        <item>Biking</item>
+        <item>Bicycle</item>
+    </string-array>
+
+    <string-array name="hiking_synonyms">
+        <item>Hike</item>
+        <item>Hiking</item>
+        <item>Trek</item>
+        <item>Trekking</item>
+    </string-array>
+
+    <string-array name="kayaking_synonyms">
+        <item>Kayak</item>
+        <item>Kayaking</item>
+        <item>Canoe</item>
+        <item>Canoeing</item>
+    </string-array>
+
+    <string-array name="rowing_synonyms">
+        <item>Row</item>
+        <item>Rowing</item>
+    </string-array>
+</resources>

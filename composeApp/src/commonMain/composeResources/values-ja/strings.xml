@@ -29,6 +29,11 @@
     <string name="detail_stat_elevation">上昇高度</string>
     <string name="detail_stat_calories">カロリー</string>
     <string name="detail_stat_steps">歩数</string>
+    <string name="detail_splits_title">区間スプリット</string>
+    <string name="detail_splits_distance">距離</string>
+    <string name="detail_splits_pace">ペース</string>
+    <string name="detail_splits_time">タイム</string>
+    <string name="detail_splits_fastest">最速</string>
     <string name="detail_chart_altitude">高度 (m)</string>
     <string name="detail_chart_heart_rate">心拍数 (bpm)</string>
     <string name="detail_chart_speed">速度 (km/h)</string>

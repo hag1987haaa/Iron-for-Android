@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 1. ワークアウト開始 (START_EXERCISE) -->
+    <capability android:name="actions.intent.START_EXERCISE">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="hag1987haaa.pebble.iron"
+            android:targetClass="hag1987haaa.pebble.iron.MainActivity"
+            android:data="iron://assistant/start{?exercise_name}">
+            <parameter
+                android:name="exercise.name"
+                android:key="exercise_name" />
+            <extra
+                android:name="assistant_action"
+                android:value="START" />
+        </intent>
+    </capability>
+
+    <!-- 2. ワークアウト一時停止 (PAUSE_EXERCISE) -->
+    <capability android:name="actions.intent.PAUSE_EXERCISE">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="hag1987haaa.pebble.iron"
+            android:targetClass="hag1987haaa.pebble.iron.MainActivity"
+            android:data="iron://assistant/pause">
+            <extra
+                android:name="assistant_action"
+                android:value="PAUSE" />
+        </intent>
+    </capability>
+
+    <!-- 3. ワークアウト再開 (RESUME_EXERCISE) -->
+    <capability android:name="actions.intent.RESUME_EXERCISE">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="hag1987haaa.pebble.iron"
+            android:targetClass="hag1987haaa.pebble.iron.MainActivity"
+            android:data="iron://assistant/resume">
+            <extra
+                android:name="assistant_action"
+                android:value="RESUME" />
+        </intent>
+    </capability>
+
+    <!-- 4. ワークアウト終了 (STOP_EXERCISE) -->
+    <capability android:name="actions.intent.STOP_EXERCISE">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="hag1987haaa.pebble.iron"
+            android:targetClass="hag1987haaa.pebble.iron.MainActivity"
+            android:data="iron://assistant/stop">
+            <extra
+                android:name="assistant_action"
+                android:value="STOP" />
+        </intent>
+    </capability>
+
+    <!-- 各運動種別のショートカット（Android OS ランチャー ＆ アシスタント双方に必須） -->
+    <shortcut
+        android:shortcutId="RUNNING"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/activity_running"
+        android:shortcutLongLabel="@string/activity_running">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="hag1987haaa.pebble.iron"
+            android:targetClass="hag1987haaa.pebble.iron.MainActivity"
+            android:data="iron://assistant/start?exercise_name=RUNNING">
+            <extra android:name="assistant_action" android:value="START" />
+            <extra android:name="exercise_name" android:value="RUNNING" />
+        </intent>
+        <capability-binding android:key="actions.intent.START_EXERCISE">
+            <parameter-binding
+                android:key="exercise.name"
+                android:value="@array/running_synonyms" />
+        </capability-binding>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="WALKING"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/activity_walking"
+        android:shortcutLongLabel="@string/activity_walking">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="hag1987haaa.pebble.iron"
+            android:targetClass="hag1987haaa.pebble.iron.MainActivity"
+            android:data="iron://assistant/start?exercise_name=WALKING">
+            <extra android:name="assistant_action" android:value="START" />
+            <extra android:name="exercise_name" android:value="WALKING" />
+        </intent>
+        <capability-binding android:key="actions.intent.START_EXERCISE">
+            <parameter-binding
+                android:key="exercise.name"
+                android:value="@array/walking_synonyms" />
+        </capability-binding>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="CYCLING"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/activity_cycling"
+        android:shortcutLongLabel="@string/activity_cycling">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="hag1987haaa.pebble.iron"
+            android:targetClass="hag1987haaa.pebble.iron.MainActivity"
+            android:data="iron://assistant/start?exercise_name=CYCLING">
+            <extra android:name="assistant_action" android:value="START" />
+            <extra android:name="exercise_name" android:value="CYCLING" />
+        </intent>
+        <capability-binding android:key="actions.intent.START_EXERCISE">
+            <parameter-binding
+                android:key="exercise.name"
+                android:value="@array/cycling_synonyms" />
+        </capability-binding>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="HIKING"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/activity_hiking"
+        android:shortcutLongLabel="@string/activity_hiking">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="hag1987haaa.pebble.iron"
+            android:targetClass="hag1987haaa.pebble.iron.MainActivity"
+            android:data="iron://assistant/start?exercise_name=HIKING">
+            <extra android:name="assistant_action" android:value="START" />
+            <extra android:name="exercise_name" android:value="HIKING" />
+        </intent>
+        <capability-binding android:key="actions.intent.START_EXERCISE">
+            <parameter-binding
+                android:key="exercise.name"
+                android:value="@array/hiking_synonyms" />
+        </capability-binding>
+    </shortcut>
+
+</shortcuts>

@@ -32,6 +32,8 @@ import hag1987haaa.pebble.iron.domain.tracker.RunStatus
 import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.presentation.components.SimpleLineChart
 import hag1987haaa.pebble.iron.presentation.components.SimpleBarChart
+import hag1987haaa.pebble.iron.presentation.components.SplitsTable
+import hag1987haaa.pebble.iron.util.SplitCalculator
 import hag1987haaa.pebble.iron.util.getDisplayName
 import kotlinx.datetime.Clock
 import kotlinx.coroutines.launch
@@ -182,12 +184,14 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
 
         Box(modifier = Modifier.fillMaxSize()) {
             runActivity?.let { run ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(if (isMapFullScreen) PaddingValues(0.dp) else padding)
-                ) {
-                    if (!isMapFullScreen) {
+                if (!isMapFullScreen) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .verticalScroll(scrollState),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Surface(
                             tonalElevation = 4.dp,
                             shadowElevation = 4.dp,
@@ -332,13 +336,10 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                             }
                         }
 
-                        // 下部を weight(1f) にすることで、マップエリア（200dp）を正しく残し、
-                        // 残りのスペースで統計情報のスクロールを実現する
+                        // マップ下の各情報エリア
                         Column(
                             modifier = Modifier
-                                .weight(1f)
                                 .fillMaxWidth()
-                                .verticalScroll(scrollState)
                                 .padding(horizontal = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
@@ -359,6 +360,21 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                         stringResource(Res.string.unit_kcal)
                                     )
                                 }
+                            }
+
+                            // 区間スプリット（1kmまたは1マイルごと）
+                            val splits = remember(run.route, KmpDependencies.appSettings.isMetric) {
+                                SplitCalculator.calculateSplits(
+                                    route = run.route,
+                                    isMetric = KmpDependencies.appSettings.isMetric
+                                )
+                            }
+                            if (splits.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                SplitsTable(
+                                    splits = splits,
+                                    isMetric = KmpDependencies.appSettings.isMetric
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(24.dp))
@@ -554,7 +570,8 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                             }
                             Spacer(modifier = Modifier.height(32.dp))
                         }
-                    } else {
+                    }
+                } else {
                         // --- マップ全画面モード (振り返り用) ---
                         Box(modifier = Modifier.fillMaxSize()) {
                             RouteMapView(
@@ -653,7 +670,6 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                             }
                         }
                     }
-                }
             } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }

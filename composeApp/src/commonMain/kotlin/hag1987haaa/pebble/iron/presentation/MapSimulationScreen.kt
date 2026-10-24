@@ -337,6 +337,45 @@ fun MapSimulationScreen(
             var autoCloseTimeout by remember { mutableStateOf(KmpDependencies.appSettings.mapAutoCloseTimeoutSeconds) }
             var isTimeoutDropdownExpanded by remember { mutableStateOf(false) }
 
+            var isAssistantEnabled by remember { mutableStateOf(KmpDependencies.appSettings.isAssistantIntegrationEnabled) }
+
+            // Voice Assistant Integration (Experimental / Hidden)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.fillMaxWidth(0.9f)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Voice Assistant (Experimental)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Allow Google Assistant / Gemini / Siri to control workouts and read metrics (Pace, HR)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            )
+                        }
+                        Switch(
+                            checked = isAssistantEnabled,
+                            onCheckedChange = { checked ->
+                                isAssistantEnabled = checked
+                                KmpDependencies.appSettings.isAssistantIntegrationEnabled = checked
+                            }
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = if (isAssistantEnabled) "Status: Enabled (Safe for Assistant queries)" else "Status: Disabled (Default - Privacy Protected)",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (isAssistantEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 modifier = Modifier.fillMaxWidth(0.9f)

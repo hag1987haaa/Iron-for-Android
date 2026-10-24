@@ -23,4 +23,13 @@
     <string name="import_failed">インポートに失敗しました</string>
     <string name="imported_success">%d 件のワークアウトをインポートしました</string>
     <string name="file_export_failed">ファイルのエクスポートに失敗しました</string>
+
+    <!-- Activity names for App Actions & Shortcuts -->
+    <string name="activity_running">ランニング</string>
+    <string name="activity_walking">ウォーキング</string>
+    <string name="activity_cycling">サイクリング</string>
+    <string name="activity_hiking">ハイキング</string>
+    <string name="activity_kayaking">カヤック</string>
+    <string name="activity_rowing">ボート</string>
+    <string name="activity_other">その他</string>
 </resources>

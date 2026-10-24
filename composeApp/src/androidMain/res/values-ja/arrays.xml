@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="running_synonyms">
+        <item>ランニング</item>
+        <item>走る</item>
+        <item>ジョギング</item>
+        <item>ラン</item>
+        <item>マラソン</item>
+        <item>Run</item>
+        <item>Running</item>
+    </string-array>
+
+    <string-array name="walking_synonyms">
+        <item>ウォーキング</item>
+        <item>歩く</item>
+        <item>散歩</item>
+        <item>ウォーク</item>
+        <item>Walk</item>
+        <item>Walking</item>
+    </string-array>
+
+    <string-array name="cycling_synonyms">
+        <item>サイクリング</item>
+        <item>自転車</item>
+        <item>バイク</item>
+        <item>ポタリング</item>
+        <item>Cycle</item>
+        <item>Cycling</item>
+    </string-array>
+
+    <string-array name="hiking_synonyms">
+        <item>ハイキング</item>
+        <item>登山</item>
+        <item>山登り</item>
+        <item>トレッキング</item>
+        <item>Hike</item>
+        <item>Hiking</item>
+    </string-array>
+
+    <string-array name="kayaking_synonyms">
+        <item>カヤック</item>
+        <item>カヤッキング</item>
+        <item>カヌー</item>
+        <item>Kayak</item>
+    </string-array>
+
+    <string-array name="rowing_synonyms">
+        <item>ボート</item>
+        <item>ローイング</item>
+        <item>漕艇</item>
+        <item>Row</item>
+    </string-array>
+</resources>

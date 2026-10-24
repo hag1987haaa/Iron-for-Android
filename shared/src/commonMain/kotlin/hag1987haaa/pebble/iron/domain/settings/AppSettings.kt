@@ -192,6 +192,17 @@ class AppSettings {
     var isCommand50Enabled: Boolean = true
     var isCommand51Enabled: Boolean = true
     var isCommand52Enabled: Boolean = true
+
+    // 音声アシスタント連携 (Google Assistant / Siri 等)
+    // プライバシー保護のため初期値は無効 (false)
+    private val _isAssistantIntegrationEnabled = MutableStateFlow(value = false)
+    val isAssistantIntegrationEnabledFlow: StateFlow<Boolean> = _isAssistantIntegrationEnabled.asStateFlow()
+    var isAssistantIntegrationEnabled: Boolean
+        get() = _isAssistantIntegrationEnabled.value
+        set(value) {
+            _isAssistantIntegrationEnabled.value = value
+            save()
+        }
     
     private val _isPrivacyMapModeEnabled = MutableStateFlow(value = false)
     val isPrivacyMapModeEnabledFlow: StateFlow<Boolean> = _isPrivacyMapModeEnabled.asStateFlow()
