@@ -59,12 +59,32 @@ class DatabaseDriverFactory(private val context: Context) {
 
         val factory = SupportOpenHelperFactory(passphrase.toByteArray())
 
-        return AndroidSqliteDriver(
+        val driver = AndroidSqliteDriver(
             schema = PebbleTrackerDatabase.Schema,
             context = context,
             name = dbName,
             factory = factory
         )
+        migrateIfNeeded(driver)
+        return driver
+    }
+
+    private fun migrateIfNeeded(driver: SqlDriver) {
+        val addColumns = listOf(
+            "ALTER TABLE RunEntity ADD COLUMN avgCadence REAL;",
+            "ALTER TABLE RunEntity ADD COLUMN maxCadence REAL;",
+            "ALTER TABLE RunEntity ADD COLUMN avgPower REAL;",
+            "ALTER TABLE RunEntity ADD COLUMN maxPower REAL;",
+            "ALTER TABLE LocationEntity ADD COLUMN cadence INTEGER;",
+            "ALTER TABLE LocationEntity ADD COLUMN power INTEGER;"
+        )
+        for (sql in addColumns) {
+            try {
+                driver.execute(null, sql, 0)
+            } catch (_: Exception) {
+                // すでにカラムが存在する場合は無視
+            }
+        }
     }
 
     /**

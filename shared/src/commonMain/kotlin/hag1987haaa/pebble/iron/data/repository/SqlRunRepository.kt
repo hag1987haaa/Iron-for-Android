@@ -38,6 +38,8 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                     speed = point.speed,
                     heartRate = point.heartRate?.toLong(),
                     steps = point.steps?.toLong(),
+                    cadence = point.cadence?.toLong(),
+                    power = point.power?.toLong(),
                     timestamp = point.timestamp.toString(),
                 )
             }
@@ -52,6 +54,10 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                 steps = run.steps?.toLong(),
                 avgHeartRate = run.avgHeartRate,
                 maxHeartRate = run.maxHeartRate,
+                avgCadence = run.avgCadence,
+                maxCadence = run.maxCadence,
+                avgPower = run.avgPower,
+                maxPower = run.maxPower,
                 elevationGain = run.elevationGain,
                 healthConnectId = run.healthConnectId,
                 id = runId,
@@ -94,6 +100,10 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                             steps = entity.steps?.toInt(),
                             avgHeartRate = entity.avgHeartRate,
                             maxHeartRate = entity.maxHeartRate,
+                            avgCadence = entity.avgCadence,
+                            maxCadence = entity.maxCadence,
+                            avgPower = entity.avgPower,
+                            maxPower = entity.maxPower,
                             elevationGain = entity.elevationGain,
                             healthConnectId = entity.healthConnectId,
                         )
@@ -115,6 +125,8 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                     speed = it.speed,
                     heartRate = it.heartRate?.toInt(),
                     steps = it.steps?.toInt(),
+                    cadence = it.cadence?.toInt(),
+                    power = it.power?.toInt(),
                     timestamp = Instant.parse(it.timestamp),
                 )
             }
@@ -136,6 +148,10 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                 steps = runEntity.steps?.toInt(),
                 avgHeartRate = runEntity.avgHeartRate,
                 maxHeartRate = runEntity.maxHeartRate,
+                avgCadence = runEntity.avgCadence,
+                maxCadence = runEntity.maxCadence,
+                avgPower = runEntity.avgPower,
+                maxPower = runEntity.maxPower,
                 elevationGain = runEntity.elevationGain,
                 healthConnectId = runEntity.healthConnectId,
                 route = locations,
@@ -158,6 +174,8 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                         speed = point.speed,
                         heartRate = point.heartRate?.toLong(),
                         steps = point.steps?.toLong(),
+                        cadence = point.cadence?.toLong(),
+                        power = point.power?.toLong(),
                         timestamp = point.timestamp.toString(),
                     )
                 }
@@ -172,6 +190,10 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                     steps = run.steps?.toLong(),
                     avgHeartRate = run.avgHeartRate,
                     maxHeartRate = run.maxHeartRate,
+                    avgCadence = run.avgCadence,
+                    maxCadence = run.maxCadence,
+                    avgPower = run.avgPower,
+                    maxPower = run.maxPower,
                     elevationGain = run.elevationGain,
                     healthConnectId = run.healthConnectId,
                     id = runId,
@@ -190,6 +212,8 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                 speed = it.speed,
                 heartRate = it.heartRate?.toInt(),
                 steps = it.steps?.toInt(),
+                cadence = it.cadence?.toInt(),
+                power = it.power?.toInt(),
                 timestamp = Instant.parse(it.timestamp),
             )
         }
@@ -211,6 +235,10 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
             steps = runEntity.steps?.toInt(),
             avgHeartRate = runEntity.avgHeartRate,
             maxHeartRate = runEntity.maxHeartRate,
+            avgCadence = runEntity.avgCadence,
+            maxCadence = runEntity.maxCadence,
+            avgPower = runEntity.avgPower,
+            maxPower = runEntity.maxPower,
             elevationGain = runEntity.elevationGain,
             healthConnectId = runEntity.healthConnectId,
             route = locations,

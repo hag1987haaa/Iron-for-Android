@@ -393,7 +393,18 @@ class AndroidPebbleMessenger(
                 val gain = if (settings.isMetric) stats.totalElevationGain.toInt() else (stats.totalElevationGain * 3.28084).toInt()
                 Triple("GAIN", gain.toString(), if (settings.isMetric) "m" else "ft")
             }
-            11 -> Triple("CADENCE", calculateCurrentCadence(stats).toString(), "spm")
+            11 -> {
+                val cad = calculateCurrentCadence(stats)
+                val unit = if (stats.activityType == hag1987haaa.pebble.iron.domain.model.ActivityType.CYCLING) "rpm" else "spm"
+                Triple("CADENCE", cad.toString(), unit)
+            }
+            18 -> Triple("POWER", stats.currentPower?.toString() ?: "--", "W")
+            19 -> Triple("3s PWR", stats.power3s?.toString() ?: "--", "W")
+            20 -> Triple("10s PWR", stats.power10s?.toString() ?: "--", "W")
+            21 -> Triple("30s PWR", stats.power30s?.toString() ?: "--", "W")
+            22 -> Triple("5m PWR", stats.power5m?.toString() ?: "--", "W")
+            23 -> Triple("AVG PWR", stats.avgPower?.toInt()?.toString() ?: "--", "W")
+            24 -> Triple("NZ CAD", stats.nonZeroAvgCadence?.toInt()?.toString() ?: "--", "rpm")
             12 -> Triple("BLE HR", stats.latestBleHeartRate?.toString() ?: "--", "bpm")
             13 -> Triple("WATCH HR", stats.latestPebbleHeartRate?.toString() ?: "--", "bpm")
             14 -> Triple("1m PACE", calculateWindowedPace(stats, 60, settings.isMetric), unitStr)
@@ -490,6 +501,8 @@ class AndroidPebbleMessenger(
     }
 
     private fun calculateCurrentCadence(stats: RunStatistics): Int {
+        val sensorCadence = stats.currentCadence
+        if (sensorCadence != null) return sensorCadence
         if (stats.route.size < 5) return 0
         val last = stats.route.last()
         val activityType = stats.activityType

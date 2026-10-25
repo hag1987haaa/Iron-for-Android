@@ -1,8 +1,6 @@
 package hag1987haaa.pebble.iron.ble
 
 import android.annotation.SuppressLint
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.os.ParcelUuid
 import android.util.Log
@@ -31,16 +29,27 @@ class AndroidBleScanner(private val context: Context) : BleScanner {
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val device = result.device
+            val uuids = result.scanRecord?.serviceUuids?.map { it.uuid.toString() } ?: emptyList()
             val bleDevice = BleDevice(
-                name = device.name,
+                name = device.name ?: result.scanRecord?.deviceName,
                 address = device.address,
-                rssi = result.rssi
+                rssi = result.rssi,
+                serviceUuids = uuids
             )
             
             val currentList = _foundDevices.value
-            if (currentList.none { it.address == bleDevice.address }) {
+            val existingIndex = currentList.indexOfFirst { it.address == bleDevice.address }
+            if (existingIndex < 0) {
                 _foundDevices.value = currentList + bleDevice
-                Log.d("AndroidBleScanner", "Found device: ${bleDevice.name} (${bleDevice.address})")
+                Log.d("AndroidBleScanner", "Found device: ${bleDevice.name} (${bleDevice.address}), uuids=$uuids")
+            } else {
+                // UUID情報が新たに取得できた場合などは更新
+                val existing = currentList[existingIndex]
+                if (existing.serviceUuids.isEmpty() && uuids.isNotEmpty()) {
+                    val updatedList = currentList.toMutableList()
+                    updatedList[existingIndex] = bleDevice
+                    _foundDevices.value = updatedList
+                }
             }
         }
 
@@ -54,14 +63,21 @@ class AndroidBleScanner(private val context: Context) : BleScanner {
         }
     }
 
-    override fun startScan(serviceUuid: String?) {
+    override fun startScan() {
+        startScan(DEFAULT_FITNESS_SERVICE_UUIDS)
+    }
+
+    override fun startScan(serviceUuid: String) {
+        startScan(listOf(serviceUuid))
+    }
+
+    override fun startScan(serviceUuids: List<String>) {
         if (_isScanning.value) {
             stopScan()
         }
         
         _foundDevices.value = emptyList()
         
-        // Legacy（古い広告形式）を許可して発見率を上げる
         val settings = ScanSettings.Builder()
             .setLegacy(true)
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
@@ -70,13 +86,19 @@ class AndroidBleScanner(private val context: Context) : BleScanner {
             .build()
             
         val filters = mutableListOf<ScanFilter>()
-        // 心拍計サービス (0x180D) を持っているデバイスのみに厳選
-        filters.add(ScanFilter.Builder().setServiceUuid(ParcelUuid.fromString("0000180d-0000-1000-8000-00805f9b34fb")).build())
+        val targetUuids = if (serviceUuids.isNotEmpty()) serviceUuids else DEFAULT_FITNESS_SERVICE_UUIDS
+        for (uuidStr in targetUuids) {
+            try {
+                filters.add(ScanFilter.Builder().setServiceUuid(ParcelUuid.fromString(uuidStr)).build())
+            } catch (e: Exception) {
+                Log.w("AndroidBleScanner", "Invalid UUID string for scan filter: $uuidStr")
+            }
+        }
 
         try {
             scanner.startScan(filters, settings, scanCallback)
             _isScanning.value = true
-            Log.i("AndroidBleScanner", "Scan started with HR Filter")
+            Log.i("AndroidBleScanner", "Scan started with ${filters.size} filters")
         } catch (e: Exception) {
             Log.e("AndroidBleScanner", "Failed to start scan", e)
         }
@@ -84,8 +106,21 @@ class AndroidBleScanner(private val context: Context) : BleScanner {
 
     override fun stopScan() {
         if (!_isScanning.value) return
-        scanner.stopScan(scanCallback)
+        try {
+            scanner.stopScan(scanCallback)
+        } catch (e: Exception) {
+            Log.e("AndroidBleScanner", "Error stopping scan", e)
+        }
         _isScanning.value = false
         Log.i("AndroidBleScanner", "Scan stopped")
+    }
+
+    companion object {
+        val DEFAULT_FITNESS_SERVICE_UUIDS = listOf(
+            "0000180d-0000-1000-8000-00805f9b34fb", // Heart Rate
+            "00001816-0000-1000-8000-00805f9b34fb", // Cycling Speed and Cadence (CSC)
+            "00001818-0000-1000-8000-00805f9b34fb", // Cycling Power
+            "00001814-0000-1000-8000-00805f9b34fb"  // Running Speed and Cadence (RSC)
+        )
     }
 }

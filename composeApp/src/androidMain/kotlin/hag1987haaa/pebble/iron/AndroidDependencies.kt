@@ -18,6 +18,8 @@ import hag1987haaa.pebble.iron.location.AndroidLocationTracker
 import hag1987haaa.pebble.iron.pebble.AndroidPebbleMessenger
 import hag1987haaa.pebble.iron.ble.AndroidBleScanner
 import hag1987haaa.pebble.iron.ble.AndroidBleHeartRateManager
+import hag1987haaa.pebble.iron.ble.AndroidBleCscManager
+import hag1987haaa.pebble.iron.ble.AndroidBlePowerManager
 import hag1987haaa.pebble.iron.assistant.IronAppFunctionService
 import kotlinx.coroutines.MainScope
 import androidx.compose.ui.graphics.asImageBitmap
@@ -147,8 +149,6 @@ object AndroidDependencies {
         settings.hrSamplingInterval = prefs.getInt("hr_interval", 0)
         settings.lastActivityType = prefs.getString("last_activity_type", ActivityType.RUNNING.name) ?: ActivityType.RUNNING.name
         
-        // 中段表示・グラフのIDを読み込み、未設定ならリストの先頭をデフォルトにする
-        // 中段・下段表示のIDを読み込み、未設定ならリストの先頭をデフォルトにする
         val lastMidId = prefs.getInt("last_mid_id", -1)
         val validatedMidId = if (lastMidId != -1 && lastMidId in settings.enabledMidTypes) {
             lastMidId
@@ -192,6 +192,21 @@ object AndroidDependencies {
         settings.isBleHeartRateEnabled = prefs.getBoolean("ble_hr_enabled", false)
         settings.preferBleHeartRate = prefs.getBoolean("ble_hr_prefer", true)
 
+        // BLE CSC (ケイデンス & スピード)
+        settings.isBleCscEnabled = prefs.getBoolean("ble_csc_enabled", false)
+        settings.bleCscDeviceAddress = prefs.getString("ble_csc_address", null)
+        settings.bleCscDeviceName = prefs.getString("ble_csc_name", null)
+        settings.registeredBleCscDevices = prefs.getString("ble_csc_registered", "")?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
+        settings.preferredBleCscAddress = prefs.getString("ble_csc_preferred", null)
+        settings.wheelCircumferenceMm = prefs.getInt("ble_csc_wheel_circ", 2105)
+
+        // BLE Cycling Power
+        settings.isBlePowerEnabled = prefs.getBoolean("ble_power_enabled", false)
+        settings.blePowerDeviceAddress = prefs.getString("ble_power_address", null)
+        settings.blePowerDeviceName = prefs.getString("ble_power_name", null)
+        settings.registeredBlePowerDevices = prefs.getString("ble_power_registered", "")?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
+        settings.preferredBlePowerAddress = prefs.getString("ble_power_preferred", null)
+
         // GPXコース設定の読み込み (JSONファイル)
         val coursesFile = java.io.File(appContext.filesDir, "saved_gpx_courses.json")
         if (coursesFile.exists()) {
@@ -217,7 +232,6 @@ object AndroidDependencies {
 
         // 保存用コールバックの登録
         settings.onSettingsChanged = {
-            // GPXコースの保存 (JSONファイル)
             try {
                 val coursesJson = hag1987haaa.pebble.iron.util.gpxJson.encodeToString(settings.savedGpxCourses)
                 java.io.File(appContext.filesDir, "saved_gpx_courses.json").writeText(coursesJson)
@@ -248,36 +262,32 @@ object AndroidDependencies {
                 putFloat("user_weight", settings.userWeightKg)
                 putBoolean("hc_onboarding_asked", settings.hasAskedHealthConnectOnboarding)
                 
-                // グラフ・通知設定の保存
                 putString("graph_types", settings.enabledGraphTypes.joinToString(","))
                 putFloat("notif_dist_step", settings.notificationDistanceStep)
                 putInt("notif_time", settings.notificationTimeSeconds)
                 putBoolean("auto_launch_dist", settings.isAutoLaunchOnDistanceNotificationEnabled)
                 putBoolean("auto_launch_time", settings.isAutoLaunchOnTimeNotificationEnabled)
-        putBoolean("notif_vibration", settings.isDistNotificationVibrationEnabled)
-        putInt("auto_show_map_after_notif_sec", settings.autoShowMapAfterDistNotificationSeconds)
-        putBoolean("dist_notif_vibration", settings.isDistNotificationVibrationEnabled)
-        putBoolean("time_notif_vibration", settings.isTimeNotificationVibrationEnabled)
-        putInt("dist_auto_show_map_sec", settings.autoShowMapAfterDistNotificationSeconds)
-        putInt("time_auto_show_map_sec", settings.autoShowMapAfterTimeNotificationSeconds)
-        putBoolean("hr_zone_notif_enabled", settings.isHrZoneNotificationEnabled)
-        putInt("hr_zone_out_duration_sec", settings.hrZoneOutDurationSeconds)
-        putInt("hr_zone_repeat_interval_sec", settings.hrZoneRepeatIntervalSeconds)
-        putString("activity_hr_mins", settings.activityHrZoneMins.entries.joinToString(",") { "${it.key}:${it.value}" })
-        putString("activity_hr_maxs", settings.activityHrZoneMaxs.entries.joinToString(",") { "${it.key}:${it.value}" })
+                putBoolean("notif_vibration", settings.isDistNotificationVibrationEnabled)
+                putInt("auto_show_map_after_notif_sec", settings.autoShowMapAfterDistNotificationSeconds)
+                putBoolean("dist_notif_vibration", settings.isDistNotificationVibrationEnabled)
+                putBoolean("time_notif_vibration", settings.isTimeNotificationVibrationEnabled)
+                putInt("dist_auto_show_map_sec", settings.autoShowMapAfterDistNotificationSeconds)
+                putInt("time_auto_show_map_sec", settings.autoShowMapAfterTimeNotificationSeconds)
+                putBoolean("hr_zone_notif_enabled", settings.isHrZoneNotificationEnabled)
+                putInt("hr_zone_out_duration_sec", settings.hrZoneOutDurationSeconds)
+                putInt("hr_zone_repeat_interval_sec", settings.hrZoneRepeatIntervalSeconds)
+                putString("activity_hr_mins", settings.activityHrZoneMins.entries.joinToString(",") { "${it.key}:${it.value}" })
+                putString("activity_hr_maxs", settings.activityHrZoneMaxs.entries.joinToString(",") { "${it.key}:${it.value}" })
                 
-                // Mid / Lower Data 設定の保存
                 putString("mid_types", settings.enabledMidTypes.joinToString(","))
                 putString("lower_types", settings.enabledLowerTypes.joinToString(","))
                 putBoolean("is_metric", settings.isMetric)
                 
-                // 自動エクスポート設定の保存
                 putBoolean("auto_export_tcx", settings.isAutoExportTcxEnabled)
                 putBoolean("auto_export_gpx", settings.isAutoExportGpxEnabled)
                 putString("auto_export_tcx_uri", settings.autoExportTcxUri)
                 putString("auto_export_gpx_uri", settings.autoExportGpxUri)
                 
-                // 心拍サンプリング間隔
                 putInt("hr_interval", settings.hrSamplingInterval)
                 putString("last_activity_type", settings.lastActivityType)
                 putInt("last_mid_id", settings.lastMidId)
@@ -296,23 +306,39 @@ object AndroidDependencies {
                 putBoolean("ble_hr_enabled", settings.isBleHeartRateEnabled)
                 putBoolean("ble_hr_prefer", settings.preferBleHeartRate)
 
+                // BLE CSC
+                putBoolean("ble_csc_enabled", settings.isBleCscEnabled)
+                putString("ble_csc_address", settings.bleCscDeviceAddress)
+                putString("ble_csc_name", settings.bleCscDeviceName)
+                putString("ble_csc_registered", settings.registeredBleCscDevices.joinToString(","))
+                putString("ble_csc_preferred", settings.preferredBleCscAddress)
+                putInt("ble_csc_wheel_circ", settings.wheelCircumferenceMm)
+
+                // BLE Cycling Power
+                putBoolean("ble_power_enabled", settings.isBlePowerEnabled)
+                putString("ble_power_address", settings.blePowerDeviceAddress)
+                putString("ble_power_name", settings.blePowerDeviceName)
+                putString("ble_power_registered", settings.registeredBlePowerDevices.joinToString(","))
+                putString("ble_power_preferred", settings.preferredBlePowerAddress)
+
                 apply()
             }
-            // App Functions サービスの状態同期 (Android 16+)
             IronAppFunctionService.updateServiceEnabledState(appContext, settings.isAssistantIntegrationEnabled)
             Log.d("AndroidDependencies", "Settings saved to SharedPreferences")
         }
-        // ------------------------------------------
 
         _healthConnectManager = HealthConnectManager(appContext)
         
-        // DatabaseDriverFactory を使用して暗号化対応のドライバーを作成
         val driver = DatabaseDriverFactory(appContext).createDriver()
         val database = PebbleTrackerDatabase(driver)
         val repository = SqlRunRepository(database)
 
         val bleScanner = AndroidBleScanner(appContext)
         val bleHeartRateManager = AndroidBleHeartRateManager(appContext)
+        val bleCscManager = AndroidBleCscManager(appContext).apply {
+            setWheelCircumferenceMm(settings.wheelCircumferenceMm)
+        }
+        val blePowerManager = AndroidBlePowerManager(appContext)
 
         val engine = RunTrackerEngine(
             locationTracker = AndroidLocationTracker(appContext),
@@ -320,6 +346,8 @@ object AndroidDependencies {
             pebbleMessenger = AndroidPebbleMessenger(appContext, settings),
             appSettings = settings,
             bleHrManager = bleHeartRateManager,
+            bleCscManager = bleCscManager,
+            blePowerManager = blePowerManager,
             scope = MainScope()
         )
         
@@ -335,7 +363,15 @@ object AndroidDependencies {
             }
         }
 
-        KmpDependencies.setup(repository, engine, settings, bleScanner, bleHeartRateManager)
+        KmpDependencies.setup(
+            repository,
+            engine,
+            settings,
+            bleScanner,
+            bleHeartRateManager,
+            bleCscManager,
+            blePowerManager
+        )
         
         // 起動時に保存済みコースの有効ルートを復元
         val activePlanned = settings.savedGpxCourses.toActivePlannedPoints()

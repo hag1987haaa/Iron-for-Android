@@ -278,7 +278,14 @@
     <string name="settings_mid_item_speed">現在速度</string>
     <string name="settings_mid_item_clock">現在時刻</string>
     <string name="settings_mid_item_gain">獲得標高 (累積上昇)</string>
-    <string name="settings_mid_item_cadence">ケイデンス (SPM)</string>
+    <string name="settings_mid_item_cadence">ケイデンス (SPM / RPM)</string>
+    <string name="settings_mid_item_power">パワー (W)</string>
+    <string name="settings_mid_item_power_3s">3秒平均パワー (W)</string>
+    <string name="settings_mid_item_power_10s">10秒平均パワー (W)</string>
+    <string name="settings_mid_item_power_30s">30秒平均パワー (W)</string>
+    <string name="settings_mid_item_power_5m">5分平均パワー (W)</string>
+    <string name="settings_mid_item_avg_power">平均パワー (全体 W)</string>
+    <string name="settings_mid_item_cadence_nz">平均ケイデンス (0除外 RPM)</string>
     <string name="settings_mid_item_detail">コックピットモード (4項目表示)</string>
     <string name="detail_label_privacy">プライバシー</string>
     <string name="detail_label_pin_map">固定</string>

@@ -362,6 +362,21 @@ class AppSettings {
     var isBleHeartRateEnabled: Boolean = false
     var preferBleHeartRate: Boolean = true // BLEセンサーがある場合はPebbleより優先する
 
+    // BLE CSC (Cycling Speed & Cadence)
+    var isBleCscEnabled: Boolean = false
+    var bleCscDeviceAddress: String? = null
+    var bleCscDeviceName: String? = null
+    var registeredBleCscDevices: List<String> = emptyList()
+    var preferredBleCscAddress: String? = null
+    var wheelCircumferenceMm: Int = 2105 // デフォルト 700x25C (2105mm)
+
+    // BLE Cycling Power
+    var isBlePowerEnabled: Boolean = false
+    var blePowerDeviceAddress: String? = null
+    var blePowerDeviceName: String? = null
+    var registeredBlePowerDevices: List<String> = emptyList()
+    var preferredBlePowerAddress: String? = null
+
     // 保存済みGPXコース一覧（最大20個）
     private val _savedGpxCourses = MutableStateFlow<List<hag1987haaa.pebble.iron.util.GpxCourse>>(emptyList())
     val savedGpxCoursesFlow: StateFlow<List<hag1987haaa.pebble.iron.util.GpxCourse>> = _savedGpxCourses.asStateFlow()

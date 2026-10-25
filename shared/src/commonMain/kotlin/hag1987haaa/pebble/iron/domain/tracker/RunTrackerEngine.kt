@@ -11,6 +11,8 @@ import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.repository.RunRepository
 import hag1987haaa.pebble.iron.domain.settings.AppSettings
 import hag1987haaa.pebble.iron.domain.ble.BleHeartRateManager
+import hag1987haaa.pebble.iron.domain.ble.BleCscManager
+import hag1987haaa.pebble.iron.domain.ble.BlePowerManager
 import hag1987haaa.pebble.iron.util.LocationUtils
 import hag1987haaa.pebble.iron.util.HealthUtils
 import kotlinx.datetime.TimeZone
@@ -27,6 +29,13 @@ data class RunStatistics(
     val steps: Int = 0,
     val currentHeartRate: Int? = null,
     val heartRates: List<Int> = emptyList(),
+    val currentCadence: Int? = null,
+    val cadences: List<Int> = emptyList(),
+    val isBleCscActive: Boolean = false,
+    val currentPower: Int? = null,
+    val powers: List<Int> = emptyList(),
+    val isBlePowerActive: Boolean = false,
+    val currentSensorSpeedKmh: Double? = null,
     val totalElevationGain: Double = 0.0,
     val route: List<LocationPoint> = emptyList(),
     val currentLocation: LocationPoint? = null,
@@ -37,6 +46,30 @@ data class RunStatistics(
     val latestBleHeartRate: Int? = null,
     val latestPebbleHeartRate: Int? = null
 ) {
+    val avgCadence: Double? get() = if (cadences.isNotEmpty()) cadences.average() else null
+    val maxCadence: Int? get() = cadences.maxOrNull()
+    // 0回転（足止め・惰性走行）を除外したペダリング時平均ケイデンス
+    val nonZeroAvgCadence: Double? get() {
+        val nonZero = cadences.filter { it > 0 }
+        return if (nonZero.isNotEmpty()) nonZero.average() else null
+    }
+
+    val avgPower: Double? get() = if (powers.isNotEmpty()) powers.average() else null
+    val maxPower: Int? get() = powers.maxOrNull()
+
+    // 直近N秒間の移動平均パワー（サイコンの 3s / 10s / 30s / 5m Power）
+    fun getWindowedPower(windowSeconds: Int): Int? {
+        if (powers.isEmpty()) return currentPower
+        val takeCount = windowSeconds.coerceAtLeast(1)
+        val window = powers.takeLast(takeCount)
+        return if (window.isNotEmpty()) window.average().toInt() else null
+    }
+
+    val power3s: Int? get() = getWindowedPower(3)
+    val power10s: Int? get() = getWindowedPower(10)
+    val power30s: Int? get() = getWindowedPower(30)
+    val power5m: Int? get() = getWindowedPower(300)
+
     val formattedTime: String get() {
         val h = (totalSeconds / 3600).toInt()
         val m = ((totalSeconds % 3600) / 60).toInt()
@@ -77,6 +110,8 @@ class RunTrackerEngine(
     val pebbleMessenger: PebbleMessenger? = null,
     private val appSettings: AppSettings? = null,
     private val bleHrManager: BleHeartRateManager? = null,
+    private val bleCscManager: BleCscManager? = null,
+    private val blePowerManager: BlePowerManager? = null,
     private val scope: CoroutineScope
 ) {
     private val _statistics = MutableStateFlow(RunStatistics(
@@ -128,6 +163,7 @@ class RunTrackerEngine(
     private var secondsTooLow: Int = 0
 
     init {
+        // 心拍センサー連携
         scope.launch {
             bleHrManager?.heartRateBpm?.collect { bpm ->
                 if (appSettings?.isBleHeartRateEnabled == true) {
@@ -142,15 +178,49 @@ class RunTrackerEngine(
             }
         }
 
-        // 改善：設定画面での ON/OFF 切り替えに即座に反応して自動接続を開始/停止する
+        // CSC (ケイデンス & スピード) センサー連携
         scope.launch {
-            val settings = appSettings ?: return@launch
-            // SettingsViewModel 等で settings.save() が呼ばれるたびに
-            // 内部的な callback (onSettingsChanged) 経由でここをトリガーできると理想的だが、
-            // 今はシンプルかつ確実に、ステータス変更時に startSmartAutoConnect を呼ぶように
-            // 外部（ViewModel）から triggerStatisticsUpdate 経由などで誘導する。
-            // ここでは初期起動時の開始のみ行う。
+            bleCscManager?.cadenceRpm?.collect { rpm ->
+                if (appSettings?.isBleCscEnabled == true) {
+                    addCadence(rpm)
+                }
+            }
         }
+        scope.launch {
+            bleCscManager?.wheelSpeedKmh?.collect { speed ->
+                if (appSettings?.isBleCscEnabled == true) {
+                    _statistics.update { it.copy(currentSensorSpeedKmh = speed) }
+                }
+            }
+        }
+        scope.launch {
+            bleCscManager?.isDataActive?.collect { active ->
+                _statistics.update { it.copy(isBleCscActive = active) }
+            }
+        }
+
+        // Cycling Power (パワー & ケイデンス) センサー連携
+        scope.launch {
+            blePowerManager?.powerWatts?.collect { watts ->
+                if (appSettings?.isBlePowerEnabled == true) {
+                    addPower(watts)
+                }
+            }
+        }
+        scope.launch {
+            blePowerManager?.cadenceRpm?.collect { rpm ->
+                // パワーメーターからケイデンスが得られる場合、CSCが動いていなければフォールバックとして採用
+                if (appSettings?.isBlePowerEnabled == true && (_statistics.value.currentCadence == null || !_statistics.value.isBleCscActive)) {
+                    addCadence(rpm)
+                }
+            }
+        }
+        scope.launch {
+            blePowerManager?.isDataActive?.collect { active ->
+                _statistics.update { it.copy(isBlePowerActive = active) }
+            }
+        }
+
         startSmartAutoConnect()
     }
 
@@ -172,9 +242,6 @@ class RunTrackerEngine(
         val isPebbleReliable = (stats.latestPebbleHeartRate ?: 0) in 30..220 && (lastPebbleHrTimestamp > 0 && !isPebbleStale)
 
         // 2. メインソースの決定
-        // - 両方利用可能な場合は、ユーザーの優先設定（preferBleHeartRate）に従う
-        // - 片方しか利用できない場合は、利用可能な方を自動採用（フェイルオーバー）
-        // - どちらも利用できない場合は、優先設定のソース名としつつ値は null とする
         val (newSource, newBpm) = when {
             isBleReliable && isPebbleReliable -> {
                 if (isBlePreferred) "BLE" to stats.latestBleHeartRate
@@ -201,18 +268,38 @@ class RunTrackerEngine(
             val settings = appSettings ?: return@launch
             val hrManager = bleHrManager ?: return@launch
 
-            // 無効化されている場合は何もしない（既に接続されているなら切断する）
+            // --- 1. CSC センサー接続試行 ---
+            if (settings.isBleCscEnabled && bleCscManager?.isConnected?.value != true) {
+                settings.preferredBleCscAddress?.let {
+                    println("RunTrackerEngine AutoConnect: Attempting preferred CSC $it")
+                    bleCscManager?.connect(it)
+                } ?: settings.bleCscDeviceAddress?.let {
+                    println("RunTrackerEngine AutoConnect: Attempting last CSC $it")
+                    bleCscManager?.connect(it)
+                }
+            }
+
+            // --- 2. Cycling Power センサー接続試行 ---
+            if (settings.isBlePowerEnabled && blePowerManager?.isConnected?.value != true) {
+                settings.preferredBlePowerAddress?.let {
+                    println("RunTrackerEngine AutoConnect: Attempting preferred Power $it")
+                    blePowerManager?.connect(it)
+                } ?: settings.blePowerDeviceAddress?.let {
+                    println("RunTrackerEngine AutoConnect: Attempting last Power $it")
+                    blePowerManager?.connect(it)
+                }
+            }
+
+            // --- 3. 心拍センサー接続試行 ---
             if (!settings.isBleHeartRateEnabled) {
                 if (hrManager.isConnected.value) hrManager.close()
                 return@launch
             }
 
-            // 既に接続されているなら何もしない
             if (hrManager.isConnected.value) return@launch
 
             delay(1000)
 
-            // 1. 最優先（お気に入り）デバイスへの接続試行
             settings.preferredBleHrAddress?.let { 
                 println("RunTrackerEngine AutoConnect: Attempting preferred $it")
                 hrManager.connect(it)
@@ -220,7 +307,6 @@ class RunTrackerEngine(
                 if (hrManager.isConnected.value) return@launch
             }
 
-            // 2. 最後に使ったデバイスへの接続試行
             settings.bleHeartRateDeviceAddress?.let {
                 if (it != settings.preferredBleHrAddress) {
                     println("RunTrackerEngine AutoConnect: Attempting last used $it")
@@ -230,12 +316,10 @@ class RunTrackerEngine(
                 }
             }
 
-            // 3. 登録済みリスト全件を対象としたスキャン＆自動接続ループ
             val registeredAddresses = settings.registeredBleHrDevices.map { it.substringBefore("|") }
             if (registeredAddresses.isEmpty()) return@launch
 
             while (isActive && settings.isBleHeartRateEnabled) {
-                // 接続されたらループ終了
                 if (hrManager.isConnected.value) break
 
                 println("RunTrackerEngine AutoConnect: Scanning for registered devices...")
@@ -259,7 +343,6 @@ class RunTrackerEngine(
                     hag1987haaa.pebble.iron.KmpDependencies.bleScanner.stopScan()
                 }
 
-                // 見つからなかった場合はしばらく待って再試行
                 delay(10000)
             }
         }
@@ -284,21 +367,17 @@ class RunTrackerEngine(
         val newStats = _statistics.value
         RunState.updateStats(newStats)
 
-        // 改善：種別変更を即座に「確定した状態」としてウォッチに送り出す
-        // これにより、他の定期更新に上書きされる前にウォッチ側の表示を書き換える
         pebbleMessenger?.sendState(newStats.status, newStats)
     }
 
     fun launchWatchApp() { pebbleMessenger?.launchWatchApp() }
 
     fun prepare() {
-        // 新しいワークアウトの準備に入る際は、以前の状態が何であれ必ずデータをクリアする
         clearWorkoutData()
 
         if (trackingJob != null) return
         startSmartAutoConnect()
 
-        // ステータスを準備中に更新
         _statistics.update { it.copy(status = RunStatus.PREPARING) }
         RunState.updateStats(_statistics.value)
         RunState.setStatus(RunStatus.PREPARING)
@@ -309,7 +388,6 @@ class RunTrackerEngine(
         pebbleMessenger?.sendState(RunStatus.PREPARING, _statistics.value)
         pebbleMessenger?.sendGraphData(_statistics.value)
 
-        // 直近キャッシュ位置の先行確認（即時初期位置セット）
         scope.launch {
             try {
                 val lastLoc = locationTracker.getLastKnownLocation()
@@ -324,25 +402,21 @@ class RunTrackerEngine(
     }
 
     private fun clearWorkoutData() {
-        // 全てのジョブとトラッキングを停止
         timeoutJob?.cancel(); timeoutJob = null
         trackingJob?.cancel(); trackingJob = null
         timerJob?.cancel(); timerJob = null
         locationTracker.stopTracking()
 
-        // 統計データを初期化（現在のアクティビティ種別のみを維持してリセット）
         _statistics.update { current ->
             RunStatistics(activityType = current.activityType)
         }
         RunState.updateStats(_statistics.value)
 
-        // 位置情報・経路データを初期化
         lastAcceptedRawLocation = null; lastDistanceLocation = null
         elevationFilter.reset()
         rawLocationWindow.clear(); fullRoute.clear()
         pebbleMessenger?.clearMapCache()
 
-        // 歩数・通知カウンタ・心拍ソース等の内部状態を完全に初期化
         isStartPending = false
         isResumePending = false
         lastIncomingSteps = -1; totalAccumulatedSteps = 0
@@ -352,8 +426,9 @@ class RunTrackerEngine(
         lastBleValueChangeTimestamp = 0L; lastBleBpm = null; lastPebbleHrTimestamp = 0L
         resetHrZoneState()
 
-        // BLEセンサーを閉じる
         bleHrManager?.close()
+        bleCscManager?.close()
+        blePowerManager?.close()
     }
 
     fun start() {
@@ -361,11 +436,9 @@ class RunTrackerEngine(
         isStartPending = false
         isResumePending = false; timeoutJob?.cancel()
 
-        // 先に統計データの状態を更新
         _statistics.update { it.copy(startTime = Clock.System.now(), status = RunStatus.ACTIVE) }
         RunState.updateStats(_statistics.value)
 
-        // その後にグローバル状態を更新（これによりService側の同期が最新データを掴む）
         RunState.setStatus(RunStatus.ACTIVE)
         pebbleMessenger?.sendState(RunStatus.ACTIVE, _statistics.value)
         pebbleMessenger?.sendGraphData(_statistics.value)
@@ -373,30 +446,24 @@ class RunTrackerEngine(
     }
 
     fun pause() {
-        // 1. まずタイマーを即座に停止し、バックグラウンドからの意図しない送信を断つ
         timerJob?.cancel(); timerJob = null
 
-        // 2. その後、静止した状態でステータスを更新
         _statistics.update { it.copy(status = RunStatus.PAUSED) }
         RunState.updateStats(_statistics.value)
         RunState.setStatus(RunStatus.PAUSED)
 
-        // 3. 最後に確定した情報をウォッチへ送る
         pebbleMessenger?.sendState(RunStatus.PAUSED, _statistics.value)
     }
 
     fun resume() {
         isResumePending = true
-        // 一時停止前の古い座標との加重平均によるワープ距離引きずりを完全に防止するためWindowをクリア
         rawLocationWindow.clear()
         lastAcceptedRawLocation = null
         lastDistanceLocation = null
         elevationFilter.reset()
-        // 先に統計データを更新
         _statistics.update { it.copy(status = RunStatus.ACTIVE) }
         RunState.updateStats(_statistics.value)
 
-        // その後にグローバル状態を更新
         RunState.setStatus(RunStatus.ACTIVE)
         pebbleMessenger?.sendState(RunStatus.ACTIVE, _statistics.value)
         pebbleMessenger?.sendGraphData(_statistics.value)
@@ -405,7 +472,6 @@ class RunTrackerEngine(
     }
 
     fun finish() {
-        // 1. タイマーとトラッキングを即座に停止
         timerJob?.cancel(); timerJob = null
         trackingJob?.cancel(); trackingJob = null
         locationTracker.stopTracking()
@@ -413,12 +479,10 @@ class RunTrackerEngine(
         val now = Clock.System.now(); val localTime = now.toLocalDateTime(TimeZone.currentSystemDefault())
         val defaultName = "${localTime.year}${localTime.monthNumber.toString().padStart(2, '0')}${localTime.dayOfMonth.toString().padStart(2, '0')}-${localTime.hour.toString().padStart(2, '0')}${localTime.minute.toString().padStart(2, '0')}"
 
-        // 2. ステータスと名前を更新
         _statistics.update { it.copy(status = RunStatus.FINISHED, name = defaultName) }
         RunState.updateStats(_statistics.value)
         RunState.setStatus(RunStatus.FINISHED)
 
-        // 3. 確定情報を送る
         pebbleMessenger?.sendState(RunStatus.FINISHED, _statistics.value)
     }
 
@@ -438,16 +502,13 @@ class RunTrackerEngine(
         val now = Clock.System.now().toEpochMilliseconds()
         val validBpm = if (bpm in 30..220) bpm else null
 
-        // 1. タイムスタンプと履歴の更新
         if (source == "BLE") {
-            // BLEの場合：数値が変化したときのみ「変化時刻」を更新（ホールド検知用）
             if (validBpm != null && validBpm != lastBleBpm) {
                 lastBleValueChangeTimestamp = now
                 lastBleBpm = validBpm
             }
-            lastHrTimestamp = now // 通信自体の生存確認
+            lastHrTimestamp = now
         } else {
-            // Pebbleの場合：数値が変化した（または初回）場合のみ更新
             if (validBpm != null && validBpm != lastBpmValue) {
                 lastBpmValue = validBpm
             }
@@ -463,7 +524,6 @@ class RunTrackerEngine(
 
         reEvaluateHeartRateSource()
 
-        // 2. 有効な心拍数があれば履歴に反映
         val mainBpm = _statistics.value.currentHeartRate ?: return
         _statistics.update { stats ->
             val updatedRoute = if (stats.status == RunStatus.ACTIVE && stats.route.isNotEmpty()) {
@@ -472,9 +532,62 @@ class RunTrackerEngine(
             } else stats.route
             stats.copy(heartRates = stats.heartRates + mainBpm, route = updatedRoute).also { s -> 
                 RunState.updateStats(s)
-                // 修正：計測中（ACTIVE）または一時停止中（PAUSED）であれば統計を送信する。
-                // これにより、休憩中の心拍数更新をウォッチに反映しつつ、
-                // 開始前（PREPARING/READY）のウォッチ側での種別選択操作を邪魔しないようにする。
+                if (s.status == RunStatus.ACTIVE || s.status == RunStatus.PAUSED) {
+                    pebbleMessenger?.sendStatistics(s)
+                }
+            }
+        }
+    }
+
+    fun addCadence(rpm: Int?) {
+        val currentStatus = RunState.status.value
+        if (currentStatus == RunStatus.IDLE || currentStatus == RunStatus.RESULT || currentStatus == RunStatus.FINISHED) return
+        val validRpm = rpm?.takeIf { it in 0..250 }
+
+        _statistics.update { stats ->
+            val updatedCadences = if (stats.status == RunStatus.ACTIVE && validRpm != null && validRpm > 0) {
+                stats.cadences + validRpm
+            } else stats.cadences
+
+            val updatedRoute = if (stats.status == RunStatus.ACTIVE && stats.route.isNotEmpty()) {
+                val lastPoint = stats.route.last()
+                stats.route.dropLast(1) + lastPoint.copy(cadence = validRpm)
+            } else stats.route
+
+            stats.copy(
+                currentCadence = validRpm,
+                cadences = updatedCadences,
+                route = updatedRoute
+            ).also { s ->
+                RunState.updateStats(s)
+                if (s.status == RunStatus.ACTIVE || s.status == RunStatus.PAUSED) {
+                    pebbleMessenger?.sendStatistics(s)
+                }
+            }
+        }
+    }
+
+    fun addPower(watts: Int?) {
+        val currentStatus = RunState.status.value
+        if (currentStatus == RunStatus.IDLE || currentStatus == RunStatus.RESULT || currentStatus == RunStatus.FINISHED) return
+        val validWatts = watts?.takeIf { it >= 0 }
+
+        _statistics.update { stats ->
+            val updatedPowers = if (stats.status == RunStatus.ACTIVE && validWatts != null) {
+                stats.powers + validWatts
+            } else stats.powers
+
+            val updatedRoute = if (stats.status == RunStatus.ACTIVE && stats.route.isNotEmpty()) {
+                val lastPoint = stats.route.last()
+                stats.route.dropLast(1) + lastPoint.copy(power = validWatts)
+            } else stats.route
+
+            stats.copy(
+                currentPower = validWatts,
+                powers = updatedPowers,
+                route = updatedRoute
+            ).also { s ->
+                RunState.updateStats(s)
                 if (s.status == RunStatus.ACTIVE || s.status == RunStatus.PAUSED) {
                     pebbleMessenger?.sendStatistics(s)
                 }
@@ -496,7 +609,7 @@ class RunTrackerEngine(
     }
 
     fun triggerStatisticsUpdate() { 
-        startSmartAutoConnect() // 改善：同期リクエストのついでに自動接続の状態もチェック・再始動する
+        startSmartAutoConnect()
         pebbleMessenger?.sendFullSync(_statistics.value) 
     }
     fun rotateGraphType() { pebbleMessenger?.rotateGraphType(_statistics.value) }
@@ -528,7 +641,6 @@ class RunTrackerEngine(
             while (isActive) {
                 delay(1000)
 
-                // ACTIVE 状態でない場合は送信・更新をスキップする（二重ガード）
                 if (_statistics.value.status != RunStatus.ACTIVE) continue
 
                 reEvaluateHeartRateSource()
@@ -537,23 +649,31 @@ class RunTrackerEngine(
                 var triggerDistNotif = false
 
                 _statistics.update { stats ->
-                    // 更新中にもう一度ステータスを確認（アトミック性の確保）
                     if (stats.status != RunStatus.ACTIVE) return@update stats
 
                     val nextSeconds = stats.totalSeconds + 1
                     val weight = appSettings?.userWeightKg ?: 70.0f
                     val currentCalories = HealthUtils.calculateCalories(stats.activityType, weight, nextSeconds, stats.totalDistanceMeters, stats.totalElevationGain, if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null)
 
-                    val updatedStats = stats.copy(totalSeconds = nextSeconds, calories = currentCalories)
+                    // パワー & ケイデンスの毎秒サンプリング（移動平均計算用）
+                    val pwrSample = stats.currentPower ?: if (stats.isBlePowerActive) 0 else null
+                    val updatedPowers = if (pwrSample != null) stats.powers + pwrSample else stats.powers
 
-                    // --- 通知判定 (判定のみ行い、副作用は外で実行) ---
+                    val cadSample = stats.currentCadence ?: if (stats.isBleCscActive) 0 else null
+                    val updatedCadences = if (cadSample != null) stats.cadences + cadSample else stats.cadences
+
+                    val updatedStats = stats.copy(
+                        totalSeconds = nextSeconds, 
+                        calories = currentCalories,
+                        powers = updatedPowers,
+                        cadences = updatedCadences
+                    )
+
                     val timeStep = appSettings?.notificationTimeSeconds ?: 0
                     if (timeStep > 0) {
                         val currentIntervalCount = (nextSeconds / timeStep).toInt()
 
-                        // 設定変更の検知
                         if (lastTimeStep != -1 && lastTimeStep != timeStep) {
-                            // 設定が変わった直後は、現在のカウントに同期させて通知はスキップする
                             lastNotifiedTimeCount = currentIntervalCount
                         }
                         lastTimeStep = timeStep
@@ -571,9 +691,7 @@ class RunTrackerEngine(
                         val threshold = distStep * unitMeters
                         val currentLapIdx = (updatedStats.totalDistanceMeters / threshold).toInt()
 
-                        // 設定変更の検知
                         if (lastDistStep != -1.0f && lastDistStep != distStep) {
-                            // 設定が変わった直後は同期のみ
                             lastNotifiedDistanceKm = currentLapIdx
                         }
                         lastDistStep = distStep
@@ -591,14 +709,13 @@ class RunTrackerEngine(
                 val s = _statistics.value
                 if (s.status != RunStatus.ACTIVE) continue
 
-                // --- 副作用の実行 (updateブロックの外で確実に1回) ---
                 if (triggerTimeNotif) {
                     val timeStep = appSettings?.notificationTimeSeconds ?: 0
                     lastNotifiedTimeCount = (s.totalSeconds / timeStep).toInt()
                     println("RunTrackerEngine: Triggering Time Notification at ${s.totalSeconds}s")
                     if (appSettings?.isAutoLaunchOnTimeNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
                     if (appSettings?.isTimeNotificationVibrationEnabled != false) {
-                        pebbleMessenger?.sendNotification(1) // 1: 時間通知
+                        pebbleMessenger?.sendNotification(1)
                     }
                     val timeMapDelay = appSettings?.autoShowMapAfterTimeNotificationSeconds ?: 0
                     if (timeMapDelay > 0) {
@@ -620,7 +737,7 @@ class RunTrackerEngine(
                     println("RunTrackerEngine: Triggering Distance Notification at ${s.totalDistanceMeters}m")
                     if (appSettings?.isAutoLaunchOnDistanceNotificationEnabled == true) pebbleMessenger?.launchWatchApp()
                     if (appSettings?.isDistNotificationVibrationEnabled != false) {
-                        pebbleMessenger?.sendNotification(0) // 0: 距離通知
+                        pebbleMessenger?.sendNotification(0)
                     }
                     val distMapDelay = appSettings?.autoShowMapAfterDistNotificationSeconds ?: 0
                     if (distMapDelay > 0) {
@@ -634,14 +751,12 @@ class RunTrackerEngine(
                     }
                 }
 
-                // --- 心拍ゾーン通知判定 ---
                 if (appSettings?.isHrZoneNotificationEnabled == true) {
                     checkHeartRateZoneNotification(s.currentHeartRate)
                 } else {
                     resetHrZoneState()
                 }
 
-                // --- 定期的なグラフデータ更新 (10秒おき) ---
                 if (s.totalSeconds % 10 == 0L) {
                     pebbleMessenger?.sendGraphData(s)
                 }
@@ -659,7 +774,6 @@ class RunTrackerEngine(
             return
         }
 
-        // 有効な心拍数が取得できていない場合は判定スキップ
         if (currentHr == null || currentHr <= 0) {
             secondsInTargetZone = 0
             secondsTooHigh = 0
@@ -679,17 +793,15 @@ class RunTrackerEngine(
                 secondsTooLow = 0
                 secondsInTargetZone = 0
 
-                // ゾーン上限超過が設定秒数連続した場合に通知（初回や他状態から遷移）
                 if (hrZoneState != HrZoneState.TOO_HIGH && secondsTooHigh >= outDuration) {
                     hrZoneState = HrZoneState.TOO_HIGH
                     secondsTooHigh = 0
                     println("RunTrackerEngine: HR too high ($currentHr bpm > $maxBpm bpm for ${outDuration}s)")
-                    pebbleMessenger?.sendNotification(21) // 21: HR TOO HIGH
+                    pebbleMessenger?.sendNotification(21)
                 } else if (hrZoneState == HrZoneState.TOO_HIGH && repeatInterval > 0 && secondsTooHigh >= repeatInterval) {
-                    // 上限超過状態が継続している場合の再通知
                     secondsTooHigh = 0
                     println("RunTrackerEngine: HR still too high ($currentHr bpm > $maxBpm bpm, repeated after ${repeatInterval}s)")
-                    pebbleMessenger?.sendNotification(21) // 21: HR TOO HIGH
+                    pebbleMessenger?.sendNotification(21)
                 }
             }
             currentHr < minBpm -> {
@@ -697,31 +809,27 @@ class RunTrackerEngine(
                 secondsTooHigh = 0
                 secondsInTargetZone = 0
 
-                // ゾーン下限未満が設定秒数連続した場合に通知（初回や他状態から遷移）
                 if (hrZoneState != HrZoneState.TOO_LOW && secondsTooLow >= outDuration) {
                     hrZoneState = HrZoneState.TOO_LOW
                     secondsTooLow = 0
                     println("RunTrackerEngine: HR too low ($currentHr bpm < $minBpm bpm for ${outDuration}s)")
-                    pebbleMessenger?.sendNotification(22) // 22: HR TOO LOW
+                    pebbleMessenger?.sendNotification(22)
                 } else if (hrZoneState == HrZoneState.TOO_LOW && repeatInterval > 0 && secondsTooLow >= repeatInterval) {
-                    // 下限未満状態が継続している場合の再通知
                     secondsTooLow = 0
                     println("RunTrackerEngine: HR still too low ($currentHr bpm < $minBpm bpm, repeated after ${repeatInterval}s)")
-                    pebbleMessenger?.sendNotification(22) // 22: HR TOO LOW
+                    pebbleMessenger?.sendNotification(22)
                 }
             }
             else -> {
-                // 目標ゾーン内 (minBpm <= currentHr <= maxBpm)
                 secondsInTargetZone++
                 secondsTooHigh = 0
                 secondsTooLow = 0
 
-                // 初回ゾーン突入または復帰：ゾーン内で3秒連続安定した場合に通知
                 if (hrZoneState != HrZoneState.IN_ZONE && secondsInTargetZone >= 3) {
                     hrZoneState = HrZoneState.IN_ZONE
                     secondsInTargetZone = 0
                     println("RunTrackerEngine: HR in zone ($currentHr bpm in $minBpm..$maxBpm for 3s)")
-                    pebbleMessenger?.sendNotification(20) // 20: HR IN ZONE
+                    pebbleMessenger?.sendNotification(20)
                 }
             }
         }
@@ -769,7 +877,6 @@ class RunTrackerEngine(
                 )
                 resetTimeoutTimer()
 
-                // READY通知がウォッチに届く前に大容量マップ転送が帯域を塞がないよう遅延非同期実行
                 if (appSettings?.isAutoShowMapOnReadyEnabled == true) {
                     val defaultZoom = when (activityType) {
                         hag1987haaa.pebble.iron.domain.model.ActivityType.WALKING,
@@ -801,30 +908,23 @@ class RunTrackerEngine(
         if (RunState.status.value != RunStatus.ACTIVE) return
 
         val startTime = _statistics.value.startTime
-        // startTime より15秒以上古い位置情報は start() 前の古いキャッシュ位置情報（最大2分前）であるため、ACTIVE ルートからは除外する
         if (startTime != null &&
             location.timestamp.toEpochMilliseconds() < startTime.toEpochMilliseconds() - 15_000L
         ) {
             return
         }
 
-        // Keep Iron's existing lightweight smoothing, but only allow plausible
-        // fixes into the smoothing window.
         rawLocationWindow.add(location)
         if (rawLocationWindow.size > windowSize) {
             rawLocationWindow.removeAt(0)
         }
         val filteredLocation = locationSmoother.smooth(rawLocationWindow)
 
-        // Preserve route segmentation across pause/resume.
         val isSegStart = isResumePending || fullRoute.isEmpty()
         isResumePending = false
 
         var distanceDelta = 0.0
 
-        // A new segment must not count a straight-line jump from the previous
-        // segment. Otherwise use the separate distance anchor so small GPS
-        // movements can accumulate until they clear the noise floor.
         val distanceAnchor = lastDistanceLocation
         if (isSegStart || distanceAnchor == null) {
             lastDistanceLocation = filteredLocation
@@ -852,7 +952,6 @@ class RunTrackerEngine(
             isSegmentStart = isSegStart,
         )
 
-        // タイムスタンプが直前のポイントより逆転しないように単調増加を保証
         val prevTimestampMs = fullRoute.lastOrNull()?.timestamp?.toEpochMilliseconds() ?: Long.MIN_VALUE
         val safeTimestampMs = maxOf(filteredLocation.timestamp.toEpochMilliseconds(), prevTimestampMs)
         val safeTimestamp = if (safeTimestampMs == filteredLocation.timestamp.toEpochMilliseconds()) {
@@ -861,10 +960,14 @@ class RunTrackerEngine(
             Instant.fromEpochMilliseconds(safeTimestampMs)
         }
 
+        val statsNow = _statistics.value
         val finalLocation = filteredLocation.copy(
             timestamp = safeTimestamp,
-            heartRate = location.heartRate ?: _statistics.value.currentHeartRate,
-            steps = _statistics.value.steps,
+            heartRate = location.heartRate ?: statsNow.currentHeartRate,
+            cadence = statsNow.currentCadence,
+            power = statsNow.currentPower,
+            sensorSpeed = statsNow.currentSensorSpeedKmh?.let { it / 3.6 },
+            steps = statsNow.steps,
             isSegmentStart = isSegStart,
         )
 

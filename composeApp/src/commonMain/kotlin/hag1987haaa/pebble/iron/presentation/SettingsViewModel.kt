@@ -115,6 +115,7 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _hrSamplingInterval = MutableStateFlow(settings.hrSamplingInterval)
     val hrSamplingInterval: StateFlow<Int> = _hrSamplingInterval.asStateFlow()
 
+    // Heart Rate
     private val _bleHeartRateDeviceAddress = MutableStateFlow(settings.bleHeartRateDeviceAddress)
     val bleHeartRateDeviceAddress: StateFlow<String?> = _bleHeartRateDeviceAddress.asStateFlow()
 
@@ -132,6 +133,35 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
 
     private val _preferredBleHrAddress = MutableStateFlow(settings.preferredBleHrAddress)
     val preferredBleHrAddress: StateFlow<String?> = _preferredBleHrAddress.asStateFlow()
+
+    // CSC (ケイデンス & スピード)
+    private val _isBleCscEnabled = MutableStateFlow(settings.isBleCscEnabled)
+    val isBleCscEnabled: StateFlow<Boolean> = _isBleCscEnabled.asStateFlow()
+
+    private val _bleCscDeviceAddress = MutableStateFlow(settings.bleCscDeviceAddress)
+    val bleCscDeviceAddress: StateFlow<String?> = _bleCscDeviceAddress.asStateFlow()
+
+    private val _registeredBleCscDevices = MutableStateFlow(settings.registeredBleCscDevices)
+    val registeredBleCscDevices: StateFlow<List<String>> = _registeredBleCscDevices.asStateFlow()
+
+    private val _preferredBleCscAddress = MutableStateFlow(settings.preferredBleCscAddress)
+    val preferredBleCscAddress: StateFlow<String?> = _preferredBleCscAddress.asStateFlow()
+
+    private val _wheelCircumferenceMm = MutableStateFlow(settings.wheelCircumferenceMm)
+    val wheelCircumferenceMm: StateFlow<Int> = _wheelCircumferenceMm.asStateFlow()
+
+    // Cycling Power
+    private val _isBlePowerEnabled = MutableStateFlow(settings.isBlePowerEnabled)
+    val isBlePowerEnabled: StateFlow<Boolean> = _isBlePowerEnabled.asStateFlow()
+
+    private val _blePowerDeviceAddress = MutableStateFlow(settings.blePowerDeviceAddress)
+    val blePowerDeviceAddress: StateFlow<String?> = _blePowerDeviceAddress.asStateFlow()
+
+    private val _registeredBlePowerDevices = MutableStateFlow(settings.registeredBlePowerDevices)
+    val registeredBlePowerDevices: StateFlow<List<String>> = _registeredBlePowerDevices.asStateFlow()
+
+    private val _preferredBlePowerAddress = MutableStateFlow(settings.preferredBlePowerAddress)
+    val preferredBlePowerAddress: StateFlow<String?> = _preferredBlePowerAddress.asStateFlow()
 
     // 最後に開いていたタブ
     private val _currentTab = MutableStateFlow(try { SettingsTab.valueOf(settings.lastSettingsTabName) } catch(e: Exception) { SettingsTab.PHONE })
@@ -309,7 +339,6 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.hrSamplingInterval = interval
         _hrSamplingInterval.value = interval
         settings.save()
-        // ウォッチへ即座に同期（もし計測中なら反映させる）
         hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.triggerStatisticsUpdate()
     }
 
@@ -318,12 +347,10 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         _isBleHeartRateEnabled.value = enabled
         settings.save()
         
-        // 改善：スイッチをONにした瞬間に自動接続エンジンを始動させる
         if (enabled) {
             hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.triggerStatisticsUpdate()
         }
 
-        // Compose の再描画を確実に促すために、明示的に StateFlow を更新
         viewModelScope.launch {
             _isBleHeartRateEnabled.emit(enabled)
         }
@@ -336,13 +363,11 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     }
 
     fun setBleHeartRateDevice(address: String?, name: String?) {
-        // 下位互換用の古いフィールドを更新
         settings.bleHeartRateDeviceAddress = address
         settings.bleHeartRateDeviceName = name
         _bleHeartRateDeviceAddress.value = address
         _bleHeartRateDeviceName.value = name
         
-        // 登録済みリストに追加
         if (address != null && name != null) {
             val entry = "$address|$name"
             if (entry !in settings.registeredBleHrDevices) {
@@ -367,6 +392,99 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         val next = if (settings.preferredBleHrAddress == address) null else address
         settings.preferredBleHrAddress = next
         _preferredBleHrAddress.value = next
+        settings.save()
+    }
+
+    // --- CSC (ケイデンス & スピード) 設定操作 ---
+    fun updateBleCscEnabled(enabled: Boolean) {
+        settings.isBleCscEnabled = enabled
+        settings.save()
+        if (enabled) {
+            hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.triggerStatisticsUpdate()
+        }
+        viewModelScope.launch {
+            _isBleCscEnabled.emit(enabled)
+        }
+    }
+
+    fun setBleCscDevice(address: String?, name: String?) {
+        settings.bleCscDeviceAddress = address
+        settings.bleCscDeviceName = name
+        _bleCscDeviceAddress.value = address
+        if (address != null && name != null) {
+            val entry = "$address|$name"
+            if (entry !in settings.registeredBleCscDevices) {
+                settings.registeredBleCscDevices = settings.registeredBleCscDevices + entry
+                _registeredBleCscDevices.value = settings.registeredBleCscDevices
+            }
+        }
+        settings.save()
+    }
+
+    fun removeRegisteredBleCscDevice(address: String) {
+        settings.registeredBleCscDevices = settings.registeredBleCscDevices.filter { !it.startsWith(address) }
+        if (settings.preferredBleCscAddress == address) {
+            settings.preferredBleCscAddress = null
+            _preferredBleCscAddress.value = null
+        }
+        _registeredBleCscDevices.value = settings.registeredBleCscDevices
+        settings.save()
+    }
+
+    fun togglePreferredBleCscDevice(address: String) {
+        val next = if (settings.preferredBleCscAddress == address) null else address
+        settings.preferredBleCscAddress = next
+        _preferredBleCscAddress.value = next
+        settings.save()
+    }
+
+    fun updateWheelCircumference(mm: Int) {
+        settings.wheelCircumferenceMm = mm
+        _wheelCircumferenceMm.value = mm
+        settings.save()
+        hag1987haaa.pebble.iron.KmpDependencies.bleCscManager?.setWheelCircumferenceMm(mm)
+    }
+
+    // --- Cycling Power 設定操作 ---
+    fun updateBlePowerEnabled(enabled: Boolean) {
+        settings.isBlePowerEnabled = enabled
+        settings.save()
+        if (enabled) {
+            hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.triggerStatisticsUpdate()
+        }
+        viewModelScope.launch {
+            _isBlePowerEnabled.emit(enabled)
+        }
+    }
+
+    fun setBlePowerDevice(address: String?, name: String?) {
+        settings.blePowerDeviceAddress = address
+        settings.blePowerDeviceName = name
+        _blePowerDeviceAddress.value = address
+        if (address != null && name != null) {
+            val entry = "$address|$name"
+            if (entry !in settings.registeredBlePowerDevices) {
+                settings.registeredBlePowerDevices = settings.registeredBlePowerDevices + entry
+                _registeredBlePowerDevices.value = settings.registeredBlePowerDevices
+            }
+        }
+        settings.save()
+    }
+
+    fun removeRegisteredBlePowerDevice(address: String) {
+        settings.registeredBlePowerDevices = settings.registeredBlePowerDevices.filter { !it.startsWith(address) }
+        if (settings.preferredBlePowerAddress == address) {
+            settings.preferredBlePowerAddress = null
+            _preferredBlePowerAddress.value = null
+        }
+        _registeredBlePowerDevices.value = settings.registeredBlePowerDevices
+        settings.save()
+    }
+
+    fun togglePreferredBlePowerDevice(address: String) {
+        val next = if (settings.preferredBlePowerAddress == address) null else address
+        settings.preferredBlePowerAddress = next
+        _preferredBlePowerAddress.value = next
         settings.save()
     }
 

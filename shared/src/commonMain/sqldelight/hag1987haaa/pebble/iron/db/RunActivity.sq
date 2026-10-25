@@ -1,4 +1,4 @@
--- Database Schema version 4 (Force Refresh)
+-- Database Schema with Cycling Sensors
 CREATE TABLE RunEntity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
@@ -12,6 +12,10 @@ CREATE TABLE RunEntity (
     steps INTEGER,
     avgHeartRate REAL,
     maxHeartRate REAL,
+    avgCadence REAL,
+    maxCadence REAL,
+    avgPower REAL,
+    maxPower REAL,
     elevationGain REAL,
     healthConnectId TEXT
 );
@@ -25,6 +29,8 @@ CREATE TABLE LocationEntity (
     speed REAL,
     heartRate INTEGER,
     steps INTEGER,
+    cadence INTEGER,
+    power INTEGER,
     timestamp TEXT NOT NULL,
     FOREIGN KEY (runId) REFERENCES RunEntity(id) ON DELETE CASCADE
 );
@@ -46,6 +52,10 @@ UPDATE RunEntity SET
     steps = ?,
     avgHeartRate = ?,
     maxHeartRate = ?,
+    avgCadence = ?,
+    maxCadence = ?,
+    avgPower = ?,
+    maxPower = ?,
     elevationGain = ?,
     healthConnectId = ?
 WHERE id = ?;
@@ -63,8 +73,8 @@ updateActivityTypeAndCalories:
 UPDATE RunEntity SET type = ?, calories = ? WHERE id = ?;
 
 insertLocation:
-INSERT INTO LocationEntity(runId, latitude, longitude, altitude, speed, heartRate, steps, timestamp)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO LocationEntity(runId, latitude, longitude, altitude, speed, heartRate, steps, cadence, power, timestamp)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getAllRuns:
 SELECT * FROM RunEntity ORDER BY startTime DESC;

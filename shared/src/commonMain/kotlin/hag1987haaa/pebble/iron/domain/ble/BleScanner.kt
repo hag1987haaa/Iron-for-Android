@@ -6,6 +6,8 @@ interface BleScanner {
     val foundDevices: StateFlow<List<BleDevice>>
     val isScanning: StateFlow<Boolean>
     
-    fun startScan(serviceUuid: String? = null)
+    fun startScan()
+    fun startScan(serviceUuid: String)
+    fun startScan(serviceUuids: List<String>)
     fun stopScan()
 }

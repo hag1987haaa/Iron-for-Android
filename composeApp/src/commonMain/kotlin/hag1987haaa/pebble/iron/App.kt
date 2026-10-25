@@ -61,9 +61,7 @@ fun App(actions: AppActions) {
             
             lastRedirectedWorkoutStart = stats.startTime
             navController.navigate("detail/-1") {
-                // 連打対策: 同じ画面が既にトップにある場合は、新しくスタックを積まない
                 launchSingleTop = true
-                // 万が一の連打で複数の「詳細」が開くのを防ぐ
                 popUpTo("main") { saveState = true }
             }
         }
@@ -87,8 +85,6 @@ fun App(actions: AppActions) {
     MaterialTheme {
         NavHost(navController = navController, startDestination = "main") {
             composable("main?tab={tab}") { backStackEntry ->
-                // 起動時は常に 0 (Run) をデフォルトにする。
-                // URLパラメータ（tab=1等）がある場合のみ、そちらを優先する。
                 val tabIndex = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: 0
 
                 MainScreen(
@@ -113,13 +109,10 @@ fun App(actions: AppActions) {
                     actions = actions,
                     onBack = {
                         if (runId == -1L) {
-                            // 終了直後のサマリーから戻る場合は、履歴タブ(tab=1)へ
                             navController.navigate("main?tab=1") {
                                 popUpTo("main") { inclusive = true }
                             }
                         } else {
-                            // 履歴リストから入った場合は、元の履歴タブへ戻る
-                            // もしスタックが怪しい場合でも tab=1 を指定して戻る
                             navController.navigate("main?tab=1") {
                                 popUpTo("main") { inclusive = true }
                             }
@@ -160,13 +153,10 @@ fun MainScreen(
     val onTabSelected: (Int) -> Unit = { index ->
         if (currentTabIdx != index) {
             currentTabIdx = index
-            // メインタブの記憶を更新
             KmpDependencies.appSettings.lastMainTab = index
             KmpDependencies.appSettings.save()
 
-            // メインタブの遷移時にサブタブの状態を壊さないようにする
             navController.navigate("main?tab=$index") {
-                // 連打ガード
                 launchSingleTop = true
                 restoreState = true
                 popUpTo("main?tab=0") { saveState = true }
@@ -272,7 +262,6 @@ fun RunScreen(actions: AppActions) {
     val currentBearing = stats.route.lastOrNull()?.bearing?.toFloat() ?: 0f
     val mapRotation = if (isHeadingUp) currentBearing else 0f
 
-    // 全画面表示中の戻るジェスチャー対応
     BackPressHandler(enabled = isMapFullScreen) {
         isMapFullScreen = false
     }
@@ -348,7 +337,6 @@ fun RunScreen(actions: AppActions) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Top
                 ) {
-                    // ステータスメッセージ
                     if (status != RunStatus.IDLE) {
                         val gpsStatusColor = if (stats.hasGpsFix) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                         Text(
@@ -358,7 +346,6 @@ fun RunScreen(actions: AppActions) {
                             style = MaterialTheme.typography.titleMedium
                         )
                     } else {
-                        // 2.0.3 同様、IDLE時は文言を出さずスペーサーを調整
                         Spacer(modifier = Modifier.height(24.dp))
                     }
 
@@ -397,27 +384,64 @@ fun RunScreen(actions: AppActions) {
                     Spacer(modifier = Modifier.height(24.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = stats.formattedDistance, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                            Text(text = stats.formattedDistance, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                             Text(text = if (isMetric) "KM" else "MI", style = MaterialTheme.typography.labelMedium)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = stats.formattedPace, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                            Text(text = "PACE", style = MaterialTheme.typography.labelMedium)
+                            Text(text = stats.formattedPace, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                            Text(text = if (stats.activityType == ActivityType.CYCLING) "SPEED" else "PACE", style = MaterialTheme.typography.labelMedium)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = stats.currentHeartRate?.toString() ?: "--",
-                                fontSize = 32.sp,
+                                fontSize = 28.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (stats.hrSource == "BLE" && stats.isBleHrActive) Color(IronColors.HEART_RATE_PINK) else MaterialTheme.colorScheme.onSurface
                             )
                             Text(text = "BPM", style = MaterialTheme.typography.labelMedium)
                         }
+                        if (stats.currentCadence != null || stats.isBleCscActive) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = stats.currentCadence?.toString() ?: "--",
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(text = "RPM", style = MaterialTheme.typography.labelMedium)
+                                stats.nonZeroAvgCadence?.let {
+                                    Text(
+                                        text = "Avg ${it.toInt()}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                            }
+                        }
+                        if (stats.currentPower != null || stats.isBlePowerActive) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                // 瞬時値の乱高下を防ぐため 3秒平均を優先表示（サイコン標準）
+                                val pwrDisplay = stats.power3s?.toString() ?: stats.currentPower?.toString() ?: "--"
+                                Text(
+                                    text = pwrDisplay,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFFB300)
+                                )
+                                Text(text = "W (3s)", style = MaterialTheme.typography.labelMedium)
+                                stats.power5m?.let {
+                                    Text(
+                                        text = "5m ${it}W",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.weight(1f))
                     
-                    // 操作ボタン
                     when (status) {
                         RunStatus.IDLE -> Button(onClick = { actions.prepareTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text("PREPARE") }
                         RunStatus.PREPARING, RunStatus.READY -> {
@@ -444,7 +468,7 @@ fun RunScreen(actions: AppActions) {
                         .padding(top = 64.dp, start = 8.dp)
                 )
 
-                // 前面層: コース管理バッジボタン（左のインジケーターの真反対）
+                // 前面層: コース管理バッジボタン
                 Column(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -470,7 +494,7 @@ fun RunScreen(actions: AppActions) {
             }
         }
 
-        // --- 3. マップ全画面オーバーレイ (2.0.3 のデザインを完全復旧) ---
+        // --- 3. マップ全画面オーバーレイ ---
         if (isMapFullScreen) {
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 RouteMapView(
@@ -486,7 +510,6 @@ fun RunScreen(actions: AppActions) {
                     mapRotation = mapRotation
                 )
 
-                // A. 上部：統計情報オーバーレイ
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -514,7 +537,6 @@ fun RunScreen(actions: AppActions) {
                     }
                 }
 
-                // B. 左上：縮小ボタン
                 FilledIconButton(
                     onClick = { isMapFullScreen = false },
                     modifier = Modifier
@@ -526,7 +548,6 @@ fun RunScreen(actions: AppActions) {
                     Icon(Icons.Default.Close, contentDescription = "Exit Fullscreen")
                 }
 
-                // C. 右側：マップコントロール
                 Column(
                     modifier = Modifier.align(Alignment.CenterEnd).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -555,7 +576,6 @@ fun RunScreen(actions: AppActions) {
                     }
                 }
 
-                // D. 左側：ソースインジケーター (全画面時も表示)
                 SourceIndicatorList(
                     stats = stats,
                     modifier = Modifier
@@ -691,6 +711,24 @@ private fun SourceIndicatorList(stats: hag1987haaa.pebble.iron.domain.tracker.Ru
             isActive = stats.steps > 0,
             activeColor = MaterialTheme.colorScheme.secondary
         )
+        if (stats.isBleCscActive || stats.currentCadence != null) {
+            SourceBadge(
+                icon = Icons.Default.DirectionsBike,
+                label = "CSC",
+                value = stats.currentCadence?.let { "$it" },
+                isActive = stats.isBleCscActive,
+                activeColor = MaterialTheme.colorScheme.primary
+            )
+        }
+        if (stats.isBlePowerActive || stats.currentPower != null) {
+            SourceBadge(
+                icon = Icons.Default.Bolt,
+                label = "PWR",
+                value = stats.currentPower?.let { "$it" },
+                isActive = stats.isBlePowerActive,
+                activeColor = Color(0xFFFFB300)
+            )
+        }
     }
 }
 

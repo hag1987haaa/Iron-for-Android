@@ -278,7 +278,14 @@
     <string name="settings_mid_item_speed">Current Speed</string>
     <string name="settings_mid_item_clock">Current Clock</string>
     <string name="settings_mid_item_gain">Elevation Gain</string>
-    <string name="settings_mid_item_cadence">Cadence (SPM)</string>
+    <string name="settings_mid_item_cadence">Cadence (SPM / RPM)</string>
+    <string name="settings_mid_item_power">Power (W)</string>
+    <string name="settings_mid_item_power_3s">3s Average Power (W)</string>
+    <string name="settings_mid_item_power_10s">10s Average Power (W)</string>
+    <string name="settings_mid_item_power_30s">30s Average Power (W)</string>
+    <string name="settings_mid_item_power_5m">5m Average Power (W)</string>
+    <string name="settings_mid_item_avg_power">Average Power (W)</string>
+    <string name="settings_mid_item_cadence_nz">Average Cadence (Non-Zero RPM)</string>
     <string name="settings_mid_item_detail">Cockpit Mode (4-in-1)</string>
     <string name="detail_label_privacy">Privacy</string>
     <string name="detail_label_pin_map">Pin</string>

@@ -6,11 +6,8 @@ import kotlinx.datetime.Instant
 object GpxExporter {
     /**
      * RunActivity のデータを GPX 1.1 形式の文字列に変換します。
-     * 外部プラットフォームでの互換性と正確性を高めるため、座標と時刻のみを基本とし、
-     * 累積距離のタグは含めません。心拍数等は標準的な拡張形式で追加します。
-     * 
-     * 一時停止区間（isSegmentStart または 10秒以上のタイムスタンプギャップ）で
-     * <trkseg> を分割出力し、Strava, Garmin Connect 等での正確なポーズ時間除外・平均ペース計算を実現します。
+     * - 心拍数、ケイデンス（RPM）、パワー（Watts）を標準の Garmin TrackPointExtension にて出力。
+     * - 一時停止区間で <trkseg> を分割出力。
      */
     fun export(rawRun: RunActivity): String {
         val run = rawRun.withSanitizedTimestamps()
@@ -33,10 +30,9 @@ object GpxExporter {
         sb.append("    <trkseg>\n")
 
         var prevTime: Instant? = null
-        val PAUSE_GAP_MS = 10_000L // 10秒以上のタイムスタンプギャップでポーズ判定 (過去データ救済対応)
+        val PAUSE_GAP_MS = 10_000L
 
         run.route.forEachIndexed { index, pt ->
-            // 一時停止区間の判定: 再開フラグまたは10秒以上のタイムスタンプギャップでトラックセグメントを分割
             if (index > 0 && prevTime != null) {
                 val timeDiffMs = pt.timestamp.toEpochMilliseconds() - prevTime!!.toEpochMilliseconds()
                 if (pt.isSegmentStart || timeDiffMs >= PAUSE_GAP_MS) {
@@ -49,11 +45,23 @@ object GpxExporter {
             pt.altitude?.let { sb.append("        <ele>$it</ele>\n") }
             sb.append("        <time>${pt.timestamp}</time>\n")
             
-            // 心拍数などの拡張データ
-            if (pt.heartRate != null && pt.heartRate > 0) {
+            val hasHr = pt.heartRate != null && pt.heartRate > 0
+            val hasCad = pt.cadence != null && pt.cadence > 0
+            val effSpeed = pt.sensorSpeed ?: pt.speed
+            val hasSpeed = effSpeed != null
+
+            if (hasHr || hasCad || hasSpeed) {
                 sb.append("        <extensions>\n")
                 sb.append("          <gpxtpx:TrackPointExtension>\n")
-                sb.append("            <gpxtpx:hr>${pt.heartRate}</gpxtpx:hr>\n")
+                if (hasHr) {
+                    sb.append("            <gpxtpx:hr>${pt.heartRate}</gpxtpx:hr>\n")
+                }
+                if (hasCad) {
+                    sb.append("            <gpxtpx:cad>${pt.cadence}</gpxtpx:cad>\n")
+                }
+                if (hasSpeed) {
+                    sb.append("            <gpxtpx:speed>$effSpeed</gpxtpx:speed>\n")
+                }
                 sb.append("          </gpxtpx:TrackPointExtension>\n")
                 sb.append("        </extensions>\n")
             }

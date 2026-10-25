@@ -93,6 +93,10 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                 steps = stats.steps,
                 avgHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null,
                 maxHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.maxOrNull()?.toDouble() else null,
+                avgCadence = stats.avgCadence,
+                maxCadence = stats.maxCadence?.toDouble(),
+                avgPower = stats.avgPower,
+                maxPower = stats.maxPower?.toDouble(),
                 elevationGain = stats.totalElevationGain,
                 route = stats.route
             )
@@ -491,6 +495,78 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                 }
                             }
 
+                            if (run.avgCadence != null || run.avgPower != null) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                                    Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                            if (run.avgCadence != null) {
+                                                StatItem(
+                                                    "Avg Cadence",
+                                                    "${run.avgCadence?.toInt() ?: 0}",
+                                                    "RPM"
+                                                )
+                                                StatItem(
+                                                    "Max Cadence",
+                                                    "${run.maxCadence?.toInt() ?: 0}",
+                                                    "RPM"
+                                                )
+                                            }
+                                            if (run.avgPower != null) {
+                                                StatItem(
+                                                    "Avg Power",
+                                                    "${run.avgPower?.toInt() ?: 0}",
+                                                    "W"
+                                                )
+                                                StatItem(
+                                                    "Max Power",
+                                                    "${run.maxPower?.toInt() ?: 0}",
+                                                    "W"
+                                                )
+                                            }
+                                        }
+
+                                        // サイクリング向けアドバンスド指標（0除外平均ケイデンス、5分最大パワー）
+                                        val nonZeroCadence = remember(run.route) {
+                                            val nz = run.route.mapNotNull { it.cadence }.filter { it > 0 }
+                                            if (nz.isNotEmpty()) nz.average().toInt() else null
+                                        }
+                                        val peak5mPower = remember(run.route) {
+                                            val powers = run.route.mapNotNull { it.power }
+                                            if (powers.size >= 10) {
+                                                // サンプリング点から連続区間の最大平均を概算
+                                                val windowSize = (powers.size / 10).coerceIn(5, 60)
+                                                (0..(powers.size - windowSize)).maxOfOrNull { i ->
+                                                    powers.subList(i, i + windowSize).average().toInt()
+                                                }
+                                            } else null
+                                        }
+
+                                        if (nonZeroCadence != null || peak5mPower != null) {
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                                if (nonZeroCadence != null) {
+                                                    StatItem(
+                                                        "Pedaling Avg",
+                                                        "$nonZeroCadence",
+                                                        "RPM (Non-0)"
+                                                    )
+                                                }
+                                                if (peak5mPower != null) {
+                                                    StatItem(
+                                                        "Peak Power",
+                                                        "$peak5mPower",
+                                                        "W (Peak)"
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
                             // 区間スプリット（1kmまたは1マイルごと）
                             val splits = remember(run.route, KmpDependencies.appSettings.isMetric) {
                                 SplitCalculator.calculateSplits(
@@ -638,6 +714,28 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                 maxScale = 200f,
                                 avgOverride = run.avgHeartRate?.toFloat()
                             )
+
+                            val cadencePoints = displayRoute.mapNotNull { it.cadence?.toFloat() }
+                            if (cadencePoints.isNotEmpty()) {
+                                SimpleLineChart(
+                                    title = if (isDistanceBased) "Cadence (Distance) [RPM]" else "Cadence (Time) [RPM]",
+                                    data = cadencePoints.downsample(100),
+                                    color = Color(0xFF00BCD4),
+                                    minScale = 0f,
+                                    avgOverride = run.avgCadence?.toFloat()
+                                )
+                            }
+
+                            val powerPoints = displayRoute.mapNotNull { it.power?.toFloat() }
+                            if (powerPoints.isNotEmpty()) {
+                                SimpleLineChart(
+                                    title = if (isDistanceBased) "Power (Distance) [Watts]" else "Power (Time) [Watts]",
+                                    data = powerPoints.downsample(100),
+                                    color = Color(0xFF9C27B0),
+                                    minScale = 0f,
+                                    avgOverride = run.avgPower?.toFloat()
+                                )
+                            }
                             Spacer(modifier = Modifier.height(16.dp))
                             actionButtons()
 

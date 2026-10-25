@@ -239,6 +239,10 @@ class TrackingService : Service() {
                     steps = stats.steps,
                     avgHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null,
                     maxHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.maxOrNull()?.toDouble() else null,
+                    avgCadence = stats.avgCadence,
+                    maxCadence = stats.maxCadence?.toDouble(),
+                    avgPower = stats.avgPower,
+                    maxPower = stats.maxPower?.toDouble(),
                     elevationGain = stats.totalElevationGain,
                     route = stats.route
                 ).withSanitizedTimestamps()
@@ -310,6 +314,10 @@ class TrackingService : Service() {
                     steps = stats.steps,
                     avgHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null,
                     maxHeartRate = if (stats.heartRates.isNotEmpty()) stats.heartRates.maxOrNull()?.toDouble() else null,
+                    avgCadence = stats.avgCadence,
+                    maxCadence = stats.maxCadence?.toDouble(),
+                    avgPower = stats.avgPower,
+                    maxPower = stats.maxPower?.toDouble(),
                     elevationGain = stats.totalElevationGain,
                     route = stats.route
                 ).withSanitizedTimestamps()

@@ -17,6 +17,10 @@ data class RunActivity(
     val steps: Int? = null,
     val avgHeartRate: Double? = null,
     val maxHeartRate: Double? = null,
+    val avgCadence: Double? = null,
+    val maxCadence: Double? = null,
+    val avgPower: Double? = null,
+    val maxPower: Double? = null,
     val elevationGain: Double? = null,
     val healthConnectId: String? = null,
     val route: List<LocationPoint> = emptyList()
@@ -68,20 +72,10 @@ data class RunActivity(
         val effectiveStartMs = minOf(rawStartMs, firstPointMs)
         val effectiveEndMs = maxOf(rawEndMs, lastPointMs, effectiveStartMs + 1000L)
 
-        val effectiveStart = Instant.fromEpochMilliseconds(effectiveStartMs)
-        val effectiveEnd = Instant.fromEpochMilliseconds(effectiveEndMs)
-
-        val finalRoute = monotonicRoute.map { pt ->
-            val tMs = pt.timestamp.toEpochMilliseconds()
-            val clampedMs = tMs.coerceIn(effectiveStartMs, effectiveEndMs)
-            if (clampedMs == tMs) pt else pt.copy(timestamp = Instant.fromEpochMilliseconds(clampedMs))
-        }
-
         return copy(
-            startTime = effectiveStart,
-            endTime = effectiveEnd,
-            route = finalRoute
+            startTime = Instant.fromEpochMilliseconds(effectiveStartMs),
+            endTime = Instant.fromEpochMilliseconds(effectiveEndMs),
+            route = monotonicRoute
         )
     }
 }
-
