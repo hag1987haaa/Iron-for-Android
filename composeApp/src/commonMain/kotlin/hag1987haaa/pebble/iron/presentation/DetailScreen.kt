@@ -186,7 +186,14 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
             )
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val isLandscape = maxWidth > maxHeight
+            val mapHeight = if (isLandscape) {
+                (maxHeight * 0.45f).coerceIn(160.dp, 210.dp)
+            } else {
+                280.dp
+            }
+
             runActivity?.let { run ->
                 if (!isMapFullScreen) {
                     Column(
@@ -204,7 +211,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                             // 固定画面の中いっぱいにマップを表示し、情報をその上に配置する
                             Box(modifier = Modifier
                                 .fillMaxWidth()
-                                .height(280.dp)
+                                .height(mapHeight)
                                 .clip(RectangleShape)
                             ) {
                                 RouteMapView(
