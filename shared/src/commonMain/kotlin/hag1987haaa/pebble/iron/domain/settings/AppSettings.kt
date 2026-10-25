@@ -300,8 +300,93 @@ class AppSettings {
      * 中段表示（Mid Data）の設定
      * 0: Pace, 1: Distance, 2: Steps, 3: Altitude, 4: HR, 5: Calories, 7: Avg Pace, 8: Speed, 9: Clock, 10: Gain, 11: Cadence, 99: Cockpit
      */
-    var enabledMidTypes: List<Int> = listOf(0, 4, 1, 5, 10)
-    var enabledLowerTypes: List<Int> = listOf(100, 101, 102, 103, 104, 105)
+    companion object {
+        fun getDefaultMidTypes(activityType: ActivityType): List<Int> {
+            return when (activityType) {
+                ActivityType.RUNNING, ActivityType.WALKING -> listOf(9, 8, 17, 1, 4, 10)
+                ActivityType.CYCLING -> listOf(9, 8, 11, 18, 1, 4, 10)
+                ActivityType.HIKING -> listOf(9, 1, 10, 8, 4, 3)
+                ActivityType.KAYAKING, ActivityType.ROWING -> listOf(9, 8, 17, 1, 4)
+                ActivityType.OTHER -> listOf(9, 4, 1, 8, 5)
+            }
+        }
+
+        fun getDefaultLowerTypes(activityType: ActivityType): List<Int> {
+            return when (activityType) {
+                ActivityType.RUNNING, ActivityType.WALKING -> listOf(101, 102, 103, 104, 105)
+                ActivityType.CYCLING -> listOf(100, 101, 103, 104, 105)
+                ActivityType.HIKING -> listOf(101, 103, 102, 104, 105)
+                ActivityType.KAYAKING, ActivityType.ROWING -> listOf(100, 101, 104, 105)
+                ActivityType.OTHER -> listOf(104, 105, 101)
+            }
+        }
+    }
+
+    private val defaultActivityMidTypes: Map<String, List<Int>> = ActivityType.entries.associate {
+        it.name to getDefaultMidTypes(it)
+    }
+
+    private val defaultActivityLowerTypes: Map<String, List<Int>> = ActivityType.entries.associate {
+        it.name to getDefaultLowerTypes(it)
+    }
+
+    private val _activityMidTypes = MutableStateFlow<Map<String, List<Int>>>(defaultActivityMidTypes)
+    val activityMidTypesFlow: StateFlow<Map<String, List<Int>>> = _activityMidTypes.asStateFlow()
+    var activityMidTypes: Map<String, List<Int>>
+        get() = _activityMidTypes.value
+        set(value) {
+            _activityMidTypes.value = value
+            save()
+        }
+
+    private val _activityLowerTypes = MutableStateFlow<Map<String, List<Int>>>(defaultActivityLowerTypes)
+    val activityLowerTypesFlow: StateFlow<Map<String, List<Int>>> = _activityLowerTypes.asStateFlow()
+    var activityLowerTypes: Map<String, List<Int>>
+        get() = _activityLowerTypes.value
+        set(value) {
+            _activityLowerTypes.value = value
+            save()
+        }
+
+    fun getMidTypes(activityType: ActivityType): List<Int> {
+        return activityMidTypes[activityType.name] ?: getDefaultMidTypes(activityType)
+    }
+
+    fun setMidTypes(activityType: ActivityType, types: List<Int>) {
+        val current = activityMidTypes.toMutableMap()
+        current[activityType.name] = types
+        activityMidTypes = current
+    }
+
+    fun resetMidTypes(activityType: ActivityType) {
+        setMidTypes(activityType, getDefaultMidTypes(activityType))
+    }
+
+    fun getLowerTypes(activityType: ActivityType): List<Int> {
+        return activityLowerTypes[activityType.name] ?: getDefaultLowerTypes(activityType)
+    }
+
+    fun setLowerTypes(activityType: ActivityType, types: List<Int>) {
+        val current = activityLowerTypes.toMutableMap()
+        current[activityType.name] = types
+        activityLowerTypes = current
+    }
+
+    fun resetLowerTypes(activityType: ActivityType) {
+        setLowerTypes(activityType, getDefaultLowerTypes(activityType))
+    }
+
+    var enabledMidTypes: List<Int>
+        get() = getMidTypes(ActivityType.RUNNING)
+        set(value) {
+            setMidTypes(ActivityType.RUNNING, value)
+        }
+
+    var enabledLowerTypes: List<Int>
+        get() = getLowerTypes(ActivityType.RUNNING)
+        set(value) {
+            setLowerTypes(ActivityType.RUNNING, value)
+        }
     var lastMidId: Int = -1
     var lastLowerId: Int = -1
     var isMetric: Boolean = true

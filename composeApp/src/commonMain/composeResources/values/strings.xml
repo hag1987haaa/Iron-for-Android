@@ -262,6 +262,11 @@
     <string name="settings_unit_imperial">Imperial (mile, lb)</string>
     <string name="settings_section_mid_data">Middle Display Items</string>
     <string name="settings_mid_data_desc">Configure items to display in ACTIVE mode. Press SELECT on Pebble to cycle through these items.</string>
+    <string name="settings_reset_to_default">Reset to Default</string>
+    <string name="settings_reset_confirm_title">Reset %1$s to default?</string>
+    <string name="settings_reset_confirm_desc">Items and order for %1$s will be reset to default recommendations.</string>
+    <string name="settings_button_reset">Reset</string>
+    <string name="settings_button_cancel">Cancel</string>
     <string name="settings_mid_item_pace">Pace (30s avg)</string>
     <string name="settings_mid_item_pace_1m">Pace (1m avg)</string>
     <string name="settings_mid_item_pace_2m">Pace (2m avg)</string>

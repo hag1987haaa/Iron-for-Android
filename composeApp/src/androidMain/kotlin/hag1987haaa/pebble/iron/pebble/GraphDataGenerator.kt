@@ -85,6 +85,18 @@ object GraphDataGenerator {
                     val calStr = if (isWorkoutRunning) stats.calories.toInt().toString() else "0"
                     "CAL,$xScaleLabel,${calStr}kcal,0"
                 }
+                6 -> { // Cadence
+                    val cadList = if (isWorkoutRunning) stats.route.mapNotNull { it.cadence } else emptyList()
+                    val max = cadList.maxOrNull() ?: 0
+                    val min = cadList.minOrNull() ?: 0
+                    "CAD(rpm),$xScaleLabel,${max}rpm,${min}rpm"
+                }
+                7 -> { // Power
+                    val pwrList = if (isWorkoutRunning) stats.route.mapNotNull { it.power } else emptyList()
+                    val max = pwrList.maxOrNull() ?: 0
+                    val min = pwrList.minOrNull() ?: 0
+                    "PWR(W),$xScaleLabel,${max}W,${min}W"
+                }
                 else -> "DATA,$xScaleLabel,MAX,MIN"
             }
 
@@ -135,6 +147,8 @@ object GraphDataGenerator {
                     )
                     isSumType = true 
                 }
+                6 -> { valDiff = (p2.cadence ?: p1.cadence ?: 0).toDouble(); isSumType = false }
+                7 -> { valDiff = (p2.power ?: p1.power ?: 0).toDouble(); isSumType = false }
                 else -> return "0"
             }
 
@@ -155,7 +169,7 @@ object GraphDataGenerator {
 
         val resultData = mutableListOf<Int>()
         for (i in 0 until numBuckets) {
-            val v = if (typeId == 3 || typeId == 4) {
+            val v = if (typeId == 3 || typeId == 4 || typeId == 6 || typeId == 7) {
                 if (bucketCounts[i] > 0) bucketValues[i] / bucketCounts[i] else 0.0
             } else if (typeId == 2) {
                 bucketValues[i] / scaleMinutes.coerceAtLeast(1)

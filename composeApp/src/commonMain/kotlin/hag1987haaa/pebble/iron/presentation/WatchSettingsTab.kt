@@ -22,6 +22,12 @@ import androidx.compose.ui.graphics.Color
 import hag1987haaa.pebble.iron.domain.settings.MapColorPreset
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.util.getDisplayName
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
@@ -30,13 +36,14 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
     val notifTime by viewModel.notifTime.collectAsState()
     val isAutoLaunchDistEnabled by viewModel.isAutoLaunchDistEnabled.collectAsState()
     val isAutoLaunchTimeEnabled by viewModel.isAutoLaunchTimeEnabled.collectAsState()
-    val enabledMidItems by viewModel.enabledMidTypes.collectAsState()
-    val enabledLowerItems by viewModel.enabledLowerTypes.collectAsState()
+    val activityMidTypes by viewModel.activityMidTypes.collectAsState()
+    val activityLowerTypes by viewModel.activityLowerTypes.collectAsState()
     val isMetric by viewModel.isMetric.collectAsState()
 
     var isNotifExpanded by remember { mutableStateOf(false) }
     var isMidDataExpanded by remember { mutableStateOf(false) }
     var isLowerDataExpanded by remember { mutableStateOf(false) }
+    var selectedActivityType by remember { mutableStateOf(ActivityType.RUNNING) }
 
     val scrollState = rememberScrollState()
 
@@ -44,13 +51,13 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
         // 1. エクササイズ設定
         SettingsSectionHeader(stringResource(Res.string.settings_section_exercise))
         ExpandableSubSection(stringResource(Res.string.settings_section_notification), isNotifExpanded, { isNotifExpanded = !isNotifExpanded }) {
-            NotificationSettingsContent(notifDistanceStep, notifTime, isAutoLaunchDistEnabled, isAutoLaunchTimeEnabled, isMetric, viewModel)
+            NotificationSettingsContent(notifDistanceStep, notifTime, isAutoLaunchDistEnabled, isAutoLaunchTimeEnabled, isMetric, selectedActivityType, { selectedActivityType = it }, viewModel)
         }
         ExpandableSubSection(stringResource(Res.string.settings_section_mid_data), isMidDataExpanded, { isMidDataExpanded = !isMidDataExpanded }) {
-            MidDataSettingsContent(enabledMidItems, viewModel)
+            MidDataSettingsContent(activityMidTypes, selectedActivityType, { selectedActivityType = it }, viewModel)
         }
         ExpandableSubSection(stringResource(Res.string.settings_section_lower_data), isLowerDataExpanded, { isLowerDataExpanded = !isLowerDataExpanded }) {
-            LowerDataSettingsContent(enabledLowerItems, viewModel)
+            LowerDataSettingsContent(activityLowerTypes, selectedActivityType, { selectedActivityType = it }, viewModel)
         }
 
         // 2. 心拍サンプリング設定
@@ -89,7 +96,7 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
 }
 
 @Composable
-fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist: Boolean, launchTime: Boolean, isMetric: Boolean, viewModel: SettingsViewModel) {
+fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist: Boolean, launchTime: Boolean, isMetric: Boolean, selectedActivityType: ActivityType, onActivityTypeSelected: (ActivityType) -> Unit, viewModel: SettingsViewModel) {
     val isDistVibEnabled by viewModel.isDistNotificationVibrationEnabled.collectAsState()
     val distAutoShowMapSec by viewModel.autoShowMapAfterDistNotificationSeconds.collectAsState()
 
@@ -268,7 +275,6 @@ fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist:
         val hrZoneRepeatInterval by viewModel.hrZoneRepeatIntervalSeconds.collectAsState()
 
         var isHrZoneDetailsExpanded by remember { mutableStateOf(false) }
-        var selectedActivityType by remember { mutableStateOf(ActivityType.RUNNING) }
 
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.weight(1f)) {
@@ -343,7 +349,7 @@ fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist:
                         val isSelected = type == selectedActivityType
                         FilterChip(
                             selected = isSelected,
-                            onClick = { selectedActivityType = type },
+                            onClick = { onActivityTypeSelected(type) },
                             label = { Text(type.getDisplayName()) }
                         )
                     }
@@ -481,10 +487,242 @@ fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist:
 }
 
 @Composable
-fun MidDataSettingsContent(enabledMidItems: List<Int>, viewModel: SettingsViewModel) {
+fun ReorderableDataSettingsList(
+    activityType: ActivityType,
+    enabledIds: List<Int>,
+    allItems: List<Pair<Int, String>>,
+    onOrderChanged: (List<Int>) -> Unit,
+    onItemRemoved: (Int) -> Unit,
+    onItemAdded: (Int) -> Unit,
+    onResetRequested: () -> Unit
+) {
+    var showResetDialog by remember { mutableStateOf(false) }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text(stringResource(Res.string.settings_reset_confirm_title, activityType.getDisplayName())) },
+            text = { Text(stringResource(Res.string.settings_reset_confirm_desc, activityType.getDisplayName())) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onResetRequested()
+                    showResetDialog = false
+                }) {
+                    Text(stringResource(Res.string.settings_button_reset), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text(stringResource(Res.string.settings_button_cancel))
+                }
+            }
+        )
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        val validCount = enabledIds.count { id -> allItems.any { it.first == id } }
+        Text(
+            text = "${activityType.getDisplayName()} ($validCount)",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+        TextButton(
+            onClick = { showResetDialog = true },
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+        ) {
+            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(stringResource(Res.string.settings_reset_to_default), style = MaterialTheme.typography.labelSmall)
+        }
+    }
+
+    val validEnabledItems = enabledIds.mapNotNull { id ->
+        val found = allItems.find { it.first == id }
+        if (found != null) id to found.second else null
+    }
+
+    var draggingIndex by remember { mutableStateOf<Int?>(null) }
+    var dragOffsetY by remember { mutableStateOf(0f) }
+    val itemHeightPx = with(LocalDensity.current) { 48.dp.toPx() }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        validEnabledItems.forEachIndexed { index, (typeId, name) ->
+            val isDragging = (draggingIndex == index)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .zIndex(if (isDragging) 10f else 1f)
+                    .graphicsLayer {
+                        if (isDragging) {
+                            translationY = dragOffsetY
+                            shadowElevation = 8f
+                        }
+                    }
+                    .background(
+                        if (isDragging) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
+                        RoundedCornerShape(8.dp)
+                    )
+                    .padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 長押しドラッグハンドル
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .pointerInput(validEnabledItems, index) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    draggingIndex = index
+                                    dragOffsetY = 0f
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragOffsetY += dragAmount.y
+                                    val currentIdx = draggingIndex ?: return@detectDragGesturesAfterLongPress
+                                    val targetIdx = (currentIdx + (dragOffsetY / itemHeightPx).toInt()).coerceIn(0, validEnabledItems.size - 1)
+                                    if (targetIdx != currentIdx) {
+                                        val mutable = validEnabledItems.map { it.first }.toMutableList()
+                                        val item = mutable.removeAt(currentIdx)
+                                        mutable.add(targetIdx, item)
+                                        onOrderChanged(mutable)
+                                        draggingIndex = targetIdx
+                                        dragOffsetY -= (targetIdx - currentIdx) * itemHeightPx
+                                    }
+                                },
+                                onDragEnd = {
+                                    draggingIndex = null
+                                    dragOffsetY = 0f
+                                },
+                                onDragCancel = {
+                                    draggingIndex = null
+                                    dragOffsetY = 0f
+                                }
+                            )
+                        }
+                ) {
+                    Icon(
+                        Icons.Default.DragHandle,
+                        contentDescription = "Drag to reorder",
+                        tint = if (isDragging) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = { onItemRemoved(typeId) },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(Icons.Default.RemoveCircle, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                }
+
+                Text(
+                    text = name,
+                    modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                IconButton(
+                    onClick = {
+                        val list = validEnabledItems.map { it.first }.toMutableList()
+                        val actIdx = list.indexOf(typeId)
+                        if (actIdx > 0) {
+                            val t = list[actIdx]
+                            list[actIdx] = list[actIdx - 1]
+                            list[actIdx - 1] = t
+                            onOrderChanged(list)
+                        }
+                    },
+                    enabled = index > 0,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(Icons.Default.ArrowUpward, null, modifier = Modifier.size(18.dp))
+                }
+
+                IconButton(
+                    onClick = {
+                        val list = validEnabledItems.map { it.first }.toMutableList()
+                        val actIdx = list.indexOf(typeId)
+                        if (actIdx != -1 && actIdx < list.size - 1) {
+                            val t = list[actIdx]
+                            list[actIdx] = list[actIdx + 1]
+                            list[actIdx + 1] = t
+                            onOrderChanged(list)
+                        }
+                    },
+                    enabled = index < validEnabledItems.size - 1,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(Icons.Default.ArrowDownward, null, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+
+        val disabledItems = allItems.filter { item -> validEnabledItems.none { it.first == item.first } }
+        if (disabledItems.isNotEmpty()) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+            disabledItems.forEach { (typeId, name) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { onItemAdded(typeId) },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(Icons.Default.AddCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    }
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MidDataSettingsContent(
+    activityMidTypes: Map<String, List<Int>>,
+    selectedActivityType: ActivityType,
+    onActivityTypeSelected: (ActivityType) -> Unit,
+    viewModel: SettingsViewModel
+) {
+    val currentTypes = activityMidTypes[selectedActivityType.name] ?: hag1987haaa.pebble.iron.domain.settings.AppSettings.getDefaultMidTypes(selectedActivityType)
+
     Column(modifier = Modifier.padding(8.dp)) {
-        Text(text = stringResource(Res.string.settings_mid_data_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        Text(
+            text = stringResource(Res.string.settings_mid_data_desc),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ActivityType.entries.forEach { type ->
+                FilterChip(
+                    selected = type == selectedActivityType,
+                    onClick = { onActivityTypeSelected(type) },
+                    label = { Text(type.getDisplayName()) }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
         val allItems = listOf(
+            9 to stringResource(Res.string.settings_mid_item_clock),
+            8 to stringResource(Res.string.settings_mid_item_speed),
             0 to stringResource(Res.string.settings_mid_item_pace),
             14 to stringResource(Res.string.settings_mid_item_pace_1m),
             15 to stringResource(Res.string.settings_mid_item_pace_2m),
@@ -498,8 +736,6 @@ fun MidDataSettingsContent(enabledMidItems: List<Int>, viewModel: SettingsViewMo
             12 to stringResource(Res.string.settings_mid_item_hr_ble),
             13 to stringResource(Res.string.settings_mid_item_hr_watch),
             5 to stringResource(Res.string.settings_mid_item_cal),
-            8 to stringResource(Res.string.settings_mid_item_speed),
-            9 to stringResource(Res.string.settings_mid_item_clock),
             10 to stringResource(Res.string.settings_mid_item_gain),
             11 to stringResource(Res.string.settings_mid_item_cadence),
             24 to stringResource(Res.string.settings_mid_item_cadence_nz),
@@ -509,47 +745,28 @@ fun MidDataSettingsContent(enabledMidItems: List<Int>, viewModel: SettingsViewMo
             21 to stringResource(Res.string.settings_mid_item_power_30s),
             22 to stringResource(Res.string.settings_mid_item_power_5m),
             23 to stringResource(Res.string.settings_mid_item_avg_power),
-            24 to stringResource(Res.string.settings_mid_item_cadence_nz),
-            18 to stringResource(Res.string.settings_mid_item_power),
-            19 to stringResource(Res.string.settings_mid_item_power_3s),
-            20 to stringResource(Res.string.settings_mid_item_power_10s),
-            21 to stringResource(Res.string.settings_mid_item_power_30s),
-            22 to stringResource(Res.string.settings_mid_item_power_5m),
-            23 to stringResource(Res.string.settings_mid_item_avg_power),
             99 to stringResource(Res.string.settings_mid_item_detail)
         )
-        val validEnabledItems = enabledMidItems.mapNotNull { typeId ->
-            val found = allItems.find { it.first == typeId }
-            if (found != null) typeId to found.second else null
-        }
-        validEnabledItems.forEachIndexed { index, (typeId, name) ->
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { 
-                    val newList = enabledMidItems.toMutableList()
-                    val actualIndex = newList.indexOf(typeId)
-                    if (actualIndex != -1) { newList.removeAt(actualIndex); viewModel.updateMidDataSettings(newList) }
-                }) { Icon(Icons.Default.RemoveCircle, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
-                Text(text = name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                IconButton(onClick = { 
-                    val newList = enabledMidItems.toMutableList(); val actualIndex = newList.indexOf(typeId)
-                    if (actualIndex > 0) { val t = newList[actualIndex]; newList[actualIndex] = newList[actualIndex-1]; newList[actualIndex-1] = t; viewModel.updateMidDataSettings(newList) }
-                }, enabled = index > 0) { Icon(Icons.Default.ArrowUpward, null, modifier = Modifier.size(20.dp)) }
-                IconButton(onClick = { 
-                    val newList = enabledMidItems.toMutableList(); val actualIndex = newList.indexOf(typeId)
-                    if (actualIndex < newList.size - 1) { val t = newList[actualIndex]; newList[actualIndex] = newList[actualIndex+1]; newList[actualIndex+1] = t; viewModel.updateMidDataSettings(newList) }
-                }, enabled = index < validEnabledItems.size - 1) { Icon(Icons.Default.ArrowDownward, null, modifier = Modifier.size(20.dp)) }
+
+        ReorderableDataSettingsList(
+            activityType = selectedActivityType,
+            enabledIds = currentTypes,
+            allItems = allItems,
+            onOrderChanged = { newList -> viewModel.updateMidDataSettings(selectedActivityType, newList) },
+            onItemRemoved = { typeId ->
+                val list = currentTypes.toMutableList()
+                list.remove(typeId)
+                viewModel.updateMidDataSettings(selectedActivityType, list)
+            },
+            onItemAdded = { typeId ->
+                val list = currentTypes.toMutableList()
+                list.add(typeId)
+                viewModel.updateMidDataSettings(selectedActivityType, list)
+            },
+            onResetRequested = {
+                viewModel.resetMidDataSettings(selectedActivityType)
             }
-        }
-        val disabledItems = allItems.filter { it.first !in enabledMidItems }
-        if (disabledItems.isNotEmpty()) {
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            disabledItems.forEach { (typeId, name) ->
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { val newList = enabledMidItems.toMutableList(); newList.add(typeId); viewModel.updateMidDataSettings(newList) }) { Icon(Icons.Default.AddCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
-                    Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
-                }
-            }
-        }
+        )
     }
 }
 
@@ -583,14 +800,43 @@ fun GraphSettingsContent(enabledGraphs: List<Int>, viewModel: SettingsViewModel)
     }
 }
 
-
 @Composable
-fun LowerDataSettingsContent(enabledLowerItems: List<Int>, viewModel: SettingsViewModel) {
+fun LowerDataSettingsContent(
+    activityLowerTypes: Map<String, List<Int>>,
+    selectedActivityType: ActivityType,
+    onActivityTypeSelected: (ActivityType) -> Unit,
+    viewModel: SettingsViewModel
+) {
+    val currentTypes = activityLowerTypes[selectedActivityType.name] ?: hag1987haaa.pebble.iron.domain.settings.AppSettings.getDefaultLowerTypes(selectedActivityType)
+
     Column(modifier = Modifier.padding(8.dp)) {
-        Text(text = stringResource(Res.string.settings_lower_data_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-        
+        Text(
+            text = stringResource(Res.string.settings_lower_data_desc),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ActivityType.entries.forEach { type ->
+                FilterChip(
+                    selected = type == selectedActivityType,
+                    onClick = { onActivityTypeSelected(type) },
+                    label = { Text(type.getDisplayName()) }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
         val allItems = listOf(
             // 数値項目
+            9 to stringResource(Res.string.settings_mid_item_clock),
+            8 to stringResource(Res.string.settings_mid_item_speed),
             0 to stringResource(Res.string.settings_mid_item_pace),
             14 to stringResource(Res.string.settings_mid_item_pace_1m),
             15 to stringResource(Res.string.settings_mid_item_pace_2m),
@@ -604,8 +850,6 @@ fun LowerDataSettingsContent(enabledLowerItems: List<Int>, viewModel: SettingsVi
             12 to stringResource(Res.string.settings_mid_item_hr_ble),
             13 to stringResource(Res.string.settings_mid_item_hr_watch),
             5 to stringResource(Res.string.settings_mid_item_cal),
-            8 to stringResource(Res.string.settings_mid_item_speed),
-            9 to stringResource(Res.string.settings_mid_item_clock),
             10 to stringResource(Res.string.settings_mid_item_gain),
             11 to stringResource(Res.string.settings_mid_item_cadence),
             24 to stringResource(Res.string.settings_mid_item_cadence_nz),
@@ -621,47 +865,32 @@ fun LowerDataSettingsContent(enabledLowerItems: List<Int>, viewModel: SettingsVi
             102 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_steps),
             103 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_alt),
             104 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_hr),
-            105 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_cal)
+            105 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_cal),
+            106 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_cadence),
+            107 to stringResource(Res.string.settings_graph_prefix) + stringResource(Res.string.settings_mid_item_power)
         )
-        
-        val validEnabledItems = enabledLowerItems.mapNotNull { typeId ->
-            val found = allItems.find { it.first == typeId }
-            if (found != null) typeId to found.second else null
-        }
-        
-        validEnabledItems.forEachIndexed { index, (typeId, name) ->
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { 
-                    val newList = enabledLowerItems.toMutableList()
-                    val actualIndex = newList.indexOf(typeId)
-                    if (actualIndex != -1) { newList.removeAt(actualIndex); viewModel.updateLowerDataSettings(newList) }
-                }) { Icon(Icons.Default.RemoveCircle, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
-                Text(text = name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                IconButton(onClick = { 
-                    val newList = enabledLowerItems.toMutableList(); val actualIndex = newList.indexOf(typeId)
-                    if (actualIndex > 0) { val t = newList[actualIndex]; newList[actualIndex] = newList[actualIndex-1]; newList[actualIndex-1] = t; viewModel.updateLowerDataSettings(newList) }
-                }, enabled = index > 0) { Icon(Icons.Default.ArrowUpward, null, modifier = Modifier.size(20.dp)) }
-                IconButton(onClick = { 
-                    val newList = enabledLowerItems.toMutableList(); val actualIndex = newList.indexOf(typeId)
-                    if (actualIndex != -1 && actualIndex < enabledLowerItems.size - 1) { val t = newList[actualIndex]; newList[actualIndex] = newList[actualIndex+1]; newList[actualIndex+1] = t; viewModel.updateLowerDataSettings(newList) }
-                }, enabled = index < validEnabledItems.size - 1) { Icon(Icons.Default.ArrowDownward, null, modifier = Modifier.size(20.dp)) }
+
+        ReorderableDataSettingsList(
+            activityType = selectedActivityType,
+            enabledIds = currentTypes,
+            allItems = allItems,
+            onOrderChanged = { newList -> viewModel.updateLowerDataSettings(selectedActivityType, newList) },
+            onItemRemoved = { typeId ->
+                val list = currentTypes.toMutableList()
+                list.remove(typeId)
+                viewModel.updateLowerDataSettings(selectedActivityType, list)
+            },
+            onItemAdded = { typeId ->
+                val list = currentTypes.toMutableList()
+                list.add(typeId)
+                viewModel.updateLowerDataSettings(selectedActivityType, list)
+            },
+            onResetRequested = {
+                viewModel.resetLowerDataSettings(selectedActivityType)
             }
-        }
-        
-        val disabledItems = allItems.filter { item -> enabledLowerItems.none { it == item.first } }
-        if (disabledItems.isNotEmpty()) {
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            disabledItems.forEach { (typeId, name) ->
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { val newList = enabledLowerItems.toMutableList(); newList.add(typeId); viewModel.updateLowerDataSettings(newList) }) { Icon(Icons.Default.AddCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
-                    Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
-                }
-            }
-        }
+        )
     }
 }
-
-
 @Composable
 fun MapSettingsContent(viewModel: SettingsViewModel) {
     val isAutoShowMapOnReady by viewModel.isAutoShowMapOnReadyEnabled.collectAsState()

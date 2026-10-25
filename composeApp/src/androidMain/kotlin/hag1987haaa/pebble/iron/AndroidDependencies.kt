@@ -133,11 +133,53 @@ object AndroidDependencies {
             settings.activityHrZoneMaxs = settings.activityHrZoneMaxs + map
         }
         
-        // Mid Data 設定の読み込み
-        val midTypesStr = prefs.getString("mid_types", "0,4,1,5,10") ?: "0,4,1,5,10"
-        settings.enabledMidTypes = midTypesStr.split(",").filter { it.isNotEmpty() }.map { it.toInt() }
-        val lowerTypesStr = prefs.getString("lower_types", "100,101,102,103,104,105") ?: "100,101,102,103,104,105"
-        settings.enabledLowerTypes = lowerTypesStr.split(",").filter { it.isNotEmpty() }.map { it.toInt() }
+        // Mid Data 設定の読み込みとマイグレーション
+        val actMidStr = prefs.getString("activity_mid_types", null)
+        if (!actMidStr.isNullOrEmpty()) {
+            val map = actMidStr.split(";").mapNotNull { entry ->
+                val parts = entry.split(":")
+                if (parts.size == 2) {
+                    val key = parts[0]
+                    val list = parts[1].split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }
+                    key to list
+                } else null
+            }.toMap()
+            settings.activityMidTypes = settings.activityMidTypes + map
+        } else {
+            // 既存ユーザーのマイグレーション
+            val oldMidStr = prefs.getString("mid_types", null)
+            if (oldMidStr != null) {
+                val oldList = oldMidStr.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }
+                if (oldList.isNotEmpty()) {
+                    val map = ActivityType.entries.associate { it.name to oldList }
+                    settings.activityMidTypes = map
+                }
+            }
+        }
+
+        // Lower Data 設定の読み込みとマイグレーション
+        val actLowerStr = prefs.getString("activity_lower_types", null)
+        if (!actLowerStr.isNullOrEmpty()) {
+            val map = actLowerStr.split(";").mapNotNull { entry ->
+                val parts = entry.split(":")
+                if (parts.size == 2) {
+                    val key = parts[0]
+                    val list = parts[1].split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }
+                    key to list
+                } else null
+            }.toMap()
+            settings.activityLowerTypes = settings.activityLowerTypes + map
+        } else {
+            // 既存ユーザーのマイグレーション
+            val oldLowerStr = prefs.getString("lower_types", null)
+            if (oldLowerStr != null) {
+                val oldList = oldLowerStr.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }
+                if (oldList.isNotEmpty()) {
+                    val map = ActivityType.entries.associate { it.name to oldList }
+                    settings.activityLowerTypes = map
+                }
+            }
+        }
         settings.isMetric = prefs.getBoolean("is_metric", true)
         
         // 自動エクスポート設定
@@ -279,6 +321,8 @@ object AndroidDependencies {
                 putString("activity_hr_mins", settings.activityHrZoneMins.entries.joinToString(",") { "${it.key}:${it.value}" })
                 putString("activity_hr_maxs", settings.activityHrZoneMaxs.entries.joinToString(",") { "${it.key}:${it.value}" })
                 
+                putString("activity_mid_types", settings.activityMidTypes.entries.joinToString(";") { "${it.key}:${it.value.joinToString(",")}" })
+                putString("activity_lower_types", settings.activityLowerTypes.entries.joinToString(";") { "${it.key}:${it.value.joinToString(",")}" })
                 putString("mid_types", settings.enabledMidTypes.joinToString(","))
                 putString("lower_types", settings.enabledLowerTypes.joinToString(","))
                 putBoolean("is_metric", settings.isMetric)

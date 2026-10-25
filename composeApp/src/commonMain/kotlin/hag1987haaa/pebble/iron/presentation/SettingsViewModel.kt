@@ -54,6 +54,9 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _enabledLowerTypes = MutableStateFlow(settings.enabledLowerTypes)
     val enabledLowerTypes: StateFlow<List<Int>> = _enabledLowerTypes.asStateFlow()
 
+    val activityMidTypes: StateFlow<Map<String, List<Int>>> = settings.activityMidTypesFlow
+    val activityLowerTypes: StateFlow<Map<String, List<Int>>> = settings.activityLowerTypesFlow
+
     private val _isMetric = MutableStateFlow(settings.isMetric)
     val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
 
@@ -251,14 +254,34 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     }
 
     fun updateMidDataSettings(newTypes: List<Int>) {
-        settings.enabledMidTypes = newTypes
-        _enabledMidTypes.value = newTypes
+        updateMidDataSettings(ActivityType.RUNNING, newTypes)
+    }
+
+    fun updateMidDataSettings(type: ActivityType, newTypes: List<Int>) {
+        settings.setMidTypes(type, newTypes)
+        _enabledMidTypes.value = settings.enabledMidTypes
+        settings.save()
+    }
+
+    fun resetMidDataSettings(type: ActivityType) {
+        settings.resetMidTypes(type)
+        _enabledMidTypes.value = settings.enabledMidTypes
         settings.save()
     }
 
     fun updateLowerDataSettings(newTypes: List<Int>) {
-        settings.enabledLowerTypes = newTypes
-        _enabledLowerTypes.value = newTypes
+        updateLowerDataSettings(ActivityType.RUNNING, newTypes)
+    }
+
+    fun updateLowerDataSettings(type: ActivityType, newTypes: List<Int>) {
+        settings.setLowerTypes(type, newTypes)
+        _enabledLowerTypes.value = settings.enabledLowerTypes
+        settings.save()
+    }
+
+    fun resetLowerDataSettings(type: ActivityType) {
+        settings.resetLowerTypes(type)
+        _enabledLowerTypes.value = settings.enabledLowerTypes
         settings.save()
     }
 

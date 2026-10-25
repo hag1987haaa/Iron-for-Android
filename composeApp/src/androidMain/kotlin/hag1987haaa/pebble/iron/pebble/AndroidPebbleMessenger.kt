@@ -50,6 +50,7 @@ class AndroidPebbleMessenger(
     // そのワークアウト中に使う固定のリスト順序（計測中は一切変えない）
     private var sessionMidList: List<Int> = emptyList()
     private var sessionLowerList: List<Int> = emptyList()
+    private var lastSessionActivityType: hag1987haaa.pebble.iron.domain.model.ActivityType? = null
     // 今実際に Pebble の画面に表示されている ID
     private var currentMidDataId: Int = -1
     private var currentLowerDataId: Int = -1
@@ -260,7 +261,7 @@ class AndroidPebbleMessenger(
     override fun sendStatistics(stats: RunStatistics) {
         if (isMapTransferring) return
         val settings = this.settings
-        ensureSessionInitialized(stats.status, settings)
+        ensureSessionInitialized(stats.status, settings, stats.activityType)
 
         val dict = mapOf(
             KEY_CMD to PebbleDictionaryItem.Int32(1), 
@@ -279,22 +280,27 @@ class AndroidPebbleMessenger(
         sendLowerData(stats)
     }
 
-    private fun ensureSessionInitialized(status: RunStatus, settings: hag1987haaa.pebble.iron.domain.settings.AppSettings) {
-        val enabledMid = settings.enabledMidTypes
+    private fun ensureSessionInitialized(status: RunStatus, settings: hag1987haaa.pebble.iron.domain.settings.AppSettings, activityType: hag1987haaa.pebble.iron.domain.model.ActivityType) {
+        val enabledMid = settings.getMidTypes(activityType)
+        val enabledLower = settings.getLowerTypes(activityType)
+        val activityChanged = (lastSessionActivityType != activityType)
+        if (activityChanged) {
+            lastSessionActivityType = activityType
+        }
+
         if (enabledMid.isNotEmpty()) {
-            if (sessionMidList.isEmpty() || sessionMidList.size != enabledMid.size || !sessionMidList.containsAll(enabledMid)) {
+            if (activityChanged || sessionMidList.isEmpty() || sessionMidList.size != enabledMid.size || sessionMidList != enabledMid) {
                 sessionMidList = enabledMid
                 currentMidDataId = if (settings.lastMidId in enabledMid) settings.lastMidId else enabledMid.first()
-                Log.d("PebbleMessenger", "Session Mid initialized. List=$sessionMidList, currentId=$currentMidDataId")
+                Log.d("PebbleMessenger", "Session Mid initialized for $activityType. List=$sessionMidList, currentId=$currentMidDataId")
             }
         }
 
-        val enabledLower = settings.enabledLowerTypes
         if (enabledLower.isNotEmpty()) {
-            if (sessionLowerList.isEmpty() || sessionLowerList.size != enabledLower.size || !sessionLowerList.containsAll(enabledLower)) {
+            if (activityChanged || sessionLowerList.isEmpty() || sessionLowerList.size != enabledLower.size || sessionLowerList != enabledLower) {
                 sessionLowerList = enabledLower
                 currentLowerDataId = if (settings.lastLowerId in enabledLower) settings.lastLowerId else enabledLower.first()
-                Log.d("PebbleMessenger", "Session Lower initialized. List=$sessionLowerList, currentId=$currentLowerDataId")
+                Log.d("PebbleMessenger", "Session Lower initialized for $activityType. List=$sessionLowerList, currentId=$currentLowerDataId")
             }
         }
 
@@ -303,7 +309,10 @@ class AndroidPebbleMessenger(
             currentMidDataId = if (settings.lastMidId in sessionMidList) settings.lastMidId else sessionMidList.firstOrNull() ?: 0
         }
 
-        if (currentGraphTypeId == -1) {
+        if (currentLowerDataId >= 100) {
+            currentGraphTypeId = currentLowerDataId - 100
+            settings.lastGraphTypeId = currentGraphTypeId
+        } else if (currentGraphTypeId == -1) {
             currentGraphTypeId = settings.lastGraphTypeId
             if (currentGraphTypeId !in settings.enabledGraphTypes) {
                 currentGraphTypeId = settings.enabledGraphTypes.firstOrNull() ?: -1
@@ -360,6 +369,8 @@ class AndroidPebbleMessenger(
                 103 -> "ALT"
                 104 -> "HR"
                 105 -> "CAL"
+                106 -> "CAD"
+                107 -> "PWR"
                 else -> "GRAPH"
             }
             return "$typeId,GRAPH,$graphName,"
@@ -450,18 +461,32 @@ class AndroidPebbleMessenger(
     override fun sendGraphData(stats: RunStatistics) {
         scope.launch {
             val currentSettings = this@AndroidPebbleMessenger.settings
-            val enabled = currentSettings.enabledGraphTypes
-            if (enabled.isEmpty()) return@launch
-            
-            // 現在のIDが有効リストにない場合は、設定の最終保存値かリストの先頭を採用する
-            val targetId = if (currentGraphTypeId in enabled) {
-                currentGraphTypeId
-            } else if (currentSettings.lastGraphTypeId in enabled) {
-                currentGraphTypeId = currentSettings.lastGraphTypeId
-                currentGraphTypeId
+            ensureSessionInitialized(stats.status, currentSettings, stats.activityType)
+
+            // 下段がテキストメトリック（< 100）の場合はウォッチでグラフを表示していないため定期送信をスキップ
+            // （Bluetooth通信帯域の節約とキュー詰まり防止）
+            if (currentLowerDataId < 100 && currentLowerDataId != -1) {
+                return@launch
+            }
+
+            // 下段がグラフ項目（>= 100）なら、その下段に一致するグラフID（id - 100）を最優先でターゲットにする
+            val targetId = if (currentLowerDataId >= 100) {
+                val gId = currentLowerDataId - 100
+                currentGraphTypeId = gId
+                currentSettings.lastGraphTypeId = gId
+                gId
             } else {
-                currentGraphTypeId = enabled[0]
-                enabled[0]
+                val enabled = currentSettings.enabledGraphTypes
+                if (enabled.isEmpty()) return@launch
+                if (currentGraphTypeId in enabled) {
+                    currentGraphTypeId
+                } else if (currentSettings.lastGraphTypeId in enabled) {
+                    currentGraphTypeId = currentSettings.lastGraphTypeId
+                    currentGraphTypeId
+                } else {
+                    currentGraphTypeId = enabled[0]
+                    enabled[0]
+                }
             }
             
             val unifiedGraph = GraphDataGenerator.generateUnifiedGraph(stats, targetId, currentSettings)
@@ -566,7 +591,7 @@ class AndroidPebbleMessenger(
             sessionMidList = emptyList() // ensureSessionInitialized を強制的に走らせる
             sessionLowerList = emptyList()
             if (status != RunStatus.IDLE) {
-                ensureSessionInitialized(status, settings)
+                ensureSessionInitialized(status, settings, stats.activityType)
             }
         }
         
@@ -591,6 +616,15 @@ class AndroidPebbleMessenger(
                     pages
                 }
                 dict[KEY_MID_DATA] = PebbleDictionaryItem.Text(finalPages.joinToString("|"))
+                dict[KEY_MID_ID] = PebbleDictionaryItem.Int32(currentMidDataId)
+            }
+        }
+
+        if (sessionLowerList.isNotEmpty()) {
+            val lowerPages = sessionLowerList.mapNotNull { typeId -> generateLowerPageString(typeId, stats, settings) }
+            if (lowerPages.isNotEmpty()) {
+                dict[KEY_LOWER_DATA] = PebbleDictionaryItem.Text(lowerPages.joinToString("|"))
+                dict[KEY_LOWER_ID] = PebbleDictionaryItem.Int32(currentLowerDataId)
             }
         }
         
@@ -599,7 +633,7 @@ class AndroidPebbleMessenger(
 
     override fun sendFullSync(stats: RunStatistics) {
         val settings = this.settings
-        ensureSessionInitialized(stats.status, settings)
+        ensureSessionInitialized(stats.status, settings, stats.activityType)
         val dict = mapOf(
             KEY_CMD to PebbleDictionaryItem.Int32(5), 
             KEY_TIME to PebbleDictionaryItem.Text(stats.formattedTime),
