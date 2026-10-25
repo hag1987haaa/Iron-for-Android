@@ -96,7 +96,7 @@ object AssistantActionHandler {
         return true
     }
 
-    private fun parseActivityType(rawName: String): ActivityType {
+    internal fun parseActivityType(rawName: String): ActivityType {
         val lower = rawName.lowercase().trim()
         return when {
             // ランニング
@@ -115,7 +115,7 @@ object AssistantActionHandler {
         }
     }
 
-    private fun dispatchCommand(context: Context, action: String) {
+    internal fun dispatchCommand(context: Context, action: String) {
         val serviceAction = when (action) {
             "START" -> "START"
             "PAUSE" -> "PAUSE"

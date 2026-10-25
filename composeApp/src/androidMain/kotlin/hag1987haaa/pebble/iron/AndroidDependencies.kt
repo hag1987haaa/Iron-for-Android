@@ -18,6 +18,7 @@ import hag1987haaa.pebble.iron.location.AndroidLocationTracker
 import hag1987haaa.pebble.iron.pebble.AndroidPebbleMessenger
 import hag1987haaa.pebble.iron.ble.AndroidBleScanner
 import hag1987haaa.pebble.iron.ble.AndroidBleHeartRateManager
+import hag1987haaa.pebble.iron.assistant.IronAppFunctionService
 import kotlinx.coroutines.MainScope
 import androidx.compose.ui.graphics.asImageBitmap
 
@@ -210,6 +211,9 @@ object AndroidDependencies {
             Log.e("AndroidDependencies", "Failed to get version name", e)
         }
 
+        // App Functions サービスの状態同期 (Android 16+)
+        IronAppFunctionService.updateServiceEnabledState(appContext, settings.isAssistantIntegrationEnabled)
+
         // 保存用コールバックの登録
         settings.onSettingsChanged = {
             // GPXコースの保存 (JSONファイル)
@@ -292,6 +296,8 @@ object AndroidDependencies {
 
                 apply()
             }
+            // App Functions サービスの状態同期 (Android 16+)
+            IronAppFunctionService.updateServiceEnabledState(appContext, settings.isAssistantIntegrationEnabled)
             Log.d("AndroidDependencies", "Settings saved to SharedPreferences")
         }
         // ------------------------------------------

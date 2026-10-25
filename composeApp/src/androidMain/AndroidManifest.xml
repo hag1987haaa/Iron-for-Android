@@ -145,6 +145,21 @@
         <!-- Android 14 (API 34) 以降で必須のプロパティ定義 -->
         <property android:name="android.health.PROPERTY_HEALTH_CONNECT_PERMISSION_RATIONALE_ACTIVITY" android:value="hag1987haaa.pebble.iron.presentation.HealthConnectPermissionActivity" />
 
+        <!-- App Functions Service (Android 16+ / API 36) -->
+        <!-- プライバシー保護のため初期状態は android:enabled="false" とし、ユーザーがシミュレーション画面で明示的に有効化するまでOSから完全に隠蔽 -->
+        <service
+            android:name=".assistant.IronAppFunctionService"
+            android:enabled="false"
+            android:exported="true"
+            android:permission="android.permission.BIND_APP_FUNCTION_SERVICE">
+            <intent-filter>
+                <action android:name="android.app.appfunctions.AppFunctionService" />
+            </intent-filter>
+            <property
+                android:name="android.app.appfunctions"
+                android:resource="@xml/app_functions" />
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

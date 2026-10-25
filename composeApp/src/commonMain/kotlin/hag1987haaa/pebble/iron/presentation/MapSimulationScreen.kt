@@ -339,7 +339,7 @@ fun MapSimulationScreen(
 
             var isAssistantEnabled by remember { mutableStateOf(KmpDependencies.appSettings.isAssistantIntegrationEnabled) }
 
-            // Voice Assistant Integration (Experimental / Hidden)
+            // Voice Assistant & App Functions Integration (Experimental / Hidden)
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 modifier = Modifier.fillMaxWidth(0.9f)
@@ -351,9 +351,9 @@ fun MapSimulationScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Voice Assistant (Experimental)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Voice Assistant & App Functions (Experimental)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             Text(
-                                "Allow Google Assistant / Gemini / Siri to control workouts and read metrics (Pace, HR)",
+                                "Allow Google Assistant, Gemini, and App Functions to control workouts and read metrics (Pace, HR)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                             )
@@ -368,10 +368,16 @@ fun MapSimulationScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = if (isAssistantEnabled) "Status: Enabled (Safe for Assistant queries)" else "Status: Disabled (Default - Privacy Protected)",
+                        text = if (isAssistantEnabled) "Status: Enabled (Safe for Assistant & App Functions)" else "Status: Disabled (Default - Privacy Protected)",
                         style = MaterialTheme.typography.labelMedium,
                         color = if (isAssistantEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "※ App Functions direct execution requires Android 16 (API 36)+. Disabled by default for privacy protection.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
