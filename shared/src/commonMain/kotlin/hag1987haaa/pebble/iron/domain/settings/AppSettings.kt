@@ -210,6 +210,16 @@ class AppSettings {
         get() = _isPrivacyMapModeEnabled.value
         set(value) { _isPrivacyMapModeEnabled.value = value }
 
+    // 詳細画面でのマップ固定表示設定
+    private val _isDetailMapPinned = MutableStateFlow(value = false)
+    val isDetailMapPinnedFlow: StateFlow<Boolean> = _isDetailMapPinned.asStateFlow()
+    var isDetailMapPinned: Boolean
+        get() = _isDetailMapPinned.value
+        set(value) {
+            _isDetailMapPinned.value = value
+            save()
+        }
+
     private val _isAutoShowMapOnReadyEnabled = MutableStateFlow(value = false)
     val isAutoShowMapOnReadyEnabledFlow: StateFlow<Boolean> = _isAutoShowMapOnReadyEnabled.asStateFlow()
     var isAutoShowMapOnReadyEnabled: Boolean

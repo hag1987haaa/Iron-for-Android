@@ -281,6 +281,7 @@
     <string name="settings_mid_item_cadence">ケイデンス (SPM)</string>
     <string name="settings_mid_item_detail">コックピットモード (4項目表示)</string>
     <string name="detail_label_privacy">プライバシー</string>
+    <string name="detail_label_pin_map">固定</string>
     <string name="detail_chart_speed_dist_metric">速度 (km/h vs 距離)</string>
     <string name="detail_chart_speed_time_metric">速度 (km/h vs 時間)</string>
     <string name="detail_chart_speed_dist_imperial">速度 (mph vs 距離)</string>

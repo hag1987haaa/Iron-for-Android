@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -60,11 +62,13 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
     val viewModel: HistoryViewModel = viewModel { HistoryViewModel(KmpDependencies.runRepository) }
     var runActivity by remember { mutableStateOf<RunActivity?>(null) }
     val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
     var editableName by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(ActivityType.RUNNING) }
     var isEditingName by remember { mutableStateOf(false) }
     var typeDropdownExpanded by remember { mutableStateOf(false) }
     var isPrivacyMapLocal by remember { mutableStateOf(KmpDependencies.appSettings.isPrivacyMapModeEnabled) }
+    var isMapPinned by rememberSaveable { mutableStateOf(KmpDependencies.appSettings.isDetailMapPinned) }
     
     var showExportDialog by remember { mutableStateOf(false) }
     var isDistanceBased by remember { mutableStateOf(false) }
@@ -189,7 +193,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(padding)
-                            .verticalScroll(scrollState),
+                            .then(if (!isMapPinned) Modifier.verticalScroll(scrollState) else Modifier),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Surface(
@@ -248,87 +252,204 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                     )
                                 }
 
-                                // 情報オーバーレイ（下部に配置、完全透明）
+                                // 情報オーバーレイ（下部に配置、コンパクトなカード形式）
                                 Surface(
-                                    modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
-                                    color = Color.Transparent
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    tonalElevation = 2.dp,
+                                    shadowElevation = 2.dp
                                 ) {
-                                    Column(
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                        horizontalAlignment = Alignment.Start
-                                    ) {
-                                        if (isEditingName || runId == -1L) {
-                                            Column {
-                                                OutlinedTextField(
-                                                    value = editableName,
-                                                    onValueChange = { editableName = it },
-                                                    label = { Text(stringResource(Res.string.detail_label_name)) },
+                                    if (isEditingName) {
+                                        Column(
+                                            modifier = Modifier.padding(10.dp),
+                                            horizontalAlignment = Alignment.Start
+                                        ) {
+                                            OutlinedTextField(
+                                                value = editableName,
+                                                onValueChange = { editableName = it },
+                                                label = { Text(stringResource(Res.string.detail_label_name)) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                singleLine = true,
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                                                )
+                                            )
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Box(modifier = Modifier.fillMaxWidth()) {
+                                                OutlinedButton(
+                                                    onClick = { typeDropdownExpanded = true }, 
                                                     modifier = Modifier.fillMaxWidth(),
-                                                    colors = OutlinedTextFieldDefaults.colors(
-                                                        focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
-                                                    )
-                                                )
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                Box(modifier = Modifier.fillMaxWidth()) {
-                                                    OutlinedButton(
-                                                        onClick = { typeDropdownExpanded = true }, 
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
-                                                    ) {
-                                                        val typeLabel = stringResource(Res.string.detail_label_type).replace("%s", selectedType.getDisplayName())
-                                                        Text(typeLabel)
-                                                        Spacer(modifier = Modifier.weight(1f))
-                                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                                                    }
-                                                    DropdownMenu(expanded = typeDropdownExpanded, onDismissRequest = { typeDropdownExpanded = false }) {
-                                                        ActivityType.entries.forEach { type ->
-                                                            DropdownMenuItem(text = { Text(type.getDisplayName()) }, onClick = { selectedType = type; typeDropdownExpanded = false })
-                                                        }
+                                                    colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
+                                                ) {
+                                                    val typeLabel = stringResource(Res.string.detail_label_type).replace("%s", selectedType.getDisplayName())
+                                                    Text(typeLabel)
+                                                    Spacer(modifier = Modifier.weight(1f))
+                                                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                                }
+                                                DropdownMenu(expanded = typeDropdownExpanded, onDismissRequest = { typeDropdownExpanded = false }) {
+                                                    ActivityType.entries.forEach { type ->
+                                                        DropdownMenuItem(text = { Text(type.getDisplayName()) }, onClick = { selectedType = type; typeDropdownExpanded = false })
                                                     }
                                                 }
-                                                if (runId != -1L) {
-                                                    Button(
-                                                        onClick = {
-                                                            viewModel.viewModelScope.launch {
-                                                                viewModel.updateRunName(runId, editableName)
-                                                                viewModel.updateActivityType(runId, selectedType, KmpDependencies.appSettings.userWeightKg)
-                                                                isEditingName = false
-                                                                val updatedRun = viewModel.getRunDetails(runId)
-                                                                runActivity = updatedRun
-                                                                updatedRun?.let { runObj ->
-                                                                    actions.syncWithHealthConnect(runObj) { _, _ -> }
-                                                                    actions.triggerAutoExport(runObj)
-                                                                }
-                                                            }
+                                            }
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                                horizontalArrangement = Arrangement.End
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.clickable {
+                                                        val next = !isMapPinned
+                                                        isMapPinned = next
+                                                        KmpDependencies.appSettings.isDetailMapPinned = next
+                                                        coroutineScope.launch { scrollState.scrollTo(0) }
+                                                    }
+                                                ) {
+                                                    Text(stringResource(Res.string.detail_label_pin_map), style = MaterialTheme.typography.labelSmall)
+                                                    Switch(
+                                                        checked = isMapPinned,
+                                                        onCheckedChange = { checked ->
+                                                            isMapPinned = checked
+                                                            KmpDependencies.appSettings.isDetailMapPinned = checked
+                                                            coroutineScope.launch { scrollState.scrollTo(0) }
                                                         },
-                                                        modifier = Modifier.align(Alignment.End).padding(top = 8.dp)
+                                                        modifier = Modifier.scale(0.55f)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.clickable { isPrivacyMapLocal = !isPrivacyMapLocal }
+                                                ) {
+                                                    Text(stringResource(Res.string.detail_label_privacy), style = MaterialTheme.typography.labelSmall)
+                                                    Switch(
+                                                        checked = isPrivacyMapLocal,
+                                                        onCheckedChange = { isPrivacyMapLocal = it },
+                                                        modifier = Modifier.scale(0.55f)
+                                                    )
+                                                }
+                                            }
+                                            Button(
+                                                onClick = {
+                                                    if (runId != -1L) {
+                                                        viewModel.viewModelScope.launch {
+                                                            viewModel.updateRunName(runId, editableName)
+                                                            viewModel.updateActivityType(runId, selectedType, KmpDependencies.appSettings.userWeightKg)
+                                                            isEditingName = false
+                                                            val updatedRun = viewModel.getRunDetails(runId)
+                                                            runActivity = updatedRun
+                                                            updatedRun?.let { runObj ->
+                                                                actions.syncWithHealthConnect(runObj) { _, _ -> }
+                                                                actions.triggerAutoExport(runObj)
+                                                            }
+                                                        }
+                                                    } else {
+                                                        isEditingName = false
+                                                    }
+                                                },
+                                                modifier = Modifier.align(Alignment.End).padding(top = 6.dp)
+                                            ) {
+                                                Text(stringResource(Res.string.detail_save))
+                                            }
+                                        }
+                                    } else {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            // 左側：ワークアウト名称と種別・日付（コンパクト表示）
+                                            Column(
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        text = editableName.ifEmpty { selectedType.getDisplayName() },
+                                                        style = MaterialTheme.typography.titleSmall,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.weight(1f, fill = false)
+                                                    )
+                                                    IconButton(
+                                                        onClick = { isEditingName = true },
+                                                        modifier = Modifier.size(24.dp).padding(start = 2.dp)
                                                     ) {
-                                                        Text(stringResource(Res.string.detail_save))
+                                                        Icon(
+                                                            Icons.Default.Edit,
+                                                            contentDescription = "Edit",
+                                                            modifier = Modifier.size(13.dp),
+                                                            tint = MaterialTheme.colorScheme.primary
+                                                        )
                                                     }
                                                 }
-                                            }
-                                        } else {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Text(
-                                                    text = editableName.ifEmpty { "${selectedType.getDisplayName()} - ${run.startTime.toString().substringBefore("T")}" }, 
-                                                    style = MaterialTheme.typography.titleLarge, 
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onSurface // 背景が透明なので、テーマに応じた色を確実に適用
+                                                    text = if (editableName.isNotEmpty()) {
+                                                        "${selectedType.getDisplayName()} · ${run.startTime.toString().substringBefore("T")}"
+                                                    } else {
+                                                        run.startTime.toString().substringBefore("T")
+                                                    },
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.outline,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
-                                                IconButton(onClick = { isEditingName = true }) { 
-                                                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(16.dp)) 
+                                            }
+
+                                            Spacer(modifier = Modifier.width(6.dp))
+
+                                            // 右側：固定トグル & プライバシートグル
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.clickable {
+                                                        val next = !isMapPinned
+                                                        isMapPinned = next
+                                                        KmpDependencies.appSettings.isDetailMapPinned = next
+                                                        coroutineScope.launch { scrollState.scrollTo(0) }
+                                                    }
+                                                ) {
+                                                    Text(
+                                                        text = stringResource(Res.string.detail_label_pin_map),
+                                                        style = MaterialTheme.typography.labelSmall
+                                                    )
+                                                    Switch(
+                                                        checked = isMapPinned,
+                                                        onCheckedChange = { checked ->
+                                                            isMapPinned = checked
+                                                            KmpDependencies.appSettings.isDetailMapPinned = checked
+                                                            coroutineScope.launch { scrollState.scrollTo(0) }
+                                                        },
+                                                        modifier = Modifier.scale(0.55f)
+                                                    )
                                                 }
-                                            }
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(
-                                                    text = "${selectedType.getDisplayName()} - ${run.startTime.toString().substringBefore("T")}",
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.outline
-                                                )
-                                                Spacer(modifier = Modifier.weight(1f))
-                                                Text(stringResource(Res.string.detail_label_privacy), style = MaterialTheme.typography.labelSmall)
-                                                Switch(checked = isPrivacyMapLocal, onCheckedChange = { isPrivacyMapLocal = it }, modifier = Modifier.scale(0.6f))
+
+                                                Spacer(modifier = Modifier.width(2.dp))
+
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.clickable { isPrivacyMapLocal = !isPrivacyMapLocal }
+                                                ) {
+                                                    Text(
+                                                        text = stringResource(Res.string.detail_label_privacy),
+                                                        style = MaterialTheme.typography.labelSmall
+                                                    )
+                                                    Switch(
+                                                        checked = isPrivacyMapLocal,
+                                                        onCheckedChange = { isPrivacyMapLocal = it },
+                                                        modifier = Modifier.scale(0.55f)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -340,6 +461,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .then(if (isMapPinned) Modifier.weight(1f).verticalScroll(scrollState) else Modifier)
                                 .padding(horizontal = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
