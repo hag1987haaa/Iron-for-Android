@@ -46,14 +46,7 @@ import org.jetbrains.compose.resources.stringResource
 fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
     val status by RunState.status.collectAsState()
 
-    // ワークアウト終了後の確認画面(-1)にいる場合、リモート操作（ウォッチ側での保存・破棄）に追従する
-    if (runId == -1L) {
-        LaunchedEffect(status) {
-            if (status == RunStatus.RESULT || status == RunStatus.IDLE) {
-                onBack()
-            }
-        }
-    }
+    var isProcessingAction by remember { mutableStateOf(false) }
 
     BackPressHandler(enabled = runId == -1L) {
         // 保存・破棄を強制
@@ -118,23 +111,29 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
             ) {
                 Button(
                     onClick = { 
-                        actions.discardTracking()
-                        onBack() 
+                        if (!isProcessingAction) {
+                            isProcessingAction = true
+                            actions.discardTracking()
+                        }
                     },
+                    enabled = !isProcessingAction,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) { Text(stringResource(Res.string.detail_discard)) }
 
                 Button(
                     onClick = { 
-                        val currentStats = RunState.currentStats.value
-                        RunState.updateStats(currentStats.copy(
-                            name = editableName,
-                            activityType = selectedType
-                        ))
-                        actions.saveTracking()
-                        onBack() 
+                        if (!isProcessingAction) {
+                            isProcessingAction = true
+                            val currentStats = RunState.currentStats.value
+                            RunState.updateStats(currentStats.copy(
+                                name = editableName,
+                                activityType = selectedType
+                            ))
+                            actions.saveTracking()
+                        }
                     },
+                    enabled = !isProcessingAction,
                     modifier = Modifier.weight(1f)
                 ) { Text(stringResource(Res.string.detail_save)) }
             }

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -47,22 +48,22 @@ fun App(actions: AppActions) {
     val status by RunState.status.collectAsState()
     val stats by RunState.currentStats.collectAsState()
 
-    var lastRedirectedWorkoutStart by remember { mutableStateOf<Instant?>(null) }
+    var lastRedirectedWorkoutStartStr by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(status, stats.startTime) {
         val currentBackStackEntry = navController.currentBackStackEntry
         val currentRoute = currentBackStackEntry?.destination?.route
         
         val isOnMainScreen = currentRoute == null || currentRoute.startsWith("main")
+        val startTimeStr = stats.startTime?.toString()
         if (status == RunStatus.FINISHED && 
-            stats.startTime != null && 
-            stats.startTime != lastRedirectedWorkoutStart &&
+            startTimeStr != null && 
+            startTimeStr != lastRedirectedWorkoutStartStr &&
             isOnMainScreen) {
             
-            lastRedirectedWorkoutStart = stats.startTime
+            lastRedirectedWorkoutStartStr = startTimeStr
             navController.navigate("detail/-1") {
                 launchSingleTop = true
-                popUpTo("main") { saveState = true }
             }
         }
 
@@ -70,14 +71,10 @@ fun App(actions: AppActions) {
                            currentBackStackEntry?.arguments?.getString("runId") == "-1"
         
         if (isConfirming && (status == RunStatus.RESULT || status == RunStatus.IDLE)) {
-            if (status == RunStatus.RESULT) {
-                navController.navigate("main?tab=1") {
-                    popUpTo(navController.graph.id) { inclusive = true }
-                }
-            } else {
-                navController.navigate("main?tab=0") {
-                    popUpTo(navController.graph.id) { inclusive = true }
-                }
+            val targetTab = if (status == RunStatus.RESULT) 1 else 0
+            navController.navigate("main?tab=$targetTab") {
+                popUpTo(navController.graph.findStartDestination().id) { inclusive = false }
+                launchSingleTop = true
             }
         }
     }
@@ -109,12 +106,17 @@ fun App(actions: AppActions) {
                     actions = actions,
                     onBack = {
                         if (runId == -1L) {
-                            navController.navigate("main?tab=1") {
-                                popUpTo("main") { inclusive = true }
+                            val targetTab = if (status == RunStatus.RESULT) 1 else 0
+                            navController.navigate("main?tab=$targetTab") {
+                                popUpTo(navController.graph.findStartDestination().id) { inclusive = false }
+                                launchSingleTop = true
                             }
                         } else {
-                            navController.navigate("main?tab=1") {
-                                popUpTo("main") { inclusive = true }
+                            if (!navController.popBackStack()) {
+                                navController.navigate("main?tab=1") {
+                                    popUpTo(navController.graph.findStartDestination().id) { inclusive = false }
+                                    launchSingleTop = true
+                                }
                             }
                         }
                     }
@@ -159,7 +161,7 @@ fun MainScreen(
             navController.navigate("main?tab=$index") {
                 launchSingleTop = true
                 restoreState = true
-                popUpTo("main?tab=0") { saveState = true }
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
             }
         }
     }

@@ -122,4 +122,54 @@ class RunActivitySanitizeTest {
         val gpx = GpxExporter.export(run)
         assertTrue(gpx.contains("<time>2026-10-16T10:00:03Z</time>"))
     }
+
+    @Test
+    fun `tcx and gpx exporters correctly serialize ble cadence power and sensor speed`() {
+        val start = Instant.parse("2026-10-25T08:00:00Z")
+        val end = Instant.parse("2026-10-25T08:30:00Z")
+        val pt = LocationPoint(
+            latitude = 35.6812,
+            longitude = 139.7671,
+            altitude = 15.0,
+            speed = 5.0,
+            sensorSpeed = 7.5,
+            heartRate = 145,
+            cadence = 88,
+            power = 210,
+            timestamp = start
+        )
+        val cyclingRun = RunActivity(
+            startTime = start,
+            endTime = end,
+            durationSeconds = 1800,
+            distanceMeters = 12500.0,
+            type = ActivityType.CYCLING,
+            avgHeartRate = 140.0,
+            maxHeartRate = 165.0,
+            avgCadence = 85.0,
+            maxCadence = 100.0,
+            avgPower = 200.0,
+            maxPower = 350.0,
+            route = listOf(pt)
+        )
+
+        val tcx = TcxExporter.export(cyclingRun)
+        // Verify Activity Sport
+        assertTrue(tcx.contains("<Activity Sport=\"Biking\">"))
+        // Verify Lap element order: Intensity before Cadence
+        val intensityIdx = tcx.indexOf("<Intensity>Active</Intensity>")
+        val cadenceIdx = tcx.indexOf("<Cadence>85</Cadence>")
+        assertTrue(intensityIdx != -1 && cadenceIdx != -1 && intensityIdx < cadenceIdx,
+            "Intensity must precede Cadence according to TCX v2 schema")
+        // Verify Trackpoint elements
+        assertTrue(tcx.contains("<HeartRateBpm><Value>145</Value></HeartRateBpm>"))
+        assertTrue(tcx.contains("<Cadence>88</Cadence>"))
+        assertTrue(tcx.contains("<ns3:Speed>7.5</ns3:Speed>"))
+        assertTrue(tcx.contains("<ns3:Watts>210</ns3:Watts>"))
+
+        val gpx = GpxExporter.export(cyclingRun)
+        assertTrue(gpx.contains("<gpxtpx:hr>145</gpxtpx:hr>"))
+        assertTrue(gpx.contains("<gpxtpx:cad>88</gpxtpx:cad>"))
+        assertTrue(gpx.contains("<gpxtpx:speed>7.5</gpxtpx:speed>"))
+    }
 }

@@ -47,11 +47,10 @@ object TcxExporter {
         run.maxHeartRate?.let {
             sb.append("        <MaximumHeartRateBpm><Value>${it.toInt()}</Value></MaximumHeartRateBpm>\n")
         }
+        sb.append("        <Intensity>Active</Intensity>\n")
         run.avgCadence?.let {
             sb.append("        <Cadence>${it.toInt()}</Cadence>\n")
         }
-        
-        sb.append("        <Intensity>Active</Intensity>\n")
         sb.append("        <TriggerMethod>Manual</TriggerMethod>\n")
         
         sb.append("        <Track>\n")
