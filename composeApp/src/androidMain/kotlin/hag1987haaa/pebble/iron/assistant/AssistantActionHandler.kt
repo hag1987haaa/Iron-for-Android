@@ -68,11 +68,11 @@ object AssistantActionHandler {
             return true
         }
 
-        // 3. 運動種別（exercise_name）の抽出と設定
+        // 3. 運動種別（exercise_name）の抽出と設定（新規開始時のみ反映）
         val exerciseRaw = intent.getStringExtra("exercise_name")
             ?: data?.getQueryParameter("exercise_name")
 
-        if (!exerciseRaw.isNullOrBlank()) {
+        if (targetAction == "START" && !exerciseRaw.isNullOrBlank()) {
             val resolvedType = parseActivityType(exerciseRaw)
             Log.d(TAG, "Resolved exercise '$exerciseRaw' -> $resolvedType")
             KmpDependencies.trackerEngine.setActivityType(resolvedType)
@@ -129,10 +129,11 @@ object AssistantActionHandler {
             val serviceIntent = Intent(context, TrackingService::class.java).apply {
                 this.action = serviceAction
             }
-            if (serviceAction == "STOP" || serviceAction == "SAVE_TO_RESULT" || serviceAction == "RESET") {
-                context.startService(serviceIntent)
-            } else {
+            if (serviceAction == "START") {
                 context.startForegroundService(serviceIntent)
+            } else {
+                // PAUSE, RESUME, STOP, SAVE_TO_RESULT 等は既存サービスへの指示のため通常の startService で安全に送信
+                context.startService(serviceIntent)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send command to TrackingService", e)

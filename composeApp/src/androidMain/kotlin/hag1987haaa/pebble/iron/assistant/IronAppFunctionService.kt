@@ -154,23 +154,7 @@ class IronAppFunctionService : AppFunctionService() {
          * AndroidManifest 上のサービスコンポーネントの有効/無効を切り替える
          */
         fun updateServiceEnabledState(context: Context, isEnabled: Boolean) {
-            if (Build.VERSION.SDK_INT < 36) return
-            try {
-                val component = ComponentName(context, IronAppFunctionService::class.java)
-                val newState = if (isEnabled) {
-                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                } else {
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                }
-                context.packageManager.setComponentEnabledSetting(
-                    component,
-                    newState,
-                    PackageManager.DONT_KILL_APP
-                )
-                Log.i(TAG, "AppFunctionService component state updated: isEnabled=$isEnabled")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to update AppFunctionService component state", e)
-            }
+            AppFunctionManager.updateServiceEnabledState(context, isEnabled)
         }
     }
 }

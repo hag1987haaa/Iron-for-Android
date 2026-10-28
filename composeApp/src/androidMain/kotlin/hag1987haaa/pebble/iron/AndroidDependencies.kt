@@ -3,6 +3,7 @@ package hag1987haaa.pebble.iron
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 import hag1987haaa.pebble.iron.data.repository.SqlRunRepository
 import hag1987haaa.pebble.iron.db.DatabaseDriverFactory
@@ -20,7 +21,7 @@ import hag1987haaa.pebble.iron.ble.AndroidBleScanner
 import hag1987haaa.pebble.iron.ble.AndroidBleHeartRateManager
 import hag1987haaa.pebble.iron.ble.AndroidBleCscManager
 import hag1987haaa.pebble.iron.ble.AndroidBlePowerManager
-import hag1987haaa.pebble.iron.assistant.IronAppFunctionService
+import hag1987haaa.pebble.iron.assistant.AppFunctionManager
 import kotlinx.coroutines.MainScope
 import androidx.compose.ui.graphics.asImageBitmap
 
@@ -270,7 +271,9 @@ object AndroidDependencies {
         }
 
         // App Functions サービスの状態同期 (Android 16+)
-        IronAppFunctionService.updateServiceEnabledState(appContext, settings.isAssistantIntegrationEnabled)
+        if (Build.VERSION.SDK_INT >= 36) {
+            AppFunctionManager.updateServiceEnabledState(appContext, settings.isAssistantIntegrationEnabled)
+        }
 
         // 保存用コールバックの登録
         settings.onSettingsChanged = {
@@ -367,7 +370,10 @@ object AndroidDependencies {
 
                 apply()
             }
-            IronAppFunctionService.updateServiceEnabledState(appContext, settings.isAssistantIntegrationEnabled)
+            // App Functions サービスの状態同期 (Android 16+)
+            if (Build.VERSION.SDK_INT >= 36) {
+                AppFunctionManager.updateServiceEnabledState(appContext, settings.isAssistantIntegrationEnabled)
+            }
             Log.d("AndroidDependencies", "Settings saved to SharedPreferences")
         }
 

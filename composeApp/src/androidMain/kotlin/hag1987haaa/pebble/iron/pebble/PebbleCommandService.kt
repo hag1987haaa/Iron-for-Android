@@ -495,8 +495,9 @@ class PebbleCommandService : BasePebbleListenerService() {
                 // レスポンス改善：OS内のIntent配信優先度を「フォアグラウンド（最優先）」に設定
                 addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
             }
-            // 終了・リセット系のコマンドは、フォアグラウンドサービスとして起動する必要はない
-            if (action == "STOP" || action == "RESET" || action == "SAVE" || action == "SAVE_TO_RESULT") {
+            // 終了・リセット・一時停止系のコマンドは、すでに動作中のサービスへの通知、あるいは終了のため、
+            // フォアグラウンドサービス昇格ではなく startService で安全に送信する
+            if (action == "STOP" || action == "RESET" || action == "SAVE" || action == "SAVE_TO_RESULT" || action == "PAUSE") {
                 startService(intent)
             } else {
                 startForegroundService(intent)

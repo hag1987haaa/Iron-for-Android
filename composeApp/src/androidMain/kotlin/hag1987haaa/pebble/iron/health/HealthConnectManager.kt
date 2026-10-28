@@ -52,6 +52,7 @@ class HealthConnectManager(private val context: Context) {
     val permissions = basePermissions + setOf(routePermission)
 
     suspend fun hasSessionPermission(): Boolean {
+        if (!isAvailable()) return false
         return try {
             val granted = healthConnectClient.permissionController.getGrantedPermissions()
             granted.contains(sessionPermission)
@@ -62,6 +63,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     suspend fun hasAllPermissions(): Boolean {
+        if (!isAvailable()) return false
         return try {
             val granted = healthConnectClient.permissionController.getGrantedPermissions()
             granted.containsAll(basePermissions)
@@ -72,6 +74,9 @@ class HealthConnectManager(private val context: Context) {
     }
 
     suspend fun writeRunActivityResult(run: RunActivity): HealthSyncResult {
+        if (!isAvailable()) {
+            return HealthSyncResult.Error("Health Connect is not available on this device")
+        }
         try {
             val granted = try {
                 healthConnectClient.permissionController.getGrantedPermissions()
@@ -326,6 +331,7 @@ class HealthConnectManager(private val context: Context) {
     }
 
     suspend fun deleteRunActivity(run: RunActivity) {
+        if (!isAvailable()) return
         try {
             val startTimeMillis = run.startTime.toEpochMilliseconds()
             val clientRecordIds = listOf(
