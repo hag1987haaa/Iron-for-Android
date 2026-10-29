@@ -319,8 +319,10 @@ class RunTrackerEngine(
             val registeredAddresses = settings.registeredBleHrDevices.map { it.substringBefore("|") }
             if (registeredAddresses.isEmpty()) return@launch
 
-            while (isActive && settings.isBleHeartRateEnabled) {
+            var scanAttempts = 0
+            while (isActive && settings.isBleHeartRateEnabled && scanAttempts < 3) {
                 if (hrManager.isConnected.value) break
+                scanAttempts++
 
                 println("RunTrackerEngine AutoConnect: Scanning for registered devices...")
                 hag1987haaa.pebble.iron.KmpDependencies.bleScanner.startScan("0000180d-0000-1000-8000-00805f9b34fb")

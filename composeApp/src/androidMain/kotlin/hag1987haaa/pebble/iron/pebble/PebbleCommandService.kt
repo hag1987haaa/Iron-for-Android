@@ -2,6 +2,9 @@ package hag1987haaa.pebble.iron.pebble
 
 import android.util.Log
 import android.content.Intent
+import android.app.ActivityOptions
+import android.app.PendingIntent
+import android.os.Build
 import android.media.AudioManager
 import android.os.PowerManager
 import android.view.KeyEvent
@@ -369,16 +372,44 @@ class PebbleCommandService : BasePebbleListenerService() {
                 Log.i("PebbleCommand", "Long Press Assistant Triggered")
                 try {
                     val pm = getSystemService(POWER_SERVICE) as PowerManager
+                    @Suppress("DEPRECATION")
                     val wakeLock = pm.newWakeLock(
-                        PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                        PowerManager.FULL_WAKE_LOCK or
+                        PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                        PowerManager.ON_AFTER_RELEASE,
                         "Iron:AssistantWakeup"
                     )
-                    wakeLock.acquire(3000)
+                    wakeLock.acquire(5000) // 5秒間画面点灯を維持
 
                     val trampolineIntent = Intent(this, AssistantTrampolineActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        )
                     }
-                    startActivity(trampolineIntent)
+
+                    val options = ActivityOptions.makeBasic()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        options.pendingIntentBackgroundActivityStartMode =
+                            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    }
+
+                    // SYSTEM_ALERT_WINDOW 権限があるため、直接 startActivity を最優先で試行
+                    try {
+                        startActivity(trampolineIntent, options.toBundle())
+                        Log.i("PebbleCommand", "Direct startActivity succeeded")
+                    } catch (se: Exception) {
+                        Log.w("PebbleCommand", "Direct startActivity failed, fallback to PendingIntent", se)
+                        val pi = PendingIntent.getActivity(
+                            this,
+                            0,
+                            trampolineIntent,
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        )
+                        pi.send(this, 0, null, null, null, null, options.toBundle())
+                    }
                 } catch (e: Exception) {
                     Log.e("PebbleCommand", "Failed to launch assistant", e)
                 }

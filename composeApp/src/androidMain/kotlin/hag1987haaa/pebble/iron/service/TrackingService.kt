@@ -32,6 +32,7 @@ class TrackingService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var wakeLock: PowerManager.WakeLock? = null
     private var lastNotifContent: String? = null
+    private var isForegroundActive = false
 
     override fun onCreate() {
         super.onCreate()
@@ -171,12 +172,14 @@ class TrackingService : Service() {
             "STOP" -> {
                 engine.discard()
                 stopForeground(STOP_FOREGROUND_REMOVE)
+                isForegroundActive = false
                 stopSelf()
             }
             "RESET" -> {
                 Log.i("TrackingService", "Action RESET: Resetting engine and stopping service")
                 engine.resetToIdle()
                 stopForeground(STOP_FOREGROUND_REMOVE)
+                isForegroundActive = false
                 stopSelf()
             }
         }
@@ -274,6 +277,7 @@ class TrackingService : Service() {
                 
                 // ワークアウト終了に伴い、通知を消去してサービスを停止
                 stopForeground(STOP_FOREGROUND_REMOVE)
+                isForegroundActive = false
                 stopSelf()
             } catch (e: Exception) {
                 Log.e("TrackingService", "Failed to save workout", e)
@@ -350,6 +354,7 @@ class TrackingService : Service() {
                 Log.e("TrackingService", "Failed to save workout", e)
             } finally {
                 stopForeground(STOP_FOREGROUND_REMOVE)
+                isForegroundActive = false
                 stopSelf()
             }
         }
@@ -390,26 +395,36 @@ class TrackingService : Service() {
             .setContentIntent(PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE))
             .build()
 
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                startForeground(
-                    1, 
-                    notification, 
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or 
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH
-                )
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-            } else {
-                startForeground(1, notification)
+        if (!isForegroundActive) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    startForeground(
+                        1, 
+                        notification, 
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or 
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                    )
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+                } else {
+                    startForeground(1, notification)
+                }
+                isForegroundActive = true
+                Log.d("TrackingService", "Service successfully promoted to foreground")
+            } catch (e: Exception) {
+                Log.e("TrackingService", "Failed to start foreground", e)
             }
-        } catch (e: Exception) {
-            Log.e("TrackingService", "Failed to start foreground", e)
+        } else {
+            try {
+                manager?.notify(1, notification)
+            } catch (e: Exception) {
+                Log.e("TrackingService", "Failed to update notification via notify()", e)
+            }
         }
     }
 
     override fun onDestroy() {
+        isForegroundActive = false
         wakeLock?.let {
             if (it.isHeld) {
                 it.release()

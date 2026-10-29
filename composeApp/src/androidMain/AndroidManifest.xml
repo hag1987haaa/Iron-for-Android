@@ -18,6 +18,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
@@ -43,11 +44,21 @@
         <package android:name="coredevices.coreapp" />
         <package android:name="com.getpebble.android" />
         <package android:name="com.google.android.apps.healthdata" />
+        <package android:name="com.google.android.apps.bard" />
         <intent>
             <action android:name="io.rebble.pebblekit2.SENDER" />
         </intent>
         <intent>
             <action android:name="com.getpebble.action.app.START" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VOICE_COMMAND" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VOICE_ASSIST" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.ASSIST" />
         </intent>
     </queries>
 
@@ -89,7 +100,7 @@
         <service
             android:name=".service.TrackingService"
             android:label="@string/notif_channel_name"
-            android:foregroundServiceType="location|connectedDevice|health"
+            android:foregroundServiceType="location|connectedDevice"
             android:exported="false" />
 
         <service
@@ -106,9 +117,13 @@
         <activity
             android:name=".pebble.AssistantTrampolineActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
             android:showWhenLocked="true"
+            android:inheritShowWhenLocked="true"
             android:turnScreenOn="true"
-            android:exported="false" />
+            android:exported="true" />
 
         <!-- Health Connect: Android 14+ 必須要件 -->
         <activity

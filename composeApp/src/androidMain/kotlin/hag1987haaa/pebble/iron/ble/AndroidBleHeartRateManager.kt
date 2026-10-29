@@ -31,6 +31,7 @@ class AndroidBleHeartRateManager(private val context: Context) : BleHeartRateMan
     private var activeManager: HeartRateBleManager? = null
     private var currentDeviceAddress: String? = null
     private var dataTimeoutJob: Job? = null
+    private var connectJob: Job? = null
 
     // 不動データ（ホールド）検知用
     private var lastValue: Int = -1
@@ -42,6 +43,11 @@ class AndroidBleHeartRateManager(private val context: Context) : BleHeartRateMan
         override fun onDeviceFailedToConnect(device: BluetoothDevice, reason: Int) {
             _isConnected.value = false
             _isDataActive.value = false
+            // 電源が入っていない等の初期接続失敗時は、OSレベルのautoConnectによる待機へ移行
+            if (currentDeviceAddress != null) {
+                Log.i("BleHR", "Direct connect failed (sensor might be OFF), waiting with autoConnect...")
+                connectInternal(currentDeviceAddress!!, useAutoConnect = true)
+            }
         }
         override fun onDeviceReady(device: BluetoothDevice) {
             Log.i("BleHR", "Ready")
@@ -55,7 +61,7 @@ class AndroidBleHeartRateManager(private val context: Context) : BleHeartRateMan
             stagnationCount = 0
 
             if (reason != ConnectionObserver.REASON_SUCCESS && currentDeviceAddress != null) {
-                scope.launch { connect(currentDeviceAddress!!, useAutoConnect = true) }
+                connectInternal(currentDeviceAddress!!, useAutoConnect = true)
             }
         }
     }
@@ -99,10 +105,17 @@ class AndroidBleHeartRateManager(private val context: Context) : BleHeartRateMan
 
     override fun connect(address: String) {
         if (_isConnected.value && currentDeviceAddress == address) return
-        scope.launch { connect(address, useAutoConnect = false) }
+        connectInternal(address, useAutoConnect = false)
     }
 
-    private suspend fun connect(address: String, useAutoConnect: Boolean) {
+    private fun connectInternal(address: String, useAutoConnect: Boolean) {
+        connectJob?.cancel()
+        connectJob = scope.launch {
+            connectTask(address, useAutoConnect)
+        }
+    }
+
+    private suspend fun connectTask(address: String, useAutoConnect: Boolean) {
         activeManager?.let { it.close(); delay(200) }
         
         val newManager = HeartRateBleManager(context)
@@ -115,16 +128,22 @@ class AndroidBleHeartRateManager(private val context: Context) : BleHeartRateMan
         if (adapter == null || !adapter.isEnabled) return
 
         try {
-            newManager.connect(adapter.getRemoteDevice(address))
-                .retry(5, 500)
-                .useAutoConnect(useAutoConnect)
-                .enqueue()
+            if (android.bluetooth.BluetoothAdapter.checkBluetoothAddress(address)) {
+                newManager.connect(adapter.getRemoteDevice(address))
+                    .retry(5, 500)
+                    .useAutoConnect(useAutoConnect)
+                    .enqueue()
+            } else {
+                Log.w("BleHR", "Invalid Bluetooth address: $address")
+            }
         } catch (e: Exception) {
             Log.e("BleHR", "Connect fail: ${e.message}")
         }
     }
 
     override fun disconnect() {
+        connectJob?.cancel()
+        connectJob = null
         activeManager?.disconnect()?.enqueue()
         activeManager?.close()
         activeManager = null

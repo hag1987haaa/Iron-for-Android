@@ -90,18 +90,31 @@ actual fun PlatformMapView(
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, mapView) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> mapView.onResume()
                 Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_DESTROY -> {
+                    try {
+                        mapView.onDetach()
+                    } catch (e: Exception) {
+                        android.util.Log.w("MapView", "Error during onDetach", e)
+                    }
+                }
                 else -> {}
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
+        mapView.onResume()
+
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            mapView.onDetach()
+            try {
+                mapView.onPause()
+            } catch (e: Exception) {
+                android.util.Log.w("MapView", "Error during onPause", e)
+            }
         }
     }
 
@@ -109,7 +122,9 @@ actual fun PlatformMapView(
         factory = { mapView },
         modifier = modifier,
         update = { view ->
-            if (!view.isLayoutRequested) { view.onResume() }
+            if (view.repository == null) return@AndroidView
+            try {
+                if (!view.isLayoutRequested) { view.onResume() }
 
             view.overlays.clear()
 
@@ -179,12 +194,16 @@ actual fun PlatformMapView(
                 }
 
                 // スタートマーカー（2点以上記録されている場合）
-                if (points.size >= 2) {
-                    view.overlays.add(Marker(view).apply {
-                        position = geoPoints.first()
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                        title = "Start"
-                    })
+                if (points.size >= 2 && view.repository != null) {
+                    try {
+                        view.overlays.add(Marker(view).apply {
+                            position = geoPoints.first()
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                            title = "Start"
+                        })
+                    } catch (e: Exception) {
+                        android.util.Log.w("MapView", "Failed to add start marker", e)
+                    }
                 }
 
                 val lastIdx = selectedIndex ?: (geoPoints.size - 1)
@@ -201,19 +220,25 @@ actual fun PlatformMapView(
                     view.controller.setCenter(targetPoint)
                 }
 
-                view.overlays.add(Marker(view).apply {
-                    position = targetPoint
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                    title = if (selectedIndex != null) "Selected" else "Current"
+                if (view.repository != null) {
+                    try {
+                        view.overlays.add(Marker(view).apply {
+                            position = targetPoint
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                            title = if (selectedIndex != null) "Selected" else "Current"
 
-                    if (selectedIndex != null) {
-                        icon = createPointIcon(view.context, locationMarkerColorInt)
-                    } else {
-                        icon = createDirectionIcon(view.context, locationMarkerColorInt)
-                        rotation = bearing
-                        isFlat = true
+                            if (selectedIndex != null) {
+                                icon = createPointIcon(view.context, locationMarkerColorInt)
+                            } else {
+                                icon = createDirectionIcon(view.context, locationMarkerColorInt)
+                                rotation = bearing
+                                isFlat = true
+                            }
+                        })
+                    } catch (e: Exception) {
+                        android.util.Log.w("MapView", "Failed to add location marker", e)
                     }
-                })
+                }
 
                 if (isAutoCenter && selectedIndex == null) {
                     view.controller.animateTo(targetPoint)
@@ -222,35 +247,44 @@ actual fun PlatformMapView(
                 }
 
                 // 3. 1kmごとのラップマーカー
-                var accumulatedDistance = 0.0
-                var nextLapDistance = 1000.0
+                if (view.repository != null) {
+                    try {
+                        var accumulatedDistance = 0.0
+                        var nextLapDistance = 1000.0
 
-                points.forEachIndexed { i, pt ->
-                    if (i > 0) {
-                        val prevPt = points[i - 1]
-                        val timeDiffMs = pt.timestamp.toEpochMilliseconds() - prevPt.timestamp.toEpochMilliseconds()
-                        val isPauseGap = pt.isSegmentStart || timeDiffMs >= PAUSE_GAP_MS
+                        points.forEachIndexed { i, pt ->
+                            if (i > 0) {
+                                val prevPt = points[i - 1]
+                                val timeDiffMs = pt.timestamp.toEpochMilliseconds() - prevPt.timestamp.toEpochMilliseconds()
+                                val isPauseGap = pt.isSegmentStart || timeDiffMs >= PAUSE_GAP_MS
 
-                        if (!isPauseGap) {
-                            val prevGeo = GeoPoint(prevPt.latitude, prevPt.longitude)
-                            val curGeo = GeoPoint(pt.latitude, pt.longitude)
-                            accumulatedDistance += prevGeo.distanceToAsDouble(curGeo)
-                            if (accumulatedDistance >= nextLapDistance) {
-                                val lapNumber = (nextLapDistance / 1000).toInt()
-                                view.overlays.add(Marker(view).apply {
-                                    position = curGeo
-                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                    icon = createNumberIcon(view.context, lapNumber)
-                                    title = "$lapNumber km"
-                                })
-                                nextLapDistance += 1000.0
+                                if (!isPauseGap) {
+                                    val prevGeo = GeoPoint(prevPt.latitude, prevPt.longitude)
+                                    val curGeo = GeoPoint(pt.latitude, pt.longitude)
+                                    accumulatedDistance += prevGeo.distanceToAsDouble(curGeo)
+                                    if (accumulatedDistance >= nextLapDistance) {
+                                        val lapNumber = (nextLapDistance / 1000).toInt()
+                                        view.overlays.add(Marker(view).apply {
+                                            position = curGeo
+                                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                            icon = createNumberIcon(view.context, lapNumber)
+                                            title = "$lapNumber km"
+                                        })
+                                        nextLapDistance += 1000.0
+                                    }
+                                }
                             }
                         }
+                    } catch (e: Exception) {
+                        android.util.Log.w("MapView", "Failed to add lap markers", e)
                     }
                 }
             }
             view.invalidate()
+        } catch (e: Exception) {
+            android.util.Log.e("MapView", "Error updating MapView", e)
         }
+    }
     )
 }
 

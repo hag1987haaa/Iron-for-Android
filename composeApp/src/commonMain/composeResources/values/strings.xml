@@ -72,8 +72,8 @@
     <string name="settings_tab_watch">Watch</string>
     <string name="settings_tab_sensors">Sensors</string>
     <string name="settings_section_sensor_priority">Data Priority</string>
-    <string name="settings_label_ble_hr_priority">Prefer External HR Sensor</string>
-    <string name="settings_desc_ble_hr_priority">Prioritize BLE sensor when both HRM sources are available. If only one source is available, it will be automatically selected.</string>
+    <string name="settings_label_ble_hr_priority">Prefer External BLE Heart Rate</string>
+    <string name="settings_desc_ble_hr_priority">Prioritize external BLE heart rate sensor over Pebble built-in heart rate monitor when both are available. If only one is available, it is automatically selected.</string>
     <string name="settings_section_device">Device Integration</string>
     <string name="settings_pebble_app_title">Select Pebble Provider App</string>
     <string name="settings_pebble_app_desc">Choose the app (Coreapp, Cobble, etc.) used for communication</string>

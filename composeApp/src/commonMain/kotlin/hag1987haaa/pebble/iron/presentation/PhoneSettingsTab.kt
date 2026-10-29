@@ -33,7 +33,6 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
     val isAutoGpx by viewModel.isAutoExportGpxEnabled.collectAsState()
     val tcxUri by viewModel.autoExportTcxUri.collectAsState()
     val gpxUri by viewModel.autoExportGpxUri.collectAsState()
-    val preferBleHr by viewModel.preferBleHeartRate.collectAsState()
     var showCourseSheet by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
@@ -64,22 +63,7 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
             }
         }
 
-        // 2. センサー優先順位
-        Spacer(Modifier.height(24.dp))
-        SettingsSectionHeader(stringResource(Res.string.settings_section_sensor_priority))
-        Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(Res.string.settings_label_ble_hr_priority))
-                        Text(stringResource(Res.string.settings_desc_ble_hr_priority), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                    }
-                    Switch(checked = preferBleHr, onCheckedChange = { viewModel.updatePreferBleHeartRate(it) })
-                }
-            }
-        }
-
-        // 3. 自動エクスポート
+        // 2. 自動エクスポート
         Spacer(Modifier.height(24.dp))
         SettingsSectionHeader(stringResource(Res.string.settings_section_auto_export))
         Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
@@ -92,7 +76,7 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
             }
         }
 
-        // 4. プライバシー
+        // 3. プライバシー
         Spacer(Modifier.height(24.dp))
         SettingsSectionHeader(stringResource(Res.string.settings_section_privacy))
         Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
@@ -105,7 +89,7 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
             }
         }
 
-        // 5. 外部連携・自動化
+        // 4. 外部連携・自動化
         Spacer(Modifier.height(24.dp))
         SettingsSectionHeader(stringResource(Res.string.settings_section_automation))
         Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
@@ -114,7 +98,7 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
             }
         }
 
-        // 6. マップ管理
+        // 5. マップ管理
         Spacer(Modifier.height(24.dp))
         SettingsSectionHeader(stringResource(Res.string.settings_section_map_management))
         val messenger = KmpDependencies.trackerEngine.pebbleMessenger

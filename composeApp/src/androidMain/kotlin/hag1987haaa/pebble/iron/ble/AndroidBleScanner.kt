@@ -28,28 +28,38 @@ class AndroidBleScanner(private val context: Context) : BleScanner {
     private val scanCallback = object : ScanCallback() {
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val device = result.device
-            val uuids = result.scanRecord?.serviceUuids?.map { it.uuid.toString() } ?: emptyList()
-            val bleDevice = BleDevice(
-                name = device.name ?: result.scanRecord?.deviceName,
-                address = device.address,
-                rssi = result.rssi,
-                serviceUuids = uuids
-            )
-            
-            val currentList = _foundDevices.value
-            val existingIndex = currentList.indexOfFirst { it.address == bleDevice.address }
-            if (existingIndex < 0) {
-                _foundDevices.value = currentList + bleDevice
-                Log.d("AndroidBleScanner", "Found device: ${bleDevice.name} (${bleDevice.address}), uuids=$uuids")
-            } else {
-                // UUID情報が新たに取得できた場合などは更新
-                val existing = currentList[existingIndex]
-                if (existing.serviceUuids.isEmpty() && uuids.isNotEmpty()) {
-                    val updatedList = currentList.toMutableList()
-                    updatedList[existingIndex] = bleDevice
-                    _foundDevices.value = updatedList
+            try {
+                val device = result.device ?: return
+                val uuids = result.scanRecord?.serviceUuids?.map { it.uuid.toString() } ?: emptyList()
+                val devName = try {
+                    device.name ?: result.scanRecord?.deviceName
+                } catch (_: SecurityException) {
+                    result.scanRecord?.deviceName
                 }
+
+                val bleDevice = BleDevice(
+                    name = devName,
+                    address = device.address,
+                    rssi = result.rssi,
+                    serviceUuids = uuids
+                )
+                
+                val currentList = _foundDevices.value
+                val existingIndex = currentList.indexOfFirst { it.address == bleDevice.address }
+                if (existingIndex < 0) {
+                    _foundDevices.value = currentList + bleDevice
+                    Log.d("AndroidBleScanner", "Found device: ${bleDevice.name} (${bleDevice.address}), uuids=$uuids")
+                } else {
+                    // UUID情報が新たに取得できた場合などは更新
+                    val existing = currentList[existingIndex]
+                    if (existing.serviceUuids.isEmpty() && uuids.isNotEmpty()) {
+                        val updatedList = currentList.toMutableList()
+                        updatedList[existingIndex] = bleDevice
+                        _foundDevices.value = updatedList
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("AndroidBleScanner", "Error processing scan result", e)
             }
         }
 

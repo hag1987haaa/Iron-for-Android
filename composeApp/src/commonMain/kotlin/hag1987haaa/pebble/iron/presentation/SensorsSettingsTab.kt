@@ -16,6 +16,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import hag1987haaa.pebble.iron.Res
+import hag1987haaa.pebble.iron.*
+import org.jetbrains.compose.resources.stringResource
 import hag1987haaa.pebble.iron.domain.ble.BleDevice
 import hag1987haaa.pebble.iron.domain.ble.BleSensorType
 import hag1987haaa.pebble.iron.theme.IronColors
@@ -33,6 +36,7 @@ fun SensorsSettingsTab(settingsViewModel: SettingsViewModel, actions: AppActions
     val registeredHrDevices by settingsViewModel.registeredBleHrDevices.collectAsState()
     val preferredHrAddress by settingsViewModel.preferredBleHrAddress.collectAsState()
     val isBleHrEnabled by settingsViewModel.isBleHeartRateEnabled.collectAsState()
+    val preferBleHr by settingsViewModel.preferBleHeartRate.collectAsState()
 
     // CSC (Speed & Cadence)
     val isCscConnected by sensorViewModel.isCscConnected.collectAsState()
@@ -54,6 +58,43 @@ fun SensorsSettingsTab(settingsViewModel: SettingsViewModel, actions: AppActions
 
     var selectedDeviceForRegistration by remember { mutableStateOf<BleDevice?>(null) }
     var showWheelCircDialog by remember { mutableStateOf(false) }
+
+    val registerDeviceWithType: (BleDevice, BleSensorType) -> Unit = { device, type ->
+        sensorViewModel.stopScan()
+        when (type) {
+            BleSensorType.HEART_RATE -> {
+                settingsViewModel.updateBleHeartRateEnabled(true)
+                settingsViewModel.setBleHeartRateDevice(device.address, device.name)
+                sensorViewModel.connectDevice(device.address)
+            }
+            BleSensorType.CSC -> {
+                settingsViewModel.updateBleCscEnabled(true)
+                settingsViewModel.setBleCscDevice(device.address, device.name)
+                sensorViewModel.connectCsc(device.address)
+            }
+            BleSensorType.CYCLING_POWER -> {
+                settingsViewModel.updateBlePowerEnabled(true)
+                settingsViewModel.setBlePowerDevice(device.address, device.name)
+                sensorViewModel.connectPower(device.address)
+            }
+            else -> {}
+        }
+        selectedDeviceForRegistration = null
+    }
+
+    val onPairDevice: (BleDevice) -> Unit = { device ->
+        val detectedTypes = buildList {
+            if (device.isHeartRate) add(BleSensorType.HEART_RATE)
+            if (device.isCsc) add(BleSensorType.CSC)
+            if (device.isCyclingPower) add(BleSensorType.CYCLING_POWER)
+        }
+
+        if (detectedTypes.size == 1) {
+            registerDeviceWithType(device, detectedTypes.first())
+        } else {
+            selectedDeviceForRegistration = device
+        }
+    }
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         // --- 1. センサー有効化トグルカード ---
@@ -179,6 +220,37 @@ fun SensorsSettingsTab(settingsViewModel: SettingsViewModel, actions: AppActions
                     settingsViewModel.removeRegisteredBleHrDevice(addr)
                 }
             )
+
+            // Pebble vs BLE 心拍優先度設定
+            Surface(
+                tonalElevation = 1.dp,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(14.dp)
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(Res.string.settings_label_ble_hr_priority),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = stringResource(Res.string.settings_desc_ble_hr_priority),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = preferBleHr,
+                        onCheckedChange = { settingsViewModel.updatePreferBleHeartRate(it) }
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(16.dp))
         }
 
@@ -245,9 +317,15 @@ fun SensorsSettingsTab(settingsViewModel: SettingsViewModel, actions: AppActions
             val unregistered = foundDevices.filter { dev -> allRegistered.none { it.startsWith(dev.address) } }
 
             items(unregistered) { device ->
+                val detectedTypeLabel = when {
+                    device.isCyclingPower -> "Cycling Power"
+                    device.isCsc -> "Speed & Cadence"
+                    device.isHeartRate -> "Heart Rate"
+                    else -> null
+                }
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
-                        selectedDeviceForRegistration = device
+                        onPairDevice(device)
                     },
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
@@ -259,12 +337,28 @@ fun SensorsSettingsTab(settingsViewModel: SettingsViewModel, actions: AppActions
                                 device.isHeartRate -> Icons.Default.MonitorHeart
                                 else -> Icons.Default.Bluetooth
                             }
-                            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+                            val tint = when {
+                                device.isHeartRate -> Color(IronColors.HEART_RATE_PINK)
+                                device.isCyclingPower -> Color(0xFFFFB300)
+                                else -> MaterialTheme.colorScheme.primary
+                            }
+                            Icon(icon, null, tint = tint)
                         },
                         headlineContent = { Text(device.name ?: "Unknown Sensor", fontWeight = FontWeight.SemiBold) },
-                        supportingContent = { Text(device.address, style = MaterialTheme.typography.bodySmall) },
+                        supportingContent = {
+                            Column {
+                                Text(device.address, style = MaterialTheme.typography.bodySmall)
+                                if (detectedTypeLabel != null) {
+                                    Text(
+                                        text = detectedTypeLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        },
                         trailingContent = {
-                            Button(onClick = { selectedDeviceForRegistration = device }) {
+                            Button(onClick = { onPairDevice(device) }) {
                                 Text("Pair")
                             }
                         }
@@ -288,27 +382,21 @@ fun SensorsSettingsTab(settingsViewModel: SettingsViewModel, actions: AppActions
                         leadingContent = { Icon(Icons.Default.MonitorHeart, null, tint = Color(IronColors.HEART_RATE_PINK)) },
                         headlineContent = { Text("Heart Rate Monitor") },
                         modifier = Modifier.clickable {
-                            settingsViewModel.setBleHeartRateDevice(device.address, device.name)
-                            sensorViewModel.connectDevice(device.address)
-                            selectedDeviceForRegistration = null
+                            registerDeviceWithType(device, BleSensorType.HEART_RATE)
                         }
                     )
                     ListItem(
                         leadingContent = { Icon(Icons.Default.DirectionsBike, null, tint = MaterialTheme.colorScheme.primary) },
                         headlineContent = { Text("Cycling Speed & Cadence") },
                         modifier = Modifier.clickable {
-                            settingsViewModel.setBleCscDevice(device.address, device.name)
-                            sensorViewModel.connectCsc(device.address)
-                            selectedDeviceForRegistration = null
+                            registerDeviceWithType(device, BleSensorType.CSC)
                         }
                     )
                     ListItem(
                         leadingContent = { Icon(Icons.Default.Bolt, null, tint = Color(0xFFFFB300)) },
                         headlineContent = { Text("Cycling Power Meter") },
                         modifier = Modifier.clickable {
-                            settingsViewModel.setBlePowerDevice(device.address, device.name)
-                            sensorViewModel.connectPower(device.address)
-                            selectedDeviceForRegistration = null
+                            registerDeviceWithType(device, BleSensorType.CYCLING_POWER)
                         }
                     )
                 }

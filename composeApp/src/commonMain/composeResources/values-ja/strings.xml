@@ -72,8 +72,8 @@
     <string name="settings_tab_watch">ウォッチ設定</string>
     <string name="settings_tab_sensors">センサー</string>
     <string name="settings_section_sensor_priority">記録データの優先順位</string>
-    <string name="settings_label_ble_hr_priority">心拍計測に外部BLEセンサーを優先</string>
-    <string name="settings_desc_ble_hr_priority">両方の心拍計が利用可能な場合にBLEセンサーを優先します。片方のみ利用可能な場合は利用可能な心拍計を自動採用します。</string>
+    <string name="settings_label_ble_hr_priority">Pebble内蔵より外部BLE心拍計を優先</string>
+    <string name="settings_desc_ble_hr_priority">Pebble内蔵心拍計と外部BLE心拍計の両方が接続可能な場合、外部BLE心拍計の数値を優先して記録します。片方のみの場合は利用可能な方を自動採用します。</string>
     <string name="settings_section_device">デバイス連携</string>
     <string name="settings_pebble_app_title">Pebble 管理アプリの選択</string>
     <string name="settings_pebble_app_desc">通信に使用するアプリ（Coreapp/Cobble等）を指定します</string>
