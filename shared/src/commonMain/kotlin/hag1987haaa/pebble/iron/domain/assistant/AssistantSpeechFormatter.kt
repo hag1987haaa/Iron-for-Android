@@ -1,6 +1,7 @@
 package hag1987haaa.pebble.iron.domain.assistant
 
 import hag1987haaa.pebble.iron.domain.settings.AppSettings
+import hag1987haaa.pebble.iron.domain.settings.LongPressMode
 import hag1987haaa.pebble.iron.domain.tracker.RunStatistics
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
 
@@ -17,8 +18,13 @@ object AssistantSpeechFormatter {
         stats: RunStatistics,
         settings: AppSettings
     ): AssistantSpeechResponse {
-        // 1. 安全装置（プライバシー保護）：設定が OFF なら生体データや計測値を返さない
-        if (!settings.isAssistantIntegrationEnabled) {
+        // 1. 安全装置（プライバシー保護）：設定が OFF かつ長押しアシスタントも未設定なら生体データや計測値を返さない
+        val hasAssistantLongPress = settings.isLongPressEnabled && (
+            settings.upLongPressMode == LongPressMode.ASSISTANT ||
+            settings.selectLongPressMode == LongPressMode.ASSISTANT ||
+            settings.downLongPressMode == LongPressMode.ASSISTANT
+        )
+        if (!settings.isAssistantIntegrationEnabled && !hasAssistantLongPress) {
             return AssistantSpeechResponse(
                 title = "音声連携が無効です",
                 text = "Ironの設定で音声アシスタント連携が無効になっています。",

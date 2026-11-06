@@ -20,6 +20,7 @@ import hag1987haaa.pebble.iron.domain.settings.LongPressMode
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
 import hag1987haaa.pebble.iron.util.toActivePlannedPoints
 import java.util.UUID
+import kotlinx.coroutines.*
 
 class PebbleCommandService : BasePebbleListenerService() {
 
@@ -378,7 +379,9 @@ class PebbleCommandService : BasePebbleListenerService() {
                         PowerManager.ACQUIRE_CAUSES_WAKEUP or
                         PowerManager.ON_AFTER_RELEASE,
                         "Iron:AssistantWakeup"
-                    )
+                    ).apply {
+                        setReferenceCounted(false)
+                    }
                     wakeLock.acquire(5000) // 5秒間画面点灯を維持
 
                     val trampolineIntent = Intent(this, AssistantTrampolineActivity::class.java).apply {
@@ -396,10 +399,9 @@ class PebbleCommandService : BasePebbleListenerService() {
                             ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
                     }
 
-                    // SYSTEM_ALERT_WINDOW 権限があるため、直接 startActivity を最優先で試行
                     try {
                         startActivity(trampolineIntent, options.toBundle())
-                        Log.i("PebbleCommand", "Direct startActivity succeeded")
+                        Log.i("PebbleCommand", "Direct AssistantTrampolineActivity startActivity succeeded")
                     } catch (se: Exception) {
                         Log.w("PebbleCommand", "Direct startActivity failed, fallback to PendingIntent", se)
                         val pi = PendingIntent.getActivity(

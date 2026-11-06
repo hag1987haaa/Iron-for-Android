@@ -1,4 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<appfunctions xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Iron Workout App Functions (Android 16+) -->
+<appfunctions>
+    <appfunction>
+        <id>startWorkout</id>
+        <enabledByDefault>true</enabledByDefault>
+        <description>Starts a fitness workout or exercise tracking session in Iron (Tracker for Pebble).</description>
+        <functionId>startWorkout</functionId>
+    </appfunction>
+    <appfunction>
+        <id>pauseWorkout</id>
+        <enabledByDefault>true</enabledByDefault>
+        <description>Pauses the currently active workout tracking session in Iron (Tracker for Pebble).</description>
+        <functionId>pauseWorkout</functionId>
+    </appfunction>
+    <appfunction>
+        <id>resumeWorkout</id>
+        <enabledByDefault>true</enabledByDefault>
+        <description>Resumes a paused workout tracking session in Iron (Tracker for Pebble).</description>
+        <functionId>resumeWorkout</functionId>
+    </appfunction>
+    <appfunction>
+        <id>stopWorkout</id>
+        <enabledByDefault>true</enabledByDefault>
+        <description>Stops and saves the current workout tracking session in Iron (Tracker for Pebble).</description>
+        <functionId>stopWorkout</functionId>
+    </appfunction>
+    <appfunction>
+        <id>getWorkoutStats</id>
+        <enabledByDefault>true</enabledByDefault>
+        <description>Retrieves current real-time workout statistics from Iron (Tracker for Pebble).</description>
+        <functionId>getWorkoutStats</functionId>
+    </appfunction>
 </appfunctions>

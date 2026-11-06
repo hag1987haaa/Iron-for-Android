@@ -161,18 +161,28 @@
         <property android:name="android.health.PROPERTY_HEALTH_CONNECT_PERMISSION_RATIONALE_ACTIVITY" android:value="hag1987haaa.pebble.iron.presentation.HealthConnectPermissionActivity" />
 
         <!-- App Functions Service (Android 16+ / API 36) -->
-        <!-- プライバシー保護のため初期状態は android:enabled="false" とし、ユーザーがシミュレーション画面で明示的に有効化するまでOSから完全に隠蔽 -->
+        <!-- OSの AppFunctionIndexer がインストール時にメタデータを登録できるよう android:enabled="true" とし、実行時および AppFunctionManager API で有効/無効を制御 -->
+        <uses-library
+            android:name="com.android.extensions.appfunctions"
+            android:required="false" />
+
         <service
             android:name=".assistant.IronAppFunctionService"
-            android:enabled="false"
+            android:enabled="true"
             android:exported="true"
             android:permission="android.permission.BIND_APP_FUNCTION_SERVICE">
-            <intent-filter>
-                <action android:name="android.app.appfunctions.AppFunctionService" />
-            </intent-filter>
+            <property
+                android:name="android.app.appfunctions.schema"
+                android:value="app_functions_schema.xsd" />
+            <property
+                android:name="android.app.appfunctions.v2"
+                android:value="iron_app_function_service.xml" />
             <property
                 android:name="android.app.appfunctions"
                 android:resource="@xml/app_functions" />
+            <intent-filter>
+                <action android:name="android.app.appfunctions.AppFunctionService" />
+            </intent-filter>
         </service>
 
         <provider

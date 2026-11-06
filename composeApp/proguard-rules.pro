@@ -21,5 +21,7 @@
 -keep class androidx.health.connect.** { *; }
 -dontwarn androidx.health.connect.**
 
-# Compose Resources
+# Compose Resources & App Classes
 -keep class hag1987haaa.pebble.iron.** { *; }
+-dontwarn android.app.appfunctions.**
+-dontwarn android.app.appsearch.**

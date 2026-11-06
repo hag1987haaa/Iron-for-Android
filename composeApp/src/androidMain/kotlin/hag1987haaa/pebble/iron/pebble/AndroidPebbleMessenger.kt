@@ -171,6 +171,9 @@ class AndroidPebbleMessenger(
     }
 
     init {
+        if (settings.pebblePlatform.isNullOrEmpty() || settings.pebblePlatform?.startsWith("Pebble Watch") == true || settings.pebblePlatform == "Unknown Pebble") {
+            requestWatchInfo()
+        }
         scope.launch {
             while (isActive) {
                 try {
@@ -784,12 +787,25 @@ class AndroidPebbleMessenger(
     private fun getNativeMapDimensions(): Pair<Int, Int> {
         val platform = settings.pebblePlatform
         return when {
-            platform?.contains("Classic") == true || (platform?.contains("Time") == true && !platform.contains("Round") && !platform.contains("2")) || platform?.contains("Pebble 2") == true -> Pair(144, 128)
-            platform?.contains("Round 2") == true -> Pair(260, 198)
-            platform?.contains("Round") == true -> Pair(180, 136)
-            platform?.contains("Time 2") == true -> Pair(200, 176)
+            platform?.contains("Round 2", ignoreCase = true) == true || platform?.contains("gabbro", ignoreCase = true) == true -> Pair(260, 198)
+            platform?.contains("Time 2", ignoreCase = true) == true || platform?.contains("emery", ignoreCase = true) == true -> Pair(200, 176)
+            platform?.contains("Round", ignoreCase = true) == true || platform?.contains("chalk", ignoreCase = true) == true -> Pair(180, 136)
+            platform?.contains("Classic", ignoreCase = true) == true ||
+                platform?.contains("Pebble 2", ignoreCase = true) == true ||
+                platform?.contains("Core 2", ignoreCase = true) == true ||
+                platform?.contains("flint", ignoreCase = true) == true ||
+                platform?.contains("diorite", ignoreCase = true) == true ||
+                platform?.contains("basalt", ignoreCase = true) == true ||
+                platform?.contains("aplite", ignoreCase = true) == true ||
+                (platform?.contains("Time", ignoreCase = true) == true && !platform.contains("Round", ignoreCase = true) && !platform.contains("2")) -> Pair(144, 128)
             else -> Pair(144, 128)
         }
+    }
+
+    private fun getMaxMapRleSizeForTarget(targetW: Int): Int {
+        // Emery (200x176) / Gabbro (260x198) はウォッチ側で 16,384 バイト (32チャンク×500=16,000バイト) 対応。
+        // Basalt / Chalk / Diorite / Flint 等は 8,192 バイト (16チャンク×500=8,000バイト) 対応。
+        return if (targetW >= 200) 15800 else 7900
     }
 
     override fun sendMap(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>, width: Int, height: Int, zoom: Int?) {
@@ -846,12 +862,31 @@ class AndroidPebbleMessenger(
                 val bitmap = renderMapBitmapWithTiles(activePoints, targetW, targetH)
                 
                 val isMonochrome = settings.pebblePlatform?.let { 
-                    it.contains("Classic") || it.contains("Pebble 2") 
+                    it.contains("Classic", ignoreCase = true) ||
+                        it.contains("Pebble 2", ignoreCase = true) ||
+                        it.contains("Core 2", ignoreCase = true) ||
+                        it.contains("diorite", ignoreCase = true) ||
+                        it.contains("flint", ignoreCase = true) ||
+                        it.contains("aplite", ignoreCase = true)
                 } ?: false
 
-                val pebblePixels = convertToPebblePixels(bitmap, isMonochrome, currentMapZoom)
+                val maxRleBytes = getMaxMapRleSizeForTarget(targetW)
+                var pebblePixels = convertToPebblePixels(bitmap, isMonochrome, currentMapZoom, simplifyLevel = 0)
+                var rleData = encodeRLE(pebblePixels, targetW, targetH)
+
+                // 街中の高密度マップで万が一ウォッチ側のRLEバッファ上限を超える場合は、
+                // 細道(LOCAL_ROAD)のノイズ・細線を段階的にスマート簡略化して確実に上限内に収める
+                if (rleData.size > maxRleBytes) {
+                    Log.w("PebbleMessenger", "sendMap: Dense urban RLE size (${rleData.size}B) exceeds limit (${maxRleBytes}B). Applying smart road simplification (Level 1)...")
+                    pebblePixels = convertToPebblePixels(bitmap, isMonochrome, currentMapZoom, simplifyLevel = 1)
+                    rleData = encodeRLE(pebblePixels, targetW, targetH)
+                }
+                if (rleData.size > maxRleBytes) {
+                    Log.w("PebbleMessenger", "sendMap: RLE size (${rleData.size}B) still exceeds limit (${maxRleBytes}B). Filtering local roads to major arteries + route (Level 2)...")
+                    pebblePixels = convertToPebblePixels(bitmap, isMonochrome, currentMapZoom, simplifyLevel = 2)
+                    rleData = encodeRLE(pebblePixels, targetW, targetH)
+                }
                 bitmap.recycle()
-                val rleData = encodeRLE(pebblePixels)
                 val totalSize = rleData.size
 
                 if (mapSendJob?.isActive != true) return@launch
@@ -1198,7 +1233,12 @@ class AndroidPebbleMessenger(
         return previewBitmap
     }
 
-    fun convertToPebblePixels(bitmap: Bitmap, isMonochrome: Boolean, zoom: Int = currentMapZoom): ByteArray {
+    fun convertToPebblePixels(
+        bitmap: Bitmap,
+        isMonochrome: Boolean,
+        zoom: Int = currentMapZoom,
+        simplifyLevel: Int = 0
+    ): ByteArray {
         val width = bitmap.width
         val height = bitmap.height
         val totalPixels = width * height
@@ -1257,12 +1297,14 @@ class AndroidPebbleMessenger(
 
             // 6. Local Roads / Streets: Pure white or bright road surface
             // Exclude buildings (beige/light grey) to keep background pure and clean
-            val isWhiteRoad = (r >= 251 && g >= 251 && b >= 246)
-            val isTertiary = (r > 245 && g > 230 && b in 140..210 && (r - b) > 30)
+            if (simplifyLevel < 2) {
+                val isWhiteRoad = (r >= 251 && g >= 251 && b >= 246)
+                val isTertiary = (r > 245 && g > 230 && b in 140..210 && (r - b) > 30)
 
-            if (isWhiteRoad || isTertiary) {
-                types[i] = TYPE_LOCAL_ROAD.toByte()
-                continue
+                if (isWhiteRoad || isTertiary) {
+                    types[i] = TYPE_LOCAL_ROAD.toByte()
+                    continue
+                }
             }
 
             // Everything else (Buildings, Parks, Shadows, Land) -> Pure White Background (TYPE_BG)
@@ -1277,21 +1319,23 @@ class AndroidPebbleMessenger(
             return v == TYPE_LOCAL_ROAD || v == TYPE_HIGHWAY
         }
 
-        for (y in 1 until height - 1) {
-            val yOffset = y * width
-            for (x in 1 until width - 1) {
-                val idx = yOffset + x
-                if (types[idx].toInt() == TYPE_BG) {
-                    val left = types[idx - 1]
-                    val right = types[idx + 1]
-                    val up = types[idx - width]
-                    val down = types[idx + width]
+        if (simplifyLevel == 0) {
+            for (y in 1 until height - 1) {
+                val yOffset = y * width
+                for (x in 1 until width - 1) {
+                    val idx = yOffset + x
+                    if (types[idx].toInt() == TYPE_BG) {
+                        val left = types[idx - 1]
+                        val right = types[idx + 1]
+                        val up = types[idx - width]
+                        val down = types[idx + width]
 
-                    val isHorizGap = isRoadType(left) && isRoadType(right)
-                    val isVertGap = isRoadType(up) && isRoadType(down)
+                        val isHorizGap = isRoadType(left) && isRoadType(right)
+                        val isVertGap = isRoadType(up) && isRoadType(down)
 
-                    if (isHorizGap || isVertGap) {
-                        solidTypes[idx] = TYPE_LOCAL_ROAD.toByte()
+                        if (isHorizGap || isVertGap) {
+                            solidTypes[idx] = TYPE_LOCAL_ROAD.toByte()
+                        }
                     }
                 }
             }
@@ -1300,6 +1344,7 @@ class AndroidPebbleMessenger(
 
         // 第2パス: 孤立点（点群ノイズ）の除去（完全孤立点のみ消去し、実線化された細道や端点は保護）
         val cleanedTypes = solidTypes.clone()
+        val minRoadNeighbors = if (simplifyLevel >= 1) 2 else 1
         for (y in 1 until height - 1) {
             val yOffset = y * width
             for (x in 1 until width - 1) {
@@ -1323,7 +1368,7 @@ class AndroidPebbleMessenger(
                     continue
                 }
 
-                // 道路の孤立ノイズ除去（完全孤立点のみ消去。端点やT字路を保護）
+                // 道路の孤立ノイズ除去（simplifyLevel >= 1 の場合は短い断片も除去してRLEサイズを大幅削減）
                 if (t == TYPE_LOCAL_ROAD || t == TYPE_HIGHWAY) {
                     var roadNeighbors = 0
                     for (dy in -1..1) {
@@ -1335,14 +1380,15 @@ class AndroidPebbleMessenger(
                             }
                         }
                     }
-                    if (roadNeighbors == 0) {
+                    val required = if (t == TYPE_LOCAL_ROAD) minRoadNeighbors else 1
+                    if (roadNeighbors < required) {
                         cleanedTypes[idx] = TYPE_BG.toByte()
                     }
                 }
             }
         }
 
-                // 第3パス: 道路の太線化・途切れ防止（ズーム連動モルフォロジー膨張）
+        // 第3パス: 道路の太線化・途切れ防止（ズーム連動モルフォロジー膨張）
         val dilatedTypes = cleanedTypes.clone()
         for (y in 1 until height - 1) {
             val yOffset = y * width
@@ -1364,7 +1410,7 @@ class AndroidPebbleMessenger(
                             }
                         }
                     }
-                } else if (t == TYPE_LOCAL_ROAD) {
+                } else if (t == TYPE_LOCAL_ROAD && simplifyLevel == 0) {
                     // 一般道路:
                     // Zoom 13-15 では膨張しない！（画面が埋まるのを防止）
                     // Zoom 17-18（拡大時）のみ、細道がかすれて途切れないよう上下左右1px膨張
@@ -1412,13 +1458,46 @@ class AndroidPebbleMessenger(
         return result
     }
 
-    private fun encodeRLE(pixels: ByteArray): ByteArray {
+    private fun encodeRLE(pixels: ByteArray, width: Int = 0, height: Int = 0): ByteArray {
         val result = mutableListOf<Byte>()
         if (pixels.isEmpty()) return byteArrayOf()
-        
+
+        // 4バイトヘッダ [0xFE, 0xFD, width_low, height_low] を先頭に付与し、
+        // ウォッチ側が常にエンコード時と1pxの狂いもない横幅(width)で走査線を折り返せるようにする
+        if (width > 0 && height > 0) {
+            result.add(0xFE.toByte())
+            result.add(0xFD.toByte())
+            result.add((width and 0xFF).toByte())
+            result.add((height and 0xFF).toByte())
+
+            for (y in 0 until height) {
+                val rowOffset = y * width
+                if (rowOffset >= pixels.size) break
+                val rowEnd = minOf(rowOffset + width, pixels.size)
+
+                var currentColor = pixels[rowOffset]
+                var count = 0
+                for (i in rowOffset until rowEnd) {
+                    val pixel = pixels[i]
+                    if (pixel == currentColor && count < 255) {
+                        count++
+                    } else {
+                        result.add(count.toByte())
+                        result.add(currentColor)
+                        currentColor = pixel
+                        count = 1
+                    }
+                }
+                if (count > 0) {
+                    result.add(count.toByte())
+                    result.add(currentColor)
+                }
+            }
+            return result.toByteArray()
+        }
+
         var currentColor = pixels[0]
         var count = 0
-        
         for (pixel in pixels) {
             if (pixel == currentColor && count < 255) {
                 count++
@@ -1431,7 +1510,7 @@ class AndroidPebbleMessenger(
         }
         result.add(count.toByte())
         result.add(currentColor)
-        
+
         return result.toByteArray()
     }
 
@@ -1686,14 +1765,12 @@ class AndroidPebbleMessenger(
             listOf(curLoc)
         } else if (!lastMapPoints.isNullOrEmpty()) {
             lastMapPoints!!
+        } else if (!plannedCoursePoints.isNullOrEmpty()) {
+            plannedCoursePoints!!
         } else {
             emptyList()
         }
-        if (points.isNotEmpty()) {
-            sendMap(points, lastMapWidth, lastMapHeight)
-        } else {
-            Log.w("PebbleMessenger", "refreshMap: No points available to render map")
-        }
+        sendMap(points, lastMapWidth, lastMapHeight)
     }
 
     override fun launchWatchApp() {
@@ -1751,9 +1828,10 @@ class AndroidPebbleMessenger(
 
                     if (platformStr != null || !watchName.isNullOrEmpty()) {
                         val identifiedModel = when {
+                            platformStr?.contains("gabbro", ignoreCase = true) == true -> "Pebble Round 2"
                             platformStr?.contains("emery", ignoreCase = true) == true -> "Pebble Time 2"
                             platformStr?.contains("chalk", ignoreCase = true) == true -> "Pebble Time Round"
-                            platformStr?.contains("diorite", ignoreCase = true) == true -> "Pebble 2"
+                            platformStr?.contains("diorite", ignoreCase = true) == true || platformStr?.contains("flint", ignoreCase = true) == true -> "Pebble 2"
                             platformStr?.contains("basalt", ignoreCase = true) == true -> "Pebble Time / Time Steel"
                             platformStr?.contains("aplite", ignoreCase = true) == true -> "Pebble Classic / Steel"
                             watchName?.contains("Round 2", ignoreCase = true) == true -> "Pebble Round 2"
@@ -1762,7 +1840,7 @@ class AndroidPebbleMessenger(
                                     watchName?.contains("Time 2", ignoreCase = true) == true -> "Pebble Time 2"
                                     watchName?.contains("Round", ignoreCase = true) == true -> "Pebble Time Round"
                                     watchName?.contains("Time", ignoreCase = true) == true -> "Pebble Time"
-                                    watchName?.contains("Pebble 2", ignoreCase = true) == true -> "Pebble 2"
+                                    watchName?.contains("Pebble 2", ignoreCase = true) == true || watchName?.contains("Core 2", ignoreCase = true) == true -> "Pebble 2"
                                     else -> "Pebble Watch (${platformStr ?: watchName})"
                                 }
                             }

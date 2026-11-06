@@ -20,6 +20,7 @@ import hag1987haaa.pebble.iron.domain.tracker.RunState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
@@ -39,6 +40,11 @@ class IronAppFunctionService : AppFunctionService() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceScope.cancel()
+    }
+
     override fun onExecuteFunction(
         request: ExecuteAppFunctionRequest,
         callingPackage: String,
@@ -50,7 +56,7 @@ class IronAppFunctionService : AppFunctionService() {
         Log.d(TAG, "onExecuteFunction: id=$functionId from $callingPackage")
 
         // 1. 安全装置（プライバシー保護）：設定が OFF の場合は即座にアクセス拒否
-        if (!KmpDependencies.appSettings.isAssistantIntegrationEnabled) {
+        if (!AppFunctionManager.isAssistantAllowed()) {
             Log.w(TAG, "App Functions is DISABLED in settings. Rejecting request.")
             callback.onError(
                 AppFunctionException(
@@ -73,33 +79,41 @@ class IronAppFunctionService : AppFunctionService() {
                         }
                         AssistantActionHandler.dispatchCommand(applicationContext, "START")
 
+                        val msg = "ワークアウトを開始しました"
                         val resultDoc = DocBuilder("", "start", "WorkoutActionResult")
+                            .setPropertyString(ExecuteAppFunctionResponse.PROPERTY_RETURN_VALUE, msg)
                             .setPropertyString("status", "STARTED")
-                            .setPropertyString("message", "ワークアウトを開始しました")
+                            .setPropertyString("message", msg)
                             .build()
                         callback.onResult(ExecuteAppFunctionResponse(resultDoc))
                     }
                     FUNCTION_PAUSE_WORKOUT -> {
                         AssistantActionHandler.dispatchCommand(applicationContext, "PAUSE")
+                        val msg = "ワークアウトを一時停止しました"
                         val resultDoc = DocBuilder("", "pause", "WorkoutActionResult")
+                            .setPropertyString(ExecuteAppFunctionResponse.PROPERTY_RETURN_VALUE, msg)
                             .setPropertyString("status", "PAUSED")
-                            .setPropertyString("message", "ワークアウトを一時停止しました")
+                            .setPropertyString("message", msg)
                             .build()
                         callback.onResult(ExecuteAppFunctionResponse(resultDoc))
                     }
                     FUNCTION_RESUME_WORKOUT -> {
                         AssistantActionHandler.dispatchCommand(applicationContext, "RESUME")
+                        val msg = "ワークアウトを再開しました"
                         val resultDoc = DocBuilder("", "resume", "WorkoutActionResult")
+                            .setPropertyString(ExecuteAppFunctionResponse.PROPERTY_RETURN_VALUE, msg)
                             .setPropertyString("status", "RESUMED")
-                            .setPropertyString("message", "ワークアウトを再開しました")
+                            .setPropertyString("message", msg)
                             .build()
                         callback.onResult(ExecuteAppFunctionResponse(resultDoc))
                     }
                     FUNCTION_STOP_WORKOUT -> {
                         AssistantActionHandler.dispatchCommand(applicationContext, "STOP")
+                        val msg = "ワークアウトを終了・保存しました"
                         val resultDoc = DocBuilder("", "stop", "WorkoutActionResult")
+                            .setPropertyString(ExecuteAppFunctionResponse.PROPERTY_RETURN_VALUE, msg)
                             .setPropertyString("status", "STOPPED")
-                            .setPropertyString("message", "ワークアウトを終了・保存しました")
+                            .setPropertyString("message", msg)
                             .build()
                         callback.onResult(ExecuteAppFunctionResponse(resultDoc))
                     }
@@ -110,6 +124,7 @@ class IronAppFunctionService : AppFunctionService() {
                             metric, stats, KmpDependencies.appSettings
                         )
                         val resultDoc = DocBuilder("", "stats", "WorkoutStatsResult")
+                            .setPropertyString(ExecuteAppFunctionResponse.PROPERTY_RETURN_VALUE, speech.ttsSpeech)
                             .setPropertyString("title", speech.title)
                             .setPropertyString("text", speech.text)
                             .setPropertyString("speech", speech.ttsSpeech)

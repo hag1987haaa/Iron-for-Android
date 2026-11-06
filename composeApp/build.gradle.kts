@@ -72,8 +72,8 @@ android {
         applicationId = "hag1987haaa.pebble.iron"
         minSdk = 26
         targetSdk = 36
-        versionCode = 40
-        versionName = "2.3.2"
+        versionCode = 41
+        versionName = "2.3.3"
         buildConfigField("String", "CARTO_API_KEY", "\"$cartoApiKey\"")
         
         // ネイティブライブラリ（SQLCipher等）のデバッグシンボルをAABに含める設定

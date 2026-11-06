@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<appfunctions>
+    <appfunction>
+        <id>startWorkout</id>
+        <enabledByDefault>true</enabledByDefault>
+        <description>Starts a fitness workout or exercise tracking session in Iron (Tracker for Pebble).
+Use this function when the user asks to start running, walking, cycling, hiking, kayaking, or rowing in Iron (e.g., "アイアンでランニングを開始して", "Start a run in Iron", "ウォーキング計測をスタートして").</description>
+        <parameters>
+            <dataTypeMetadata>
+                <id>unused</id>
+                <isNullable>true</isNullable>
+                <type>8</type>
+            </dataTypeMetadata>
+            <id>unused</id>
+            <isRequired>false</isRequired>
+            <name>exercise_name</name>
+            <description>Optional exercise type such as RUNNING, WALKING, CYCLING, HIKING, KAYAKING, or ROWING (or Japanese equivalents like ランニング, ウォーキング, サイクリング, ハイキング).</description>
+        </parameters>
+        <response>
+            <id>unused</id>
+            <valueType>
+                <id>unused</id>
+                <isNullable>false</isNullable>
+                <type>8</type>
+            </valueType>
+            <description>Confirmation message indicating the workout has started.</description>
+        </response>
+        <functionId>startWorkout</functionId>
+    </appfunction>
+
+    <appfunction>
+        <id>pauseWorkout</id>
+        <enabledByDefault>true</enabledByDefault>
+        <description>Pauses the currently active workout tracking session in Iron (Tracker for Pebble).
+Use this when the user asks to pause their run or workout (e.g., "アイアンのワークアウトを一時停止して", "ランニングをポーズして", "Pause workout in Iron").</description>
+        <response>
+            <id>unused</id>
+            <valueType>
+                <id>unused</id>
+                <isNullable>false</isNullable>
+                <type>8</type>
+            </valueType>
+            <description>Confirmation message indicating the workout has been paused.</description>
+        </response>
+        <functionId>pauseWorkout</functionId>
+    </appfunction>
+
+    <appfunction>
+        <id>resumeWorkout</id>
+        <enabledByDefault>true</enabledByDefault>
+        <description>Resumes a paused workout tracking session in Iron (Tracker for Pebble).
+Use this when the user asks to resume or continue their run or workout (e.g., "アイアンのワークアウトを再開して", "ランニングを再開して", "Resume workout in Iron").</description>
+        <response>
+            <id>unused</id>
+            <valueType>
+                <id>unused</id>
+                <isNullable>false</isNullable>
+                <type>8</type>
+            </valueType>
+            <description>Confirmation message indicating the workout has been resumed.</description>
+        </response>
+        <functionId>resumeWorkout</functionId>
+    </appfunction>
+
+    <appfunction>
+        <id>stopWorkout</id>
+        <enabledByDefault>true</enabledByDefault>
+        <description>Stops and saves the current workout tracking session in Iron (Tracker for Pebble).
+Use this when the user asks to finish, stop, or end their workout (e.g., "アイアンのワークアウトを終了して", "ランニングを終了して保存して", "Stop workout in Iron").</description>
+        <response>
+            <id>unused</id>
+            <valueType>
+                <id>unused</id>
+                <isNullable>false</isNullable>
+                <type>8</type>
+            </valueType>
+            <description>Confirmation message indicating the workout has been stopped and saved.</description>
+        </response>
+        <functionId>stopWorkout</functionId>
+    </appfunction>
+
+    <appfunction>
+        <id>getWorkoutStats</id>
+        <enabledByDefault>true</enabledByDefault>
+        <description>Retrieves current real-time workout statistics from Iron (Tracker for Pebble), including pace, distance, elapsed time, and heart rate.
+Use this when the user asks about their current pace, heart rate, distance, or time during a workout (e.g., "アイアンで今のペースと心拍数を教えて", "今何キロ走った？", "What are my workout stats in Iron?").</description>
+        <parameters>
+            <dataTypeMetadata>
+                <id>unused</id>
+                <isNullable>true</isNullable>
+                <type>8</type>
+            </dataTypeMetadata>
+            <id>unused</id>
+            <isRequired>false</isRequired>
+            <name>metric</name>
+            <description>Optional specific metric to query: PACE, HEART_RATE, DISTANCE, TIME, or ALL.</description>
+        </parameters>
+        <response>
+            <id>unused</id>
+            <valueType>
+                <id>unused</id>
+                <isNullable>false</isNullable>
+                <type>8</type>
+            </valueType>
+            <description>Spoken summary of current workout statistics (pace, distance, elapsed time, heart rate).</description>
+        </response>
+        <functionId>getWorkoutStats</functionId>
+    </appfunction>
+
+    <AppFunctionComponentMetadataDocument>
+        <id>hag1987haaa.pebble.iron.assistant.IronAppFunctionService</id>
+    </AppFunctionComponentMetadataDocument>
+</appfunctions>

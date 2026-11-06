@@ -226,6 +226,7 @@ object AndroidDependencies {
         settings.lastMainTab = prefs.getInt("last_main_tab", 0)
         settings.lastSettingsTabName = prefs.getString("last_settings_tab", "PHONE") ?: "PHONE"
         settings.lastHistoryViewModeName = prefs.getString("last_history_view", "SCROLL") ?: "SCROLL"
+        settings.pebblePlatform = prefs.getString("pebble_platform", null)
 
         // BLE センサー設定
         settings.bleHeartRateDeviceAddress = prefs.getString("ble_hr_address", null)
@@ -344,6 +345,9 @@ object AndroidDependencies {
                 putInt("last_main_tab", settings.lastMainTab)
                 putString("last_settings_tab", settings.lastSettingsTabName)
                 putString("last_history_view", settings.lastHistoryViewModeName)
+                if (!settings.pebblePlatform.isNullOrEmpty()) {
+                    putString("pebble_platform", settings.pebblePlatform)
+                }
 
                 // BLE センサー設定
                 putString("ble_hr_address", settings.bleHeartRateDeviceAddress)

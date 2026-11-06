@@ -33,7 +33,7 @@ object AssistantActionHandler {
         Log.d(TAG, "Handling Assistant Intent: uri=$data, actionExtra=$actionExtra")
 
         // 安全装置（プライバシー保護）：設定が OFF の場合は操作・データ提供を行わない
-        if (!KmpDependencies.appSettings.isAssistantIntegrationEnabled) {
+        if (!AppFunctionManager.isAssistantAllowed()) {
             Log.w(TAG, "Voice Assistant Integration is DISABLED in settings. Ignoring request.")
             Toast.makeText(
                 context,
