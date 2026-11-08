@@ -116,10 +116,10 @@
 
         <activity
             android:name=".pebble.AssistantTrampolineActivity"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:theme="@android:style/Theme.Black.NoTitleBar"
+            android:launchMode="singleInstance"
             android:taskAffinity=""
             android:excludeFromRecents="true"
-            android:noHistory="true"
             android:showWhenLocked="true"
             android:inheritShowWhenLocked="true"
             android:turnScreenOn="true"

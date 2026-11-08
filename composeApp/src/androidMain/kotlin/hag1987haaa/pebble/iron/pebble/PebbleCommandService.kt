@@ -382,9 +382,10 @@ class PebbleCommandService : BasePebbleListenerService() {
                     ).apply {
                         setReferenceCounted(false)
                     }
-                    wakeLock.acquire(5000) // 5秒間画面点灯を維持
+                    wakeLock.acquire(8000) // 8秒間画面点灯を維持（2回目以降のKeyguard遷移遅延にも対応）
 
                     val trampolineIntent = Intent(this, AssistantTrampolineActivity::class.java).apply {
+                        putExtra(AssistantTrampolineActivity.EXTRA_TRIGGER_ASSIST, true)
                         addFlags(
                             Intent.FLAG_ACTIVITY_NEW_TASK or
                             Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -400,10 +401,6 @@ class PebbleCommandService : BasePebbleListenerService() {
                     }
 
                     try {
-                        startActivity(trampolineIntent, options.toBundle())
-                        Log.i("PebbleCommand", "Direct AssistantTrampolineActivity startActivity succeeded")
-                    } catch (se: Exception) {
-                        Log.w("PebbleCommand", "Direct startActivity failed, fallback to PendingIntent", se)
                         val pi = PendingIntent.getActivity(
                             this,
                             0,
@@ -411,6 +408,10 @@ class PebbleCommandService : BasePebbleListenerService() {
                             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                         )
                         pi.send(this, 0, null, null, null, null, options.toBundle())
+                        Log.i("PebbleCommand", "AssistantTrampolineActivity PendingIntent.send succeeded")
+                    } catch (se: Exception) {
+                        Log.w("PebbleCommand", "PendingIntent.send failed, fallback to direct startActivity", se)
+                        startActivity(trampolineIntent, options.toBundle())
                     }
                 } catch (e: Exception) {
                     Log.e("PebbleCommand", "Failed to launch assistant", e)
