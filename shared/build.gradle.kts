@@ -25,7 +25,6 @@ kotlin {
             implementation(libs.androidx.core.ktx)
             implementation(libs.sqlcipher)
             implementation(libs.androidx.security)
-            implementation("com.google.android.gms:play-services-location:21.3.0")
             api(libs.sqldelight.android.driver)
         }
     }
