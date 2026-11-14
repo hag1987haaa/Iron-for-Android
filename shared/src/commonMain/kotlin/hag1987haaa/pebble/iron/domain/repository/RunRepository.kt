@@ -12,6 +12,6 @@ interface RunRepository {
     suspend fun getRunDetails(runId: Long): RunActivity?
     suspend fun deleteRun(runId: Long)
     suspend fun updateRunName(runId: Long, name: String)
-    suspend fun updateActivityType(runId: Long, type: hag1987haaa.pebble.iron.domain.model.ActivityType, userWeight: Float? = null)
+    suspend fun updateActivityType(runId: Long, type: hag1987haaa.pebble.iron.domain.model.ActivityType, profile: hag1987haaa.pebble.iron.domain.model.CalorieProfile? = null)
     suspend fun updateHealthConnectId(runId: Long, healthConnectId: String?)
 }

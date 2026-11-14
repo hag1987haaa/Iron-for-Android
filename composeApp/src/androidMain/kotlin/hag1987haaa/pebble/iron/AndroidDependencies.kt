@@ -33,6 +33,23 @@ object AndroidDependencies {
     val healthConnectManager: HealthConnectManager
         get() = _healthConnectManager ?: throw IllegalStateException("AndroidDependencies not initialized")
 
+    /**
+     * Pulls the latest body metrics from Health Connect into the settings cache.
+     * Health Connect is the source of truth; the manual weight is only a fallback.
+     */
+    suspend fun refreshHealthMetrics() {
+        val manager = _healthConnectManager ?: return
+        val result = manager.readBodyMetrics()
+        if (result.isFailure) return // read error: keep the cached values
+        val settings = KmpDependencies.appSettings
+        val metrics = result.getOrThrow()
+        if (metrics != settings.healthMetrics) {
+            settings.healthMetrics = metrics
+            settings.save()
+            Log.d("AndroidDependencies", "Health Connect metrics updated: $metrics")
+        }
+    }
+
     fun initialize(context: Context) {
         if (isInitialized) return
         Log.d("AndroidDependencies", "Initializing dependencies...")
@@ -98,6 +115,19 @@ object AndroidDependencies {
             }
         }
         settings.userWeightKg = prefs.getFloat("user_weight", 70.0f)
+        settings.userSex = runCatching {
+            hag1987haaa.pebble.iron.domain.model.BiologicalSex.valueOf(prefs.getString("user_sex", null) ?: "MALE")
+        }.getOrDefault(hag1987haaa.pebble.iron.domain.model.BiologicalSex.MALE)
+        settings.userBirthDate = prefs.getString("user_birth_date", null)
+            ?.let { runCatching { kotlinx.datetime.LocalDate.parse(it) }.getOrNull() }
+        settings.healthMetrics = hag1987haaa.pebble.iron.domain.model.HealthBodyMetrics(
+            weightKg = prefs.getFloat("hc_weight_kg", -1f).takeIf { it > 0f },
+            heightCm = prefs.getFloat("hc_height_cm", -1f).takeIf { it > 0f }?.toDouble(),
+            bodyFatPct = prefs.getFloat("hc_body_fat_pct", -1f).takeIf { it > 0f }?.toDouble(),
+            restingHr = prefs.getInt("hc_resting_hr", -1).takeIf { it > 0 },
+            vo2Max = prefs.getFloat("hc_vo2max", -1f).takeIf { it > 0f }?.toDouble(),
+            bmrKcalPerDay = prefs.getFloat("hc_bmr_kcal", -1f).takeIf { it > 0f }?.toDouble(),
+        )
         settings.hasAskedHealthConnectOnboarding = prefs.getBoolean("hc_onboarding_asked", false)
         
         // グラフ・通知設定の読み込み
@@ -306,6 +336,16 @@ object AndroidDependencies {
                 putString("map_location_color", settings.mapLocationColor.id)
                 putString("activity_map_zooms", settings.activityMapZooms.entries.joinToString(",") { "${it.key}:${it.value}" })
                 putFloat("user_weight", settings.userWeightKg)
+                putString("user_sex", settings.userSex.name)
+                putString("user_birth_date", settings.userBirthDate?.toString())
+                settings.healthMetrics.let { m ->
+                    putFloat("hc_weight_kg", m.weightKg ?: -1f)
+                    putFloat("hc_height_cm", m.heightCm?.toFloat() ?: -1f)
+                    putFloat("hc_body_fat_pct", m.bodyFatPct?.toFloat() ?: -1f)
+                    putInt("hc_resting_hr", m.restingHr ?: -1)
+                    putFloat("hc_vo2max", m.vo2Max?.toFloat() ?: -1f)
+                    putFloat("hc_bmr_kcal", m.bmrKcalPerDay?.toFloat() ?: -1f)
+                }
                 putBoolean("hc_onboarding_asked", settings.hasAskedHealthConnectOnboarding)
                 
                 putString("graph_types", settings.enabledGraphTypes.joinToString(","))

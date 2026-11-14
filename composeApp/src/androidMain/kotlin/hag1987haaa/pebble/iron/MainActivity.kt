@@ -111,6 +111,7 @@ class MainActivity : ComponentActivity() {
         PermissionController.createRequestPermissionResultContract()
     ) { granted ->
         Log.d("MainActivity", "Health Connect granted: $granted")
+        lifecycleScope.launch { AndroidDependencies.refreshHealthMetrics() }
     }
 
     private var onGpxFileLoadedCallback: ((String) -> Unit)? = null
@@ -626,6 +627,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Health Connect の身体データをカロリー計算用に同期
+        lifecycleScope.launch { AndroidDependencies.refreshHealthMetrics() }
         // 設定画面から戻ってきた時などに、権限チェックを再開する
         // ただし、既にダイアログが表示されている場合は二重に実行しない
         if (!showLocationDisclosure && !showBackgroundLocationRationale && !showBatteryOptimizationDialog) {

@@ -140,7 +140,7 @@ object GraphDataGenerator {
                     val dist = LocationUtils.calculateDistance(p1.latitude, p1.longitude, p2.latitude, p2.longitude)
                     valDiff = HealthUtils.calculateCalories(
                         type = stats.activityType,
-                        weightKg = settings.userWeightKg,
+                        profile = settings.calorieProfile(),
                         durationSeconds = duration,
                         distanceMeters = dist,
                         avgHeartRate = p2.heartRate?.toDouble()
