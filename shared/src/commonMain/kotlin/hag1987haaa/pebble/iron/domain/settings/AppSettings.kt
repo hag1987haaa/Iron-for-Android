@@ -4,6 +4,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import hag1987haaa.pebble.iron.domain.model.ActivityType
+import hag1987haaa.pebble.iron.domain.model.BiologicalSex
+import hag1987haaa.pebble.iron.domain.model.CalorieProfile
+import hag1987haaa.pebble.iron.domain.model.HealthBodyMetrics
+import kotlinx.datetime.Clock
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
+import kotlinx.datetime.yearsUntil
 
 class AppSettings {
     var isMusicControlEnabled: Boolean = false
@@ -390,7 +398,35 @@ class AppSettings {
     var lastMidId: Int = -1
     var lastLowerId: Int = -1
     var isMetric: Boolean = true
+    /** Manual weight. Only used when Health Connect has no weight record. */
     var userWeightKg: Float = 70.0f
+    var userSex: BiologicalSex = BiologicalSex.MALE
+    var userBirthDate: LocalDate? = null
+
+    /** Latest body metrics read from Health Connect (cached so background work can use them). */
+    private val _healthMetrics = MutableStateFlow(HealthBodyMetrics())
+    val healthMetricsFlow: StateFlow<HealthBodyMetrics> = _healthMetrics.asStateFlow()
+    var healthMetrics: HealthBodyMetrics
+        get() = _healthMetrics.value
+        set(value) { _healthMetrics.value = value }
+
+    /** Health Connect weight first, then the manual setting. */
+    val effectiveWeightKg: Float
+        get() = healthMetrics.weightKg ?: userWeightKg
+
+    fun userAgeYears(today: LocalDate = Clock.System.todayIn(TimeZone.currentSystemDefault())): Int? =
+        userBirthDate?.yearsUntil(today)?.takeIf { it in 5..120 }
+
+    fun calorieProfile(): CalorieProfile = CalorieProfile(
+        weightKg = effectiveWeightKg,
+        sex = userSex,
+        ageYears = userAgeYears() ?: CalorieProfile.DEFAULT_AGE_YEARS,
+        restingHr = healthMetrics.restingHr,
+        vo2Max = healthMetrics.vo2Max,
+        bmrKcalPerDay = healthMetrics.bmrKcalPerDay,
+        heightCm = healthMetrics.heightCm,
+        bodyFatPct = healthMetrics.bodyFatPct,
+    )
     var hasAskedHealthConnectOnboarding: Boolean = false
     var appVersion: String = "2.1.3"
     

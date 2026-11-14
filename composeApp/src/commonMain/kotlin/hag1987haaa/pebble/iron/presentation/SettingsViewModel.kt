@@ -45,6 +45,15 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _userWeight = MutableStateFlow(settings.userWeightKg)
     val userWeight: StateFlow<Float> = _userWeight.asStateFlow()
 
+    /** Body metrics from Health Connect; a weight here overrides [userWeight]. */
+    val healthMetrics: StateFlow<hag1987haaa.pebble.iron.domain.model.HealthBodyMetrics> = settings.healthMetricsFlow
+
+    private val _userSex = MutableStateFlow(settings.userSex)
+    val userSex: StateFlow<hag1987haaa.pebble.iron.domain.model.BiologicalSex> = _userSex.asStateFlow()
+
+    private val _userBirthDate = MutableStateFlow(settings.userBirthDate)
+    val userBirthDate: StateFlow<kotlinx.datetime.LocalDate?> = _userBirthDate.asStateFlow()
+
     private val _enabledGraphTypes = MutableStateFlow(settings.enabledGraphTypes)
     val enabledGraphTypes: StateFlow<List<Int>> = _enabledGraphTypes.asStateFlow()
 
@@ -246,6 +255,20 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         _userWeight.value = weight
         settings.save()
     }
+
+    fun updateUserSex(sex: hag1987haaa.pebble.iron.domain.model.BiologicalSex) {
+        settings.userSex = sex
+        _userSex.value = sex
+        settings.save()
+    }
+
+    fun updateUserBirthDate(date: kotlinx.datetime.LocalDate?) {
+        settings.userBirthDate = date
+        _userBirthDate.value = date
+        settings.save()
+    }
+
+    fun userAgeYears(): Int? = settings.userAgeYears()
 
     fun updateGraphSettings(newTypes: List<Int>) {
         settings.enabledGraphTypes = newTypes

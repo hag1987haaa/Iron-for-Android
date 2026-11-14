@@ -256,14 +256,14 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
         queries.updateRunName(name, runId)
     }
 
-    override suspend fun updateActivityType(runId: Long, type: ActivityType, userWeight: Float?) = withContext(Dispatchers.IO) {
+    override suspend fun updateActivityType(runId: Long, type: ActivityType, profile: hag1987haaa.pebble.iron.domain.model.CalorieProfile?) = withContext(Dispatchers.IO) {
         val run = getRunDetails(runId)
         if (run == null) return@withContext
 
-        val newCalories = if (userWeight != null) {
+        val newCalories = if (profile != null) {
             HealthUtils.calculateCalories(
                 type = type,
-                weightKg = userWeight,
+                profile = profile,
                 durationSeconds = run.durationSeconds,
                 distanceMeters = run.distanceMeters,
                 elevationGainMeters = run.elevationGain ?: 0.0,

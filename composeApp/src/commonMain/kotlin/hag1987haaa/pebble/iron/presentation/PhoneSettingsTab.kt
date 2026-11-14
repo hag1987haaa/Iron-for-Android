@@ -19,11 +19,17 @@ import hag1987haaa.pebble.iron.KmpDependencies
 import hag1987haaa.pebble.iron.Res
 import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.domain.settings.LongPressMode
+import hag1987haaa.pebble.iron.domain.model.BiologicalSex
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.toLocalDateTime
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import org.jetbrains.compose.resources.stringResource
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLicenses: () -> Unit, onShowSimulation: () -> Unit) {
     val userWeight by viewModel.userWeight.collectAsState()
@@ -34,6 +40,22 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
     val tcxUri by viewModel.autoExportTcxUri.collectAsState()
     val gpxUri by viewModel.autoExportGpxUri.collectAsState()
     var showCourseSheet by remember { mutableStateOf(false) }
+    val hcMetrics by viewModel.healthMetrics.collectAsState()
+    val hcWeight = hcMetrics.weightKg
+    val userSex by viewModel.userSex.collectAsState()
+    val userBirthDate by viewModel.userBirthDate.collectAsState()
+    var showBirthDatePicker by remember { mutableStateOf(false) }
+
+    if (showBirthDatePicker) {
+        BirthDatePickerDialog(
+            initial = userBirthDate,
+            onDismiss = { showBirthDatePicker = false },
+            onConfirm = { date ->
+                viewModel.updateUserBirthDate(date)
+                showBirthDatePicker = false
+            }
+        )
+    }
 
     val scrollState = rememberScrollState()
 
@@ -42,13 +64,104 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
         SettingsSectionHeader(stringResource(Res.string.settings_section_profile))
         Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                val displayWeight = if (isMetric) userWeight else (userWeight * 2.20462f)
+                val toDisplay = { kg: Float -> if (isMetric) kg else (kg * 2.20462f) }
+                val weightUnit = if (isMetric) "kg" else "lb"
+                hcWeight?.let { kg ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(Res.string.settings_weight_hc_title))
+                            Text(
+                                stringResource(Res.string.settings_weight_hc_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                        Text(
+                            "${(toDisplay(kg) * 10).toInt() / 10.0} $weightUnit",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+                val displayWeight = toDisplay(userWeight)
                 OutlinedTextField(
                     value = ( (displayWeight * 10).toInt() / 10.0 ).toString(),
                     onValueChange = { it.toFloatOrNull()?.let { input -> viewModel.updateUserWeight(if (isMetric) input else (input / 2.20462f)) } },
-                    label = { Text(stringResource(Res.string.settings_label_weight)) },
+                    label = {
+                        Text(
+                            if (hcWeight != null) stringResource(Res.string.settings_label_weight_fallback)
+                            else stringResource(Res.string.settings_label_weight)
+                        )
+                    },
+                    supportingText = {
+                        Text(
+                            if (hcWeight != null) stringResource(Res.string.settings_weight_fallback_desc)
+                            else stringResource(Res.string.settings_weight_no_hc_desc)
+                        )
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    suffix = { Text(if (isMetric) "kg" else "lb") }
+                    suffix = { Text(weightUnit) }
+                )
+                Spacer(Modifier.height(16.dp))
+
+                // 性別 (心拍ベースのカロリー計算に使用)
+                Text(stringResource(Res.string.settings_label_sex))
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = userSex == BiologicalSex.MALE,
+                        onClick = { viewModel.updateUserSex(BiologicalSex.MALE) },
+                        label = { Text(stringResource(Res.string.settings_sex_male)) }
+                    )
+                    FilterChip(
+                        selected = userSex == BiologicalSex.FEMALE,
+                        onClick = { viewModel.updateUserSex(BiologicalSex.FEMALE) },
+                        label = { Text(stringResource(Res.string.settings_sex_female)) }
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+
+                // 生年月日 (年齢をカロリー計算に使用)
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { showBirthDatePicker = true },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(Res.string.settings_label_birth_date))
+                        Text(
+                            stringResource(Res.string.settings_birth_date_desc),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                    val birth = userBirthDate
+                    Text(
+                        if (birth == null) stringResource(Res.string.settings_birth_date_not_set)
+                        else "$birth (${viewModel.userAgeYears() ?: "-"})",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                // カロリー計算に使用している Health Connect のその他のデータ
+                val metricParts = buildList {
+                    val estimatedSuffix = if (hcMetrics.restingHrEstimated) " (${stringResource(Res.string.settings_hc_metric_estimated)})" else ""
+                    hcMetrics.restingHr?.let { add("${stringResource(Res.string.settings_hc_metric_resting_hr)} $it bpm$estimatedSuffix") }
+                    hcMetrics.vo2Max?.let { add("VO2max ${(it * 10).toInt() / 10.0}") }
+                    hcMetrics.bmrKcalPerDay?.let { add("${stringResource(Res.string.settings_hc_metric_bmr)} ${it.toInt()} kcal/day") }
+                    hcMetrics.heightCm?.let { cm ->
+                        add("${stringResource(Res.string.settings_hc_metric_height)} " +
+                            if (isMetric) "${cm.toInt()} cm" else "${(cm / 2.54).toInt() / 12}' ${(cm / 2.54).toInt() % 12}\"")
+                    }
+                    hcMetrics.bodyFatPct?.let { add("${stringResource(Res.string.settings_hc_metric_body_fat)} ${(it * 10).toInt() / 10.0}%") }
+                }
+                Text(stringResource(Res.string.settings_hc_metrics_title))
+                Text(
+                    if (metricParts.isEmpty()) stringResource(Res.string.settings_hc_metrics_none)
+                    else metricParts.joinToString(" · "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
                 )
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -515,3 +628,30 @@ fun LongPressButtonSettingDropdown(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BirthDatePickerDialog(
+    initial: LocalDate?,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate?) -> Unit,
+) {
+    // DatePicker は UTC 0時のミリ秒で日付を扱う
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = (initial ?: LocalDate(1990, 1, 1))
+            .atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                val millis = state.selectedDateMillis
+                onConfirm(millis?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.UTC).date } ?: initial)
+            }) { Text(stringResource(Res.string.settings_birth_date_ok)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.settings_birth_date_cancel)) }
+        }
+    ) {
+        DatePicker(state = state)
+    }
+}

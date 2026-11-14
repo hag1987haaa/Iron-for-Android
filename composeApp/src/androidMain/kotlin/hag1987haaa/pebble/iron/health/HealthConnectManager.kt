@@ -6,11 +6,15 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
 import androidx.health.connect.client.records.metadata.Metadata as HealthMetadata
+import androidx.health.connect.client.request.ReadRecordsRequest
+import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Length
 import hag1987haaa.pebble.iron.domain.model.ActivityType
+import hag1987haaa.pebble.iron.domain.model.HealthBodyMetrics
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 import kotlinx.datetime.toJavaInstant
+import java.time.Instant
 import java.time.ZoneOffset
 
 sealed class HealthSyncResult {
@@ -38,6 +42,22 @@ class HealthConnectManager(private val context: Context) {
     val elevationPermission = HealthPermission.getWritePermission(ElevationGainedRecord::class)
     val routePermission = "android.permission.health.WRITE_EXERCISE_ROUTE"
 
+    // 読み取り権限 (カロリー計算用の身体データ)
+    val weightReadPermission = HealthPermission.getReadPermission(WeightRecord::class)
+    val bodyReadPermissions = setOf(
+        weightReadPermission,
+        HealthPermission.getReadPermission(HeightRecord::class),
+        HealthPermission.getReadPermission(BodyFatRecord::class),
+        HealthPermission.getReadPermission(RestingHeartRateRecord::class),
+        HealthPermission.getReadPermission(Vo2MaxRecord::class),
+        HealthPermission.getReadPermission(BasalMetabolicRateRecord::class),
+        // 安静時心拍数の記録がない場合、睡眠中の心拍数から推定する
+        HealthPermission.getReadPermission(HeartRateRecord::class),
+        HealthPermission.getReadPermission(SleepSessionRecord::class),
+    )
+    // 体重記録は既定の30日読み取り範囲より古い場合がある
+    val historyReadPermission = "android.permission.health.READ_HEALTH_DATA_HISTORY"
+
     // 基本書き込み権限セット
     val basePermissions = setOf(
         sessionPermission,
@@ -49,7 +69,7 @@ class HealthConnectManager(private val context: Context) {
     )
 
     // 全権限（運動ルート権限を含む）
-    val permissions = basePermissions + setOf(routePermission)
+    val permissions = basePermissions + bodyReadPermissions + setOf(routePermission, historyReadPermission)
 
     suspend fun hasSessionPermission(): Boolean {
         if (!isAvailable()) return false
@@ -66,10 +86,132 @@ class HealthConnectManager(private val context: Context) {
         if (!isAvailable()) return false
         return try {
             val granted = healthConnectClient.permissionController.getGrantedPermissions()
-            granted.containsAll(basePermissions)
+            granted.containsAll(basePermissions + bodyReadPermissions)
         } catch (e: Exception) {
             Log.e("HealthConnect", "Failed to check permissions", e)
             false
+        }
+    }
+
+    private suspend fun <T : Record> latest(type: kotlin.reflect.KClass<T>, granted: Set<String>): T? {
+        if (HealthPermission.getReadPermission(type) !in granted) return null
+        return healthConnectClient.readRecords(
+            ReadRecordsRequest(
+                recordType = type,
+                timeRangeFilter = TimeRangeFilter.before(Instant.now()),
+                ascendingOrder = false,
+                pageSize = 1,
+            )
+        ).records.firstOrNull()
+    }
+
+    private suspend fun <T : Record> readAll(
+        type: kotlin.reflect.KClass<T>,
+        start: Instant,
+        end: Instant,
+        maxRecords: Int = 20_000,
+    ): List<T> {
+        val out = mutableListOf<T>()
+        var token: String? = null
+        do {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = type,
+                    timeRangeFilter = TimeRangeFilter.between(start, end),
+                    pageSize = 1000,
+                    pageToken = token,
+                )
+            )
+            out += response.records
+            token = response.pageToken
+        } while (token != null && out.size < maxRecords)
+        return out
+    }
+
+    /**
+     * Resting HR estimated from heart-rate samples (e.g. written by Gravel) over the last [days]:
+     * low percentile of each night's sleep, median across nights. Falls back to whole days when
+     * there are no sleep sessions. Null when there isn't enough data.
+     */
+    suspend fun estimateRestingHr(granted: Set<String>, days: Long = 7): Int? {
+        if (HealthPermission.getReadPermission(HeartRateRecord::class) !in granted) return null
+        val end = Instant.now()
+        val start = end.minus(java.time.Duration.ofDays(days))
+
+        val nights = if (HealthPermission.getReadPermission(SleepSessionRecord::class) in granted) {
+            readAll(SleepSessionRecord::class, start, end)
+                .filter { java.time.Duration.between(it.startTime, it.endTime).toHours() >= 2 }
+        } else emptyList()
+
+        val samples = readAll(HeartRateRecord::class, start, end)
+            .flatMap { it.samples }
+            .sortedBy { it.time }
+
+        if (nights.isNotEmpty()) {
+            val perNight = nights.map { night ->
+                samples.filter { it.time >= night.startTime && it.time <= night.endTime }
+                    .map { it.beatsPerMinute.toInt() }
+            }
+            hag1987haaa.pebble.iron.util.RestingHrEstimator.estimate(
+                perNight,
+                hag1987haaa.pebble.iron.util.RestingHrEstimator.SLEEP_PERCENTILE,
+                hag1987haaa.pebble.iron.util.RestingHrEstimator.SLEEP_MIN_SAMPLES,
+            )?.let { return it }
+        }
+
+        val zone = java.time.ZoneId.systemDefault()
+        val perDay = samples.groupBy { it.time.atZone(zone).toLocalDate() }
+            .values.map { day -> day.map { it.beatsPerMinute.toInt() } }
+        return hag1987haaa.pebble.iron.util.RestingHrEstimator.estimate(
+            perDay,
+            hag1987haaa.pebble.iron.util.RestingHrEstimator.DAY_PERCENTILE,
+            hag1987haaa.pebble.iron.util.RestingHrEstimator.DAY_MIN_SAMPLES,
+        )
+    }
+
+    /**
+     * Latest body metrics in Health Connect. Missing permission or record -> null field.
+     * Resting HR: a recent RestingHeartRateRecord wins; otherwise it is estimated from sleep
+     * heart rate when [refreshRestingEstimate] is true, or carried over from [previous] if that
+     * was an estimate.
+     * Failure = read error (keep whatever was cached).
+     */
+    suspend fun readBodyMetrics(
+        refreshRestingEstimate: Boolean,
+        previous: HealthBodyMetrics,
+    ): Result<HealthBodyMetrics> {
+        if (!isAvailable()) return Result.success(HealthBodyMetrics())
+        return try {
+            val g = healthConnectClient.permissionController.getGrantedPermissions()
+            val restingRecord = latest(RestingHeartRateRecord::class, g)
+            val recordBpm = restingRecord?.beatsPerMinute?.toInt()?.takeIf { it in 30..110 }
+            val recordIsRecent = restingRecord != null &&
+                restingRecord.time.isAfter(Instant.now().minus(java.time.Duration.ofDays(30)))
+            val (restingHr, estimated) = when {
+                recordBpm != null && recordIsRecent -> recordBpm to false
+                refreshRestingEstimate -> estimateRestingHr(g)?.let { it to true } ?: (recordBpm to false)
+                previous.restingHrEstimated && previous.restingHr != null -> previous.restingHr to true
+                else -> recordBpm to false
+            }
+            Result.success(
+                HealthBodyMetrics(
+                    weightKg = latest(WeightRecord::class, g)?.weight?.inKilograms
+                        ?.takeIf { it in 20.0..400.0 }?.toFloat(),
+                    heightCm = latest(HeightRecord::class, g)?.height?.inMeters?.times(100)
+                        ?.takeIf { it in 100.0..250.0 },
+                    bodyFatPct = latest(BodyFatRecord::class, g)?.percentage?.value
+                        ?.takeIf { it in 3.0..60.0 },
+                    restingHr = restingHr,
+                    restingHrEstimated = estimated,
+                    vo2Max = latest(Vo2MaxRecord::class, g)?.vo2MillilitersPerMinuteKilogram
+                        ?.takeIf { it in 15.0..95.0 },
+                    bmrKcalPerDay = latest(BasalMetabolicRateRecord::class, g)?.basalMetabolicRate?.inKilocaloriesPerDay
+                        ?.takeIf { it in 800.0..4500.0 },
+                )
+            )
+        } catch (e: Exception) {
+            Log.w("HealthConnect", "Failed to read body metrics", e)
+            Result.failure(e)
         }
     }
 

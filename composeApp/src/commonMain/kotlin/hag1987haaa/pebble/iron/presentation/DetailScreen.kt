@@ -350,7 +350,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                                     if (runId != -1L) {
                                                         viewModel.viewModelScope.launch {
                                                             viewModel.updateRunName(runId, editableName)
-                                                            viewModel.updateActivityType(runId, selectedType, KmpDependencies.appSettings.userWeightKg)
+                                                            viewModel.updateActivityType(runId, selectedType, KmpDependencies.appSettings.calorieProfile())
                                                             isEditingName = false
                                                             val updatedRun = viewModel.getRunDetails(runId)
                                                             runActivity = updatedRun
@@ -656,7 +656,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                     // 今後のワークアウトで保存される、地点ごとの心拍数や速度を活用
                                     hag1987haaa.pebble.iron.util.HealthUtils.calculateCalories(
                                         type = run.type,
-                                        weightKg = KmpDependencies.appSettings.userWeightKg,
+                                        profile = KmpDependencies.appSettings.calorieProfile(),
                                         durationSeconds = duration,
                                         distanceMeters = dist,
                                         elevationGainMeters = elevGain,
