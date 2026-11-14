@@ -99,6 +99,7 @@
     <string name="settings_hc_metrics_title">Health Connect から使用中のその他のデータ</string>
     <string name="settings_hc_metrics_none">見つかりません。安静時心拍数、VO2max、基礎代謝、身長、体脂肪率があるとカロリー推定がより正確になります。</string>
     <string name="settings_hc_metric_resting_hr">安静時心拍</string>
+    <string name="settings_hc_metric_estimated">睡眠中の心拍数から推定</string>
     <string name="settings_hc_metric_bmr">基礎代謝</string>
     <string name="settings_hc_metric_height">身長</string>
     <string name="settings_hc_metric_body_fat">体脂肪率</string>

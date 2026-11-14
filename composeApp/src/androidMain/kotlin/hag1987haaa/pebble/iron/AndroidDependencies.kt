@@ -33,16 +33,25 @@ object AndroidDependencies {
     val healthConnectManager: HealthConnectManager
         get() = _healthConnectManager ?: throw IllegalStateException("AndroidDependencies not initialized")
 
+    /** Last time resting HR was estimated from heart-rate samples (reading a week of HR is slow). */
+    @Volatile private var lastRestingEstimateMs = 0L
+    private const val RESTING_ESTIMATE_INTERVAL_MS = 6 * 60 * 60 * 1000L
+
     /**
      * Pulls the latest body metrics from Health Connect into the settings cache.
      * Health Connect is the source of truth; the manual weight is only a fallback.
+     * [allowRestingEstimate] = false skips the (slow) resting-HR estimate, e.g. when saving a workout.
      */
-    suspend fun refreshHealthMetrics() {
+    suspend fun refreshHealthMetrics(allowRestingEstimate: Boolean = true) {
         val manager = _healthConnectManager ?: return
-        val result = manager.readBodyMetrics()
-        if (result.isFailure) return // read error: keep the cached values
         val settings = KmpDependencies.appSettings
+        val now = System.currentTimeMillis()
+        val estimate = allowRestingEstimate && now - lastRestingEstimateMs > RESTING_ESTIMATE_INTERVAL_MS
+        val result = manager.readBodyMetrics(estimate, settings.healthMetrics)
+        if (result.isFailure) return // read error: keep the cached values
         val metrics = result.getOrThrow()
+        // 値が得られた時だけ間隔を空ける (権限付与直後やデータ不足時はすぐ再試行)
+        if (estimate && metrics.restingHr != null) lastRestingEstimateMs = now
         if (metrics != settings.healthMetrics) {
             settings.healthMetrics = metrics
             settings.save()
@@ -125,6 +134,7 @@ object AndroidDependencies {
             heightCm = prefs.getFloat("hc_height_cm", -1f).takeIf { it > 0f }?.toDouble(),
             bodyFatPct = prefs.getFloat("hc_body_fat_pct", -1f).takeIf { it > 0f }?.toDouble(),
             restingHr = prefs.getInt("hc_resting_hr", -1).takeIf { it > 0 },
+            restingHrEstimated = prefs.getBoolean("hc_resting_hr_estimated", false),
             vo2Max = prefs.getFloat("hc_vo2max", -1f).takeIf { it > 0f }?.toDouble(),
             bmrKcalPerDay = prefs.getFloat("hc_bmr_kcal", -1f).takeIf { it > 0f }?.toDouble(),
         )
@@ -343,6 +353,7 @@ object AndroidDependencies {
                     putFloat("hc_height_cm", m.heightCm?.toFloat() ?: -1f)
                     putFloat("hc_body_fat_pct", m.bodyFatPct?.toFloat() ?: -1f)
                     putInt("hc_resting_hr", m.restingHr ?: -1)
+                    putBoolean("hc_resting_hr_estimated", m.restingHrEstimated)
                     putFloat("hc_vo2max", m.vo2Max?.toFloat() ?: -1f)
                     putFloat("hc_bmr_kcal", m.bmrKcalPerDay?.toFloat() ?: -1f)
                 }

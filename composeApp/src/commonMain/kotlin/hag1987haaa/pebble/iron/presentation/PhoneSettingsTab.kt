@@ -146,7 +146,8 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
                 Spacer(Modifier.height(16.dp))
                 // カロリー計算に使用している Health Connect のその他のデータ
                 val metricParts = buildList {
-                    hcMetrics.restingHr?.let { add("${stringResource(Res.string.settings_hc_metric_resting_hr)} $it bpm") }
+                    val estimatedSuffix = if (hcMetrics.restingHrEstimated) " (${stringResource(Res.string.settings_hc_metric_estimated)})" else ""
+                    hcMetrics.restingHr?.let { add("${stringResource(Res.string.settings_hc_metric_resting_hr)} $it bpm$estimatedSuffix") }
                     hcMetrics.vo2Max?.let { add("VO2max ${(it * 10).toInt() / 10.0}") }
                     hcMetrics.bmrKcalPerDay?.let { add("${stringResource(Res.string.settings_hc_metric_bmr)} ${it.toInt()} kcal/day") }
                     hcMetrics.heightCm?.let { cm ->

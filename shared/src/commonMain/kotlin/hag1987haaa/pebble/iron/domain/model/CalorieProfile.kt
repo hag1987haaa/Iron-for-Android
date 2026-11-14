@@ -10,6 +10,8 @@ data class HealthBodyMetrics(
     val restingHr: Int? = null,
     val vo2Max: Double? = null,
     val bmrKcalPerDay: Double? = null,
+    /** True when [restingHr] was estimated by Iron from heart-rate samples (sleep, else daytime). */
+    val restingHrEstimated: Boolean = false,
 )
 
 /**

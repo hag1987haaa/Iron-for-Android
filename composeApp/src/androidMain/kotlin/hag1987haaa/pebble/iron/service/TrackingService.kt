@@ -221,7 +221,7 @@ class TrackingService : Service() {
                 val stats = RunState.currentStats.value
                 val settings = KmpDependencies.appSettings
                 // Health Connect の最新身体データを取得 (失敗・タイムアウト時はキャッシュ/手動設定を使用)
-                kotlinx.coroutines.withTimeoutOrNull(3000) { AndroidDependencies.refreshHealthMetrics() }
+                kotlinx.coroutines.withTimeoutOrNull(3000) { AndroidDependencies.refreshHealthMetrics(allowRestingEstimate = false) }
                 
                 // 保存直前に最新の設定（体重・アクティビティ種別）でカロリーを再計算
                 val calories = HealthUtils.calculateCalories(
@@ -299,7 +299,7 @@ class TrackingService : Service() {
                 val stats = RunState.currentStats.value
                 val settings = KmpDependencies.appSettings
                 // Health Connect の最新身体データを取得 (失敗・タイムアウト時はキャッシュ/手動設定を使用)
-                kotlinx.coroutines.withTimeoutOrNull(3000) { AndroidDependencies.refreshHealthMetrics() }
+                kotlinx.coroutines.withTimeoutOrNull(3000) { AndroidDependencies.refreshHealthMetrics(allowRestingEstimate = false) }
                 
                 // 保存直前に最新の設定（体重・アクティビティ種別）でカロリーを再計算
                 val calories = HealthUtils.calculateCalories(

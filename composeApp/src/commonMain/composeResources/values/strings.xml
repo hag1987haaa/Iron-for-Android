@@ -99,6 +99,7 @@
     <string name="settings_hc_metrics_title">Also used from Health Connect</string>
     <string name="settings_hc_metrics_none">None found. Resting heart rate, VO2max, BMR, height and body fat refine the calorie estimate when available.</string>
     <string name="settings_hc_metric_resting_hr">Resting HR</string>
+    <string name="settings_hc_metric_estimated">estimated from sleep heart rate</string>
     <string name="settings_hc_metric_bmr">BMR</string>
     <string name="settings_hc_metric_height">Height</string>
     <string name="settings_hc_metric_body_fat">Body fat</string>
