@@ -170,12 +170,23 @@ fun SplitsTable(
                     }
 
                     // タイム（所要時間）
-                    Text(
-                        text = FormatUtils.formatDuration(split.durationSeconds),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(64.dp)
-                    )
+                    Column(
+                        modifier = Modifier.width(64.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = FormatUtils.formatDuration(split.durationSeconds),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (split.pausedDurationSeconds > 0L) {
+                            Text(
+                                text = "⏸ ${FormatUtils.formatDuration(split.pausedDurationSeconds)}",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
 
                     // ペースバー（横棒）
                     Box(

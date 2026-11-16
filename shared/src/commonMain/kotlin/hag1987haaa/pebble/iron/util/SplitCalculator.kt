@@ -10,7 +10,8 @@ data class SplitItem(
     val paceSeconds: Double,
     val isLastPartial: Boolean = false,
     val avgHeartRate: Double? = null,
-    val elevationGain: Double? = null
+    val elevationGain: Double? = null,
+    val pausedDurationSeconds: Long = 0L
 )
 
 object SplitCalculator {
@@ -19,6 +20,8 @@ object SplitCalculator {
 
     /**
      * GPSルートから指定単位（1kmまたは1マイル）ごとのスプリット（ラップタイム一覧）を計算します。
+     * 一時停止（isSegmentStart）の期間はアクティブなラップタイムから除外され、
+     * 各ラップの一時停止時間（pausedDurationSeconds）として集計されます。
      *
      * @param route 位置情報のリスト
      * @param isMetric trueなら1km単位、falseなら1マイル単位
@@ -38,6 +41,7 @@ object SplitCalculator {
         var splitNumber = 1
         var currentSplitDist = 0.0
         var currentSplitDuration = 0.0
+        var currentSplitPausedDuration = 0.0
         var currentSplitElevationGain = 0.0
         val currentSplitHeartRates = mutableListOf<Int>()
 
@@ -49,6 +53,10 @@ object SplitCalculator {
             val dtMs = (p2.timestamp.toEpochMilliseconds() - p1.timestamp.toEpochMilliseconds()).coerceAtLeast(0L)
             val dt = dtMs / 1000.0
 
+            val isPaused = p2.isSegmentStart
+            val activeDt = if (isPaused) 0.0 else dt
+            val pausedDt = if (isPaused) dt else 0.0
+
             val alt1 = p1.altitude
             val alt2 = p2.altitude
             val stepElev = if (alt1 != null && alt2 != null && alt2 > alt1) alt2 - alt1 else 0.0
@@ -57,16 +65,19 @@ object SplitCalculator {
 
             // 今回の区間を進める
             var remainingD = d
-            var remainingDt = dt
+            var remainingActiveDt = activeDt
+            var remainingPausedDt = pausedDt
             var remainingElev = stepElev
 
             while (currentSplitDist + remainingD >= unitMeters) {
                 val neededD = unitMeters - currentSplitDist
                 val ratio = if (remainingD > 0.0) (neededD / remainingD).coerceIn(0.0, 1.0) else 1.0
-                val consumedDt = remainingDt * ratio
+                val consumedActiveDt = remainingActiveDt * ratio
+                val consumedPausedDt = remainingPausedDt * ratio
                 val consumedElev = remainingElev * ratio
 
-                val totalDuration = currentSplitDuration + consumedDt
+                val totalDuration = currentSplitDuration + consumedActiveDt
+                val totalPaused = currentSplitPausedDuration + consumedPausedDt
                 val totalElev = currentSplitElevationGain + consumedElev
                 val avgHr = if (currentSplitHeartRates.isNotEmpty()) currentSplitHeartRates.average() else null
 
@@ -81,29 +92,33 @@ object SplitCalculator {
                         paceSeconds = paceSec,
                         isLastPartial = false,
                         avgHeartRate = avgHr,
-                        elevationGain = if (totalElev > 0.0) totalElev else null
+                        elevationGain = if (totalElev > 0.0) totalElev else null,
+                        pausedDurationSeconds = totalPaused.roundToLong()
                     )
                 )
 
                 // 次のスプリット用に残りを更新
                 remainingD -= neededD
-                remainingDt -= consumedDt
+                remainingActiveDt -= consumedActiveDt
+                remainingPausedDt -= consumedPausedDt
                 remainingElev -= consumedElev
 
                 currentSplitDist = 0.0
                 currentSplitDuration = 0.0
+                currentSplitPausedDuration = 0.0
                 currentSplitElevationGain = 0.0
                 currentSplitHeartRates.clear()
                 p2.heartRate?.let { currentSplitHeartRates.add(it) }
             }
 
             currentSplitDist += remainingD
-            currentSplitDuration += remainingDt
+            currentSplitDuration += remainingActiveDt
+            currentSplitPausedDuration += remainingPausedDt
             currentSplitElevationGain += remainingElev
         }
 
         // 最後の端数区間がある場合
-        if (currentSplitDist >= minPartialDistanceMeters && currentSplitDuration > 0.0) {
+        if (currentSplitDist >= minPartialDistanceMeters && (currentSplitDuration > 0.0 || currentSplitPausedDuration > 0.0)) {
             val durationSec = currentSplitDuration.roundToLong()
             val ratioToUnit = currentSplitDist / unitMeters
             val paceSec = if (ratioToUnit > 0.0) currentSplitDuration / ratioToUnit else 0.0
@@ -117,7 +132,8 @@ object SplitCalculator {
                     paceSeconds = paceSec,
                     isLastPartial = true,
                     avgHeartRate = avgHr,
-                    elevationGain = if (currentSplitElevationGain > 0.0) currentSplitElevationGain else null
+                    elevationGain = if (currentSplitElevationGain > 0.0) currentSplitElevationGain else null,
+                    pausedDurationSeconds = currentSplitPausedDuration.roundToLong()
                 )
             )
         }
