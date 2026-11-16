@@ -34,6 +34,8 @@
     <string name="detail_splits_pace">ペース</string>
     <string name="detail_splits_time">タイム</string>
     <string name="detail_splits_fastest">最速</string>
+    <string name="detail_splits_show_all">すべてのラップを表示（全%1$d件）</string>
+    <string name="detail_splits_collapse">折りたたむ</string>
     <string name="detail_chart_altitude">高度 (m)</string>
     <string name="detail_chart_heart_rate">心拍数 (bpm)</string>
     <string name="detail_chart_speed">速度 (km/h)</string>

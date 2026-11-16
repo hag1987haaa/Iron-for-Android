@@ -34,6 +34,8 @@
     <string name="detail_splits_pace">Pace</string>
     <string name="detail_splits_time">Time</string>
     <string name="detail_splits_fastest">Fastest</string>
+    <string name="detail_splits_show_all">Show All %1$d Splits</string>
+    <string name="detail_splits_collapse">Show Less</string>
     <string name="detail_chart_altitude">Altitude (m)</string>
     <string name="detail_chart_heart_rate">Heart Rate (bpm)</string>
     <string name="detail_chart_speed">Speed (km/h)</string>

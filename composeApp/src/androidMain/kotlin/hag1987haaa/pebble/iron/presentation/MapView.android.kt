@@ -22,6 +22,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.content.Context
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import kotlin.math.roundToInt
 
 @Composable
 actual fun PlatformMapView(
@@ -246,11 +247,29 @@ actual fun PlatformMapView(
                     view.controller.setCenter(targetPoint)
                 }
 
-                // 3. 1kmごとのラップマーカー
+                // 3. ラップマーカー（総距離に応じて間隔を自動調整し、過剰なマーカー生成によるクラッシュ・負荷を防ぐ）
                 if (view.repository != null) {
                     try {
+                        // まず総距離を概算
+                        var totalDistance = 0.0
+                        for (i in 1 until points.size) {
+                            val prev = points[i - 1]
+                            val cur = points[i]
+                            val timeDiffMs = cur.timestamp.toEpochMilliseconds() - prev.timestamp.toEpochMilliseconds()
+                            if (!cur.isSegmentStart && timeDiffMs < PAUSE_GAP_MS) {
+                                totalDistance += GeoPoint(prev.latitude, prev.longitude).distanceToAsDouble(GeoPoint(cur.latitude, cur.longitude))
+                            }
+                        }
+
+                        val lapStep = when {
+                            totalDistance > 150_000.0 -> 10_000.0 // 150km超: 10kmごと
+                            totalDistance > 60_000.0 -> 5_000.0   // 60km超: 5kmごと
+                            totalDistance > 25_000.0 -> 2_000.0   // 25km超: 2kmごと
+                            else -> 1_000.0                       // 通常: 1kmごと
+                        }
+
                         var accumulatedDistance = 0.0
-                        var nextLapDistance = 1000.0
+                        var nextLapDistance = lapStep
 
                         points.forEachIndexed { i, pt ->
                             if (i > 0) {
@@ -263,14 +282,14 @@ actual fun PlatformMapView(
                                     val curGeo = GeoPoint(pt.latitude, pt.longitude)
                                     accumulatedDistance += prevGeo.distanceToAsDouble(curGeo)
                                     if (accumulatedDistance >= nextLapDistance) {
-                                        val lapNumber = (nextLapDistance / 1000).toInt()
+                                        val lapKm = (nextLapDistance / 1000.0).roundToInt()
                                         view.overlays.add(Marker(view).apply {
                                             position = curGeo
                                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                            icon = createNumberIcon(view.context, lapNumber)
-                                            title = "$lapNumber km"
+                                            icon = createNumberIcon(view.context, lapKm)
+                                            title = "$lapKm km"
                                         })
-                                        nextLapDistance += 1000.0
+                                        nextLapDistance += lapStep
                                     }
                                 }
                             }

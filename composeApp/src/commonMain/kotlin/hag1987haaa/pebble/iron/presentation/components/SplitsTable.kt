@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ElectricBolt
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -17,9 +19,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hag1987haaa.pebble.iron.Res
+import hag1987haaa.pebble.iron.detail_splits_collapse
 import hag1987haaa.pebble.iron.detail_splits_distance
 import hag1987haaa.pebble.iron.detail_splits_fastest
 import hag1987haaa.pebble.iron.detail_splits_pace
+import hag1987haaa.pebble.iron.detail_splits_show_all
 import hag1987haaa.pebble.iron.detail_splits_time
 import hag1987haaa.pebble.iron.detail_splits_title
 import hag1987haaa.pebble.iron.unit_km
@@ -29,6 +33,8 @@ import hag1987haaa.pebble.iron.util.SplitItem
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
+private const val INITIAL_VISIBLE_COUNT = 10
+
 @Composable
 fun SplitsTable(
     splits: List<SplitItem>,
@@ -36,6 +42,9 @@ fun SplitsTable(
     modifier: Modifier = Modifier
 ) {
     if (splits.isEmpty()) return
+
+    var isExpanded by remember { mutableStateOf(false) }
+    val visibleSplits = if (isExpanded || splits.size <= INITIAL_VISIBLE_COUNT) splits else splits.take(INITIAL_VISIBLE_COUNT)
 
     val unitLabel = stringResource(if (isMetric) Res.string.unit_km else Res.string.unit_mi)
     val fastestPace = splits.minOfOrNull { it.paceSeconds } ?: 0.0
@@ -99,7 +108,7 @@ fun SplitsTable(
             )
 
             // 各スプリット行
-            splits.forEach { split ->
+            visibleSplits.forEach { split ->
                 val isFastest = split.paceSeconds > 0.0 && split.paceSeconds <= fastestPace + 0.001
                 
                 // バーの長さ比率：速いほど長く（最速が 1.0、遅いほど小さく）
@@ -208,6 +217,36 @@ fun SplitsTable(
                                         MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
                                     }
                                 )
+                        )
+                    }
+                }
+            }
+
+            if (splits.size > INITIAL_VISIBLE_COUNT) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { isExpanded = !isExpanded },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isExpanded) {
+                                stringResource(Res.string.detail_splits_collapse)
+                            } else {
+                                stringResource(Res.string.detail_splits_show_all, splits.size)
+                            },
+                            style = MaterialTheme.typography.labelMedium
                         )
                     }
                 }
