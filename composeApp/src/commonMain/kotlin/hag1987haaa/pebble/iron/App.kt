@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -81,8 +83,18 @@ fun App(actions: AppActions) {
 
     MaterialTheme {
         NavHost(navController = navController, startDestination = "main") {
-            composable("main?tab={tab}") { backStackEntry ->
-                val tabIndex = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: 0
+            composable(
+                route = "main?tab={tab}",
+                arguments = listOf(
+                    navArgument("tab") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val tabArg = backStackEntry.arguments?.getString("tab")
+                val tabIndex = tabArg?.toIntOrNull() ?: KmpDependencies.appSettings.lastMainTab
 
                 MainScreen(
                     navController = navController,
@@ -144,7 +156,7 @@ fun App(actions: AppActions) {
 fun MainScreen(
     navController: NavHostController,
     actions: AppActions, 
-    initialTab: Int = 0, 
+    initialTab: Int = KmpDependencies.appSettings.lastMainTab, 
     onRunSelected: (Long) -> Unit, 
     onShowLicenses: () -> Unit,
     onShowSimulation: () -> Unit
@@ -157,12 +169,6 @@ fun MainScreen(
             currentTabIdx = index
             KmpDependencies.appSettings.lastMainTab = index
             KmpDependencies.appSettings.save()
-
-            navController.navigate("main?tab=$index") {
-                launchSingleTop = true
-                restoreState = true
-                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-            }
         }
     }
 
