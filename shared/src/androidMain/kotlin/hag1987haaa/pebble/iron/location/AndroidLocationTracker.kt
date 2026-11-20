@@ -8,33 +8,72 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.location.*
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import hag1987haaa.pebble.iron.domain.location.LocationTracker
 import hag1987haaa.pebble.iron.domain.model.LocationPoint
 
 /**
- * Location tracker built on the platform [LocationManager] so it works on devices
- * without Google Play Services (e.g. GrapheneOS, LineageOS without GApps).
+ * Uses the Play Services fused location provider when Google Play Services is available,
+ * and falls back to the platform [LocationManager] when it is not (e.g. GrapheneOS or
+ * LineageOS without GApps) or when fused location fails to start.
  */
 class AndroidLocationTracker(
     private val context: Context
 ) : LocationTracker {
 
+    private val client: FusedLocationProviderClient by lazy {
+        LocationServices.getFusedLocationProviderClient(context)
+    }
     private val locationManager: LocationManager by lazy {
         context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     }
-    private var activeListener: LocationListener? = null
+
+    /** Checked once: Play Services doesn't come and go while the app is running. */
+    private val useFused: Boolean by lazy {
+        val available = try {
+            GoogleApiAvailability.getInstance()
+                .isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
+        } catch (e: Exception) {
+            Log.w("GPS", "Play Services check failed", e)
+            false
+        }
+        Log.d("GPS", if (available) "Using fused location" else "Play Services unavailable, using LocationManager")
+        available
+    }
+
+    /** Removes whichever updates (fused or platform) are currently active. */
+    private var activeStop: (() -> Unit)? = null
 
     @SuppressLint("MissingPermission")
-    override suspend fun getLastKnownLocation(): LocationPoint? = try {
-        bestLastKnownLocation()?.toLocationPoint()
-    } catch (e: Exception) {
-        Log.w("GPS", "Failed to get last location", e)
-        null
+    override suspend fun getLastKnownLocation(): LocationPoint? {
+        if (useFused) {
+            val fused = suspendCancellableCoroutine<Location?> { cont ->
+                try {
+                    client.lastLocation
+                        .addOnSuccessListener { loc -> cont.resume(loc) }
+                        .addOnFailureListener { cont.resume(null) }
+                } catch (e: Exception) {
+                    Log.w("GPS", "Failed to get last location", e)
+                    cont.resume(null)
+                }
+            }
+            if (fused != null) return fused.toLocationPoint()
+        }
+        return try {
+            bestLastKnownLocation()?.toLocationPoint()
+        } catch (e: Exception) {
+            Log.w("GPS", "Failed to get last location", e)
+            null
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -42,24 +81,119 @@ class AndroidLocationTracker(
         Log.d("GPS", "startTracking called")
 
         // 起動直後: 直近の位置情報（2分以内）があれば初期測位として即座に通知し、コールドスタート待ちを解消
-        try {
-            bestLastKnownLocation()?.let { loc ->
+        val sendIfFresh: (Location?) -> Unit = { loc ->
+            if (loc != null) {
                 val ageMs = System.currentTimeMillis() - loc.time
                 if (ageMs in 0..120_000L) {
                     Log.d("GPS", "Immediate initial fix from fresh lastLocation (age=${ageMs}ms)")
                     trySend(loc.toLocationPoint())
                 }
             }
+        }
+        try {
+            if (useFused) {
+                client.lastLocation.addOnSuccessListener { loc -> sendIfFresh(loc) }
+            } else {
+                sendIfFresh(bestLastKnownLocation())
+            }
         } catch (e: Exception) {
             Log.w("GPS", "Immediate lastLocation check skipped", e)
         }
 
+        var stop: () -> Unit = {}
+        fun startPlatform() {
+            stop = startPlatformUpdates { trySend(it.toLocationPoint()) }
+            activeStop = stop
+        }
+
+        if (useFused) {
+            stop = startFusedUpdates(
+                onLocation = { trySend(it.toLocationPoint()) },
+                onFailure = {
+                    // Fused failed to start (e.g. Play Services present but broken):
+                    // fall back instead of tracking nothing.
+                    if (!isClosedForSend) {
+                        Log.w("GPS", "Falling back to LocationManager")
+                        startPlatform()
+                    }
+                },
+            )
+            activeStop = stop
+        } else {
+            startPlatform()
+        }
+
+        awaitClose {
+            Log.d("GPS", "stopTracking (awaitClose)")
+            stop()
+            if (activeStop == stop) {
+                activeStop = null
+            }
+        }
+    }
+
+    override fun stopTracking() {
+        activeStop?.let { stop ->
+            Log.d("GPS", "Explicit stopTracking called: removing updates")
+            try {
+                stop()
+            } catch (e: Exception) {
+                Log.w("GPS", "Error removing location updates in stopTracking", e)
+            }
+            activeStop = null
+        }
+    }
+
+    /** Starts fused updates; returns a function that removes them. */
+    @SuppressLint("MissingPermission")
+    private fun startFusedUpdates(
+        onLocation: (Location) -> Unit,
+        onFailure: () -> Unit,
+    ): () -> Unit {
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
+            .setMinUpdateDistanceMeters(0f)
+            .build()
+
+        val locationCallback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                super.onLocationResult(result)
+                val location = result.locations.lastOrNull()
+                if (location != null) {
+                    Log.d("GPS", "Location received: ${location.latitude}, ${location.longitude}")
+                    onLocation(location)
+                } else {
+                    Log.d("GPS", "Location received but was null")
+                }
+            }
+        }
+
+        val remove = { client.removeLocationUpdates(locationCallback); Unit }
+        try {
+            client.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                Looper.getMainLooper()
+            ).addOnFailureListener { e ->
+                Log.e("GPS", "Failed to start location updates", e)
+                remove()
+                onFailure()
+            }
+        } catch (e: Exception) {
+            Log.e("GPS", "Failed to start location updates", e)
+            onFailure()
+        }
+        return remove
+    }
+
+    /** Starts platform [LocationManager] updates; returns a function that removes them. */
+    @SuppressLint("MissingPermission")
+    private fun startPlatformUpdates(onLocation: (Location) -> Unit): () -> Unit {
         // Implement every method explicitly: on API < 30 the interface has no
         // default implementations and a missing override would crash.
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 Log.d("GPS", "Location received: ${location.latitude}, ${location.longitude}")
-                trySend(location.toLocationPoint())
+                onLocation(location)
             }
 
             override fun onProviderEnabled(provider: String) {
@@ -77,41 +211,22 @@ class AndroidLocationTracker(
         val provider = trackingProvider()
         if (provider == null) {
             Log.e("GPS", "No location provider available")
-        } else {
-            try {
-                locationManager.requestLocationUpdates(
-                    provider,
-                    1000L,
-                    0f,
-                    listener,
-                    Looper.getMainLooper()
-                )
-                activeListener = listener
-                Log.d("GPS", "Requested location updates from provider=$provider")
-            } catch (e: Exception) {
-                Log.e("GPS", "Failed to start location updates", e)
-            }
+            return {}
         }
-
-        awaitClose {
-            Log.d("GPS", "stopTracking (awaitClose)")
-            locationManager.removeUpdates(listener)
-            if (activeListener == listener) {
-                activeListener = null
-            }
+        try {
+            locationManager.requestLocationUpdates(
+                provider,
+                1000L,
+                0f,
+                listener,
+                Looper.getMainLooper()
+            )
+            Log.d("GPS", "Requested location updates from provider=$provider")
+        } catch (e: Exception) {
+            Log.e("GPS", "Failed to start location updates", e)
+            return {}
         }
-    }
-
-    override fun stopTracking() {
-        activeListener?.let { listener ->
-            Log.d("GPS", "Explicit stopTracking called: removing updates")
-            try {
-                locationManager.removeUpdates(listener)
-            } catch (e: Exception) {
-                Log.w("GPS", "Error removing location updates in stopTracking", e)
-            }
-            activeListener = null
-        }
+        return { locationManager.removeUpdates(listener) }
     }
 
     /** GPS for workouts; fall back to network only if GPS is unavailable. */
