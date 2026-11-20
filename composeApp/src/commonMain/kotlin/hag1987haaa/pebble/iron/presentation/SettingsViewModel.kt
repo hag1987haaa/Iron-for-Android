@@ -45,8 +45,17 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _userWeight = MutableStateFlow(settings.userWeightKg)
     val userWeight: StateFlow<Float> = _userWeight.asStateFlow()
 
-    /** Body metrics from Health Connect; a weight here overrides [userWeight]. */
-    val healthMetrics: StateFlow<hag1987haaa.pebble.iron.domain.model.HealthBodyMetrics> = settings.healthMetricsFlow
+    private val _userHeightCm = MutableStateFlow(settings.userHeightCm)
+    val userHeightCm: StateFlow<Float?> = _userHeightCm.asStateFlow()
+
+    private val _userBodyFatPct = MutableStateFlow(settings.userBodyFatPct)
+    val userBodyFatPct: StateFlow<Float?> = _userBodyFatPct.asStateFlow()
+
+    private val _userRestingHr = MutableStateFlow(settings.userRestingHr)
+    val userRestingHr: StateFlow<Int?> = _userRestingHr.asStateFlow()
+
+    private val _userBmr = MutableStateFlow(settings.userBmrKcalPerDay)
+    val userBmr: StateFlow<Float?> = _userBmr.asStateFlow()
 
     private val _userSex = MutableStateFlow(settings.userSex)
     val userSex: StateFlow<hag1987haaa.pebble.iron.domain.model.BiologicalSex> = _userSex.asStateFlow()
@@ -253,6 +262,31 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     fun updateUserWeight(weight: Float) {
         settings.userWeightKg = weight
         _userWeight.value = weight
+        settings.save()
+    }
+
+    /** Null clears the height (unknown); out-of-range values are ignored by the calorie model. */
+    fun updateUserHeight(cm: Float?) {
+        settings.userHeightCm = cm
+        _userHeightCm.value = cm
+        settings.save()
+    }
+
+    fun updateUserBodyFat(pct: Float?) {
+        settings.userBodyFatPct = pct
+        _userBodyFatPct.value = pct
+        settings.save()
+    }
+
+    fun updateUserRestingHr(bpm: Int?) {
+        settings.userRestingHr = bpm
+        _userRestingHr.value = bpm
+        settings.save()
+    }
+
+    fun updateUserBmr(kcalPerDay: Float?) {
+        settings.userBmrKcalPerDay = kcalPerDay
+        _userBmr.value = kcalPerDay
         settings.save()
     }
 

@@ -25,6 +25,9 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import org.jetbrains.compose.resources.stringResource
@@ -40,8 +43,10 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
     val tcxUri by viewModel.autoExportTcxUri.collectAsState()
     val gpxUri by viewModel.autoExportGpxUri.collectAsState()
     var showCourseSheet by remember { mutableStateOf(false) }
-    val hcMetrics by viewModel.healthMetrics.collectAsState()
-    val hcWeight = hcMetrics.weightKg
+    val userHeightCm by viewModel.userHeightCm.collectAsState()
+    val userBodyFatPct by viewModel.userBodyFatPct.collectAsState()
+    val userRestingHr by viewModel.userRestingHr.collectAsState()
+    val userBmr by viewModel.userBmr.collectAsState()
     val userSex by viewModel.userSex.collectAsState()
     val userBirthDate by viewModel.userBirthDate.collectAsState()
     var showBirthDatePicker by remember { mutableStateOf(false) }
@@ -64,44 +69,13 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
         SettingsSectionHeader(stringResource(Res.string.settings_section_profile))
         Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                val toDisplay = { kg: Float -> if (isMetric) kg else (kg * 2.20462f) }
-                val weightUnit = if (isMetric) "kg" else "lb"
-                hcWeight?.let { kg ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(stringResource(Res.string.settings_weight_hc_title))
-                            Text(
-                                stringResource(Res.string.settings_weight_hc_desc),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                        }
-                        Text(
-                            "${(toDisplay(kg) * 10).toInt() / 10.0} $weightUnit",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    Spacer(Modifier.height(16.dp))
-                }
-                val displayWeight = toDisplay(userWeight)
+                val displayWeight = if (isMetric) userWeight else (userWeight * 2.20462f)
                 OutlinedTextField(
                     value = ( (displayWeight * 10).toInt() / 10.0 ).toString(),
                     onValueChange = { it.toFloatOrNull()?.let { input -> viewModel.updateUserWeight(if (isMetric) input else (input / 2.20462f)) } },
-                    label = {
-                        Text(
-                            if (hcWeight != null) stringResource(Res.string.settings_label_weight_fallback)
-                            else stringResource(Res.string.settings_label_weight)
-                        )
-                    },
-                    supportingText = {
-                        Text(
-                            if (hcWeight != null) stringResource(Res.string.settings_weight_fallback_desc)
-                            else stringResource(Res.string.settings_weight_no_hc_desc)
-                        )
-                    },
+                    label = { Text(stringResource(Res.string.settings_label_weight)) },
                     modifier = Modifier.fillMaxWidth(),
-                    suffix = { Text(weightUnit) }
+                    suffix = { Text(if (isMetric) "kg" else "lb") }
                 )
                 Spacer(Modifier.height(16.dp))
 
@@ -144,24 +118,50 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
                     )
                 }
                 Spacer(Modifier.height(16.dp))
-                // カロリー計算に使用している Health Connect のその他のデータ
-                val metricParts = buildList {
-                    val estimatedSuffix = if (hcMetrics.restingHrEstimated) " (${stringResource(Res.string.settings_hc_metric_estimated)})" else ""
-                    hcMetrics.restingHr?.let { add("${stringResource(Res.string.settings_hc_metric_resting_hr)} $it bpm$estimatedSuffix") }
-                    hcMetrics.vo2Max?.let { add("VO2max ${(it * 10).toInt() / 10.0}") }
-                    hcMetrics.bmrKcalPerDay?.let { add("${stringResource(Res.string.settings_hc_metric_bmr)} ${it.toInt()} kcal/day") }
-                    hcMetrics.heightCm?.let { cm ->
-                        add("${stringResource(Res.string.settings_hc_metric_height)} " +
-                            if (isMetric) "${cm.toInt()} cm" else "${(cm / 2.54).toInt() / 12}' ${(cm / 2.54).toInt() % 12}\"")
-                    }
-                    hcMetrics.bodyFatPct?.let { add("${stringResource(Res.string.settings_hc_metric_body_fat)} ${(it * 10).toInt() / 10.0}%") }
-                }
-                Text(stringResource(Res.string.settings_hc_metrics_title))
+
+                // 任意の身体データ (カロリー推定の精度向上)。空欄 = 未設定
+                Text(stringResource(Res.string.settings_optional_title))
                 Text(
-                    if (metricParts.isEmpty()) stringResource(Res.string.settings_hc_metrics_none)
-                    else metricParts.joinToString(" · "),
+                    stringResource(Res.string.settings_optional_desc),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
+                )
+                Spacer(Modifier.height(8.dp))
+                OptionalNumberField(
+                    value = userHeightCm,
+                    label = stringResource(Res.string.settings_label_height),
+                    description = stringResource(Res.string.settings_height_desc),
+                    suffix = if (isMetric) "cm" else "in",
+                    validRange = 100f..250f,
+                    resetKey = isMetric,
+                    toDisplay = { cm -> if (isMetric) cm else cm / 2.54f },
+                    fromDisplay = { v -> if (isMetric) v else v * 2.54f },
+                    onValueChange = viewModel::updateUserHeight,
+                )
+                OptionalNumberField(
+                    value = userBodyFatPct,
+                    label = stringResource(Res.string.settings_label_body_fat),
+                    description = stringResource(Res.string.settings_body_fat_desc),
+                    suffix = "%",
+                    validRange = 3f..60f,
+                    decimals = true,
+                    onValueChange = viewModel::updateUserBodyFat,
+                )
+                OptionalNumberField(
+                    value = userRestingHr?.toFloat(),
+                    label = stringResource(Res.string.settings_label_resting_hr),
+                    description = stringResource(Res.string.settings_resting_hr_desc),
+                    suffix = "bpm",
+                    validRange = 30f..110f,
+                    onValueChange = { viewModel.updateUserRestingHr(it?.roundToInt()) },
+                )
+                OptionalNumberField(
+                    value = userBmr,
+                    label = stringResource(Res.string.settings_label_bmr),
+                    description = stringResource(Res.string.settings_bmr_desc),
+                    suffix = "kcal",
+                    validRange = 800f..4500f,
+                    onValueChange = viewModel::updateUserBmr,
                 )
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -654,4 +654,50 @@ private fun BirthDatePickerDialog(
     ) {
         DatePicker(state = state)
     }
+}
+
+/**
+ * Optional numeric profile field: empty = not set (null). Keeps its own text so partial input
+ * like "1" or "17." isn't reformatted while typing. [resetKey] re-reads [value] (e.g. unit change).
+ * Values outside [validRange] (in stored units, same limits as the calorie model) show an error
+ * and are saved as not set.
+ */
+@Composable
+private fun OptionalNumberField(
+    value: Float?,
+    label: String,
+    description: String,
+    suffix: String,
+    validRange: ClosedFloatingPointRange<Float>,
+    decimals: Boolean = false,
+    resetKey: Any? = null,
+    toDisplay: (Float) -> Float = { it },
+    fromDisplay: (Float) -> Float = { it },
+    onValueChange: (Float?) -> Unit,
+) {
+    var text by remember(resetKey) {
+        mutableStateOf(
+            value?.let { v ->
+                val d = toDisplay(v)
+                if (decimals) ((d * 10).roundToInt() / 10.0).toString() else d.roundToInt().toString()
+            } ?: ""
+        )
+    }
+    val parsed = text.replace(',', '.').toFloatOrNull()?.let(fromDisplay)
+    val invalid = text.isNotBlank() && (parsed == null || parsed !in validRange)
+    OutlinedTextField(
+        value = text,
+        onValueChange = { t ->
+            text = t
+            val v = t.replace(',', '.').toFloatOrNull()?.let(fromDisplay)
+            onValueChange(v?.takeIf { it in validRange })
+        },
+        label = { Text(label) },
+        supportingText = { Text(description) },
+        isError = invalid,
+        keyboardOptions = KeyboardOptions(keyboardType = if (decimals) KeyboardType.Decimal else KeyboardType.Number),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        suffix = { Text(suffix) }
+    )
 }
