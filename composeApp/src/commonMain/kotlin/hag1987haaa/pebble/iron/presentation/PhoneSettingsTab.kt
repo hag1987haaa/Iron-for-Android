@@ -19,11 +19,20 @@ import hag1987haaa.pebble.iron.KmpDependencies
 import hag1987haaa.pebble.iron.Res
 import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.domain.settings.LongPressMode
+import hag1987haaa.pebble.iron.domain.model.BiologicalSex
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.toLocalDateTime
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import org.jetbrains.compose.resources.stringResource
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLicenses: () -> Unit, onShowSimulation: () -> Unit) {
     val userWeight by viewModel.userWeight.collectAsState()
@@ -34,6 +43,24 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
     val tcxUri by viewModel.autoExportTcxUri.collectAsState()
     val gpxUri by viewModel.autoExportGpxUri.collectAsState()
     var showCourseSheet by remember { mutableStateOf(false) }
+    val userHeightCm by viewModel.userHeightCm.collectAsState()
+    val userBodyFatPct by viewModel.userBodyFatPct.collectAsState()
+    val userRestingHr by viewModel.userRestingHr.collectAsState()
+    val userBmr by viewModel.userBmr.collectAsState()
+    val userSex by viewModel.userSex.collectAsState()
+    val userBirthDate by viewModel.userBirthDate.collectAsState()
+    var showBirthDatePicker by remember { mutableStateOf(false) }
+
+    if (showBirthDatePicker) {
+        BirthDatePickerDialog(
+            initial = userBirthDate,
+            onDismiss = { showBirthDatePicker = false },
+            onConfirm = { date ->
+                viewModel.updateUserBirthDate(date)
+                showBirthDatePicker = false
+            }
+        )
+    }
 
     val scrollState = rememberScrollState()
 
@@ -49,6 +76,92 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
                     label = { Text(stringResource(Res.string.settings_label_weight)) },
                     modifier = Modifier.fillMaxWidth(),
                     suffix = { Text(if (isMetric) "kg" else "lb") }
+                )
+                Spacer(Modifier.height(16.dp))
+
+                // 性別 (心拍ベースのカロリー計算に使用)
+                Text(stringResource(Res.string.settings_label_sex))
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = userSex == BiologicalSex.MALE,
+                        onClick = { viewModel.updateUserSex(BiologicalSex.MALE) },
+                        label = { Text(stringResource(Res.string.settings_sex_male)) }
+                    )
+                    FilterChip(
+                        selected = userSex == BiologicalSex.FEMALE,
+                        onClick = { viewModel.updateUserSex(BiologicalSex.FEMALE) },
+                        label = { Text(stringResource(Res.string.settings_sex_female)) }
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+
+                // 生年月日 (年齢をカロリー計算に使用)
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { showBirthDatePicker = true },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(Res.string.settings_label_birth_date))
+                        Text(
+                            stringResource(Res.string.settings_birth_date_desc),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                    val birth = userBirthDate
+                    Text(
+                        if (birth == null) stringResource(Res.string.settings_birth_date_not_set)
+                        else "$birth (${viewModel.userAgeYears() ?: "-"})",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+
+                // 任意の身体データ (カロリー推定の精度向上)。空欄 = 未設定
+                Text(stringResource(Res.string.settings_optional_title))
+                Text(
+                    stringResource(Res.string.settings_optional_desc),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Spacer(Modifier.height(8.dp))
+                OptionalNumberField(
+                    value = userHeightCm,
+                    label = stringResource(Res.string.settings_label_height),
+                    description = stringResource(Res.string.settings_height_desc),
+                    suffix = if (isMetric) "cm" else "in",
+                    validRange = 100f..250f,
+                    resetKey = isMetric,
+                    toDisplay = { cm -> if (isMetric) cm else cm / 2.54f },
+                    fromDisplay = { v -> if (isMetric) v else v * 2.54f },
+                    onValueChange = viewModel::updateUserHeight,
+                )
+                OptionalNumberField(
+                    value = userBodyFatPct,
+                    label = stringResource(Res.string.settings_label_body_fat),
+                    description = stringResource(Res.string.settings_body_fat_desc),
+                    suffix = "%",
+                    validRange = 3f..60f,
+                    decimals = true,
+                    onValueChange = viewModel::updateUserBodyFat,
+                )
+                OptionalNumberField(
+                    value = userRestingHr?.toFloat(),
+                    label = stringResource(Res.string.settings_label_resting_hr),
+                    description = stringResource(Res.string.settings_resting_hr_desc),
+                    suffix = "bpm",
+                    validRange = 30f..110f,
+                    onValueChange = { viewModel.updateUserRestingHr(it?.roundToInt()) },
+                )
+                OptionalNumberField(
+                    value = userBmr,
+                    label = stringResource(Res.string.settings_label_bmr),
+                    description = stringResource(Res.string.settings_bmr_desc),
+                    suffix = "kcal",
+                    validRange = 800f..4500f,
+                    onValueChange = viewModel::updateUserBmr,
                 )
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -515,3 +628,76 @@ fun LongPressButtonSettingDropdown(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BirthDatePickerDialog(
+    initial: LocalDate?,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate?) -> Unit,
+) {
+    // DatePicker は UTC 0時のミリ秒で日付を扱う
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = (initial ?: LocalDate(1990, 1, 1))
+            .atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                val millis = state.selectedDateMillis
+                onConfirm(millis?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.UTC).date } ?: initial)
+            }) { Text(stringResource(Res.string.settings_birth_date_ok)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.settings_birth_date_cancel)) }
+        }
+    ) {
+        DatePicker(state = state)
+    }
+}
+
+/**
+ * Optional numeric profile field: empty = not set (null). Keeps its own text so partial input
+ * like "1" or "17." isn't reformatted while typing. [resetKey] re-reads [value] (e.g. unit change).
+ * Values outside [validRange] (in stored units, same limits as the calorie model) show an error
+ * and are saved as not set.
+ */
+@Composable
+private fun OptionalNumberField(
+    value: Float?,
+    label: String,
+    description: String,
+    suffix: String,
+    validRange: ClosedFloatingPointRange<Float>,
+    decimals: Boolean = false,
+    resetKey: Any? = null,
+    toDisplay: (Float) -> Float = { it },
+    fromDisplay: (Float) -> Float = { it },
+    onValueChange: (Float?) -> Unit,
+) {
+    var text by remember(resetKey) {
+        mutableStateOf(
+            value?.let { v ->
+                val d = toDisplay(v)
+                if (decimals) ((d * 10).roundToInt() / 10.0).toString() else d.roundToInt().toString()
+            } ?: ""
+        )
+    }
+    val parsed = text.replace(',', '.').toFloatOrNull()?.let(fromDisplay)
+    val invalid = text.isNotBlank() && (parsed == null || parsed !in validRange)
+    OutlinedTextField(
+        value = text,
+        onValueChange = { t ->
+            text = t
+            val v = t.replace(',', '.').toFloatOrNull()?.let(fromDisplay)
+            onValueChange(v?.takeIf { it in validRange })
+        },
+        label = { Text(label) },
+        supportingText = { Text(description) },
+        isError = invalid,
+        keyboardOptions = KeyboardOptions(keyboardType = if (decimals) KeyboardType.Decimal else KeyboardType.Number),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        suffix = { Text(suffix) }
+    )
+}

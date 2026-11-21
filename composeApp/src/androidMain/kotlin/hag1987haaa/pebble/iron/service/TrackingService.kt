@@ -224,7 +224,7 @@ class TrackingService : Service() {
                 // 保存直前に最新の設定（体重・アクティビティ種別）でカロリーを再計算
                 val calories = HealthUtils.calculateCalories(
                     type = stats.activityType,
-                    weightKg = settings.userWeightKg,
+                    profile = settings.calorieProfile(),
                     durationSeconds = stats.totalSeconds,
                     distanceMeters = stats.totalDistanceMeters,
                     elevationGainMeters = stats.totalElevationGain,
@@ -300,7 +300,7 @@ class TrackingService : Service() {
                 // 保存直前に最新の設定（体重・アクティビティ種別）でカロリーを再計算
                 val calories = HealthUtils.calculateCalories(
                     type = stats.activityType,
-                    weightKg = settings.userWeightKg,
+                    profile = settings.calorieProfile(),
                     durationSeconds = stats.totalSeconds,
                     distanceMeters = stats.totalDistanceMeters,
                     elevationGainMeters = stats.totalElevationGain,

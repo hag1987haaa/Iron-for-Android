@@ -82,6 +82,20 @@ android {
         }
     }
     
+    // Optional: sign debug builds with a specific keystore (set DEBUG_KEYSTORE in local.properties)
+    // so builds from another machine can update an already-installed debug APK.
+    val debugKeystorePath = localProperties.getProperty("DEBUG_KEYSTORE")
+    signingConfigs {
+        getByName("debug") {
+            if (debugKeystorePath != null) {
+                storeFile = file(debugKeystorePath)
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         getByName("release") {
             isMinifyEnabled = true

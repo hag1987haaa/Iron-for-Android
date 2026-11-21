@@ -4,6 +4,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import hag1987haaa.pebble.iron.domain.model.ActivityType
+import hag1987haaa.pebble.iron.domain.model.BiologicalSex
+import hag1987haaa.pebble.iron.domain.model.CalorieProfile
+import kotlinx.datetime.Clock
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
+import kotlinx.datetime.yearsUntil
 
 class AppSettings {
     var isMusicControlEnabled: Boolean = false
@@ -391,6 +398,26 @@ class AppSettings {
     var lastLowerId: Int = -1
     var isMetric: Boolean = true
     var userWeightKg: Float = 70.0f
+    // Optional body data; null = not set. Out-of-range values are ignored by the calorie model.
+    var userHeightCm: Float? = null
+    var userBodyFatPct: Float? = null
+    var userRestingHr: Int? = null
+    var userBmrKcalPerDay: Float? = null
+    var userSex: BiologicalSex = BiologicalSex.MALE
+    var userBirthDate: LocalDate? = null
+
+    fun userAgeYears(today: LocalDate = Clock.System.todayIn(TimeZone.currentSystemDefault())): Int? =
+        userBirthDate?.yearsUntil(today)?.takeIf { it in 5..120 }
+
+    fun calorieProfile(): CalorieProfile = CalorieProfile(
+        weightKg = userWeightKg,
+        sex = userSex,
+        ageYears = userAgeYears() ?: CalorieProfile.DEFAULT_AGE_YEARS,
+        heightCm = userHeightCm?.toDouble(),
+        bodyFatPct = userBodyFatPct?.toDouble(),
+        restingHr = userRestingHr,
+        bmrKcalPerDay = userBmrKcalPerDay?.toDouble(),
+    )
     var hasAskedHealthConnectOnboarding: Boolean = false
     var appVersion: String = "2.1.3"
     

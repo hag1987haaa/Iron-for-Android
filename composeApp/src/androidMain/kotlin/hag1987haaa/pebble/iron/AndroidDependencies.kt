@@ -98,6 +98,15 @@ object AndroidDependencies {
             }
         }
         settings.userWeightKg = prefs.getFloat("user_weight", 70.0f)
+        settings.userHeightCm = prefs.getFloat("user_height_cm", -1f).takeIf { it > 0f }
+        settings.userBodyFatPct = prefs.getFloat("user_body_fat_pct", -1f).takeIf { it > 0f }
+        settings.userRestingHr = prefs.getInt("user_resting_hr", -1).takeIf { it > 0 }
+        settings.userBmrKcalPerDay = prefs.getFloat("user_bmr_kcal", -1f).takeIf { it > 0f }
+        settings.userSex = runCatching {
+            hag1987haaa.pebble.iron.domain.model.BiologicalSex.valueOf(prefs.getString("user_sex", null) ?: "MALE")
+        }.getOrDefault(hag1987haaa.pebble.iron.domain.model.BiologicalSex.MALE)
+        settings.userBirthDate = prefs.getString("user_birth_date", null)
+            ?.let { runCatching { kotlinx.datetime.LocalDate.parse(it) }.getOrNull() }
         settings.hasAskedHealthConnectOnboarding = prefs.getBoolean("hc_onboarding_asked", false)
         
         // グラフ・通知設定の読み込み
@@ -306,6 +315,12 @@ object AndroidDependencies {
                 putString("map_location_color", settings.mapLocationColor.id)
                 putString("activity_map_zooms", settings.activityMapZooms.entries.joinToString(",") { "${it.key}:${it.value}" })
                 putFloat("user_weight", settings.userWeightKg)
+                putFloat("user_height_cm", settings.userHeightCm ?: -1f)
+                putFloat("user_body_fat_pct", settings.userBodyFatPct ?: -1f)
+                putInt("user_resting_hr", settings.userRestingHr ?: -1)
+                putFloat("user_bmr_kcal", settings.userBmrKcalPerDay ?: -1f)
+                putString("user_sex", settings.userSex.name)
+                putString("user_birth_date", settings.userBirthDate?.toString())
                 putBoolean("hc_onboarding_asked", settings.hasAskedHealthConnectOnboarding)
                 
                 putString("graph_types", settings.enabledGraphTypes.joinToString(","))

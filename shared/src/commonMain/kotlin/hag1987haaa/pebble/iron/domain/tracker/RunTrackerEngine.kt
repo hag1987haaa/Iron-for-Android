@@ -6,6 +6,7 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import hag1987haaa.pebble.iron.domain.location.LocationTracker
 import hag1987haaa.pebble.iron.domain.model.ActivityType
+import hag1987haaa.pebble.iron.domain.model.CalorieProfile
 import hag1987haaa.pebble.iron.domain.model.LocationPoint
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.repository.RunRepository
@@ -654,8 +655,8 @@ class RunTrackerEngine(
                     if (stats.status != RunStatus.ACTIVE) return@update stats
 
                     val nextSeconds = stats.totalSeconds + 1
-                    val weight = appSettings?.userWeightKg ?: 70.0f
-                    val currentCalories = HealthUtils.calculateCalories(stats.activityType, weight, nextSeconds, stats.totalDistanceMeters, stats.totalElevationGain, if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null)
+                    val profile = appSettings?.calorieProfile() ?: CalorieProfile(weightKg = 70.0f)
+                    val currentCalories = HealthUtils.calculateCalories(stats.activityType, profile, nextSeconds, stats.totalDistanceMeters, stats.totalElevationGain, if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null)
 
                     // パワー & ケイデンスの毎秒サンプリング（移動平均計算用）
                     val pwrSample = stats.currentPower ?: if (stats.isBlePowerActive) 0 else null

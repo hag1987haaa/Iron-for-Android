@@ -183,9 +183,9 @@ class HistoryViewModel(private val repository: RunRepository) : ViewModel() {
         }
     }
 
-    fun updateActivityType(id: Long, type: hag1987haaa.pebble.iron.domain.model.ActivityType, userWeight: Float? = null) {
+    fun updateActivityType(id: Long, type: hag1987haaa.pebble.iron.domain.model.ActivityType, profile: hag1987haaa.pebble.iron.domain.model.CalorieProfile? = null) {
         viewModelScope.launch {
-            repository.updateActivityType(id, type, userWeight)
+            repository.updateActivityType(id, type, profile)
         }
     }
 }
