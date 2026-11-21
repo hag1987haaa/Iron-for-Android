@@ -167,6 +167,7 @@ class AndroidPebbleMessenger(
         private const val KEY_MAP_TOTAL_CHUNKS = 10021u
         private const val KEY_MAP_STATE = 10022u
         private const val KEY_COURSES_DATA = 10025u
+        private const val KEY_ACTIVITIES_DATA = 10028u
         private const val SEND_TIMEOUT_MS = 2500L
     }
 
@@ -645,11 +646,16 @@ class AndroidPebbleMessenger(
             KEY_STATE to PebbleDictionaryItem.Int32(mapToPebbleState(stats.status)),
             KEY_HR to PebbleDictionaryItem.Text(stats.currentHeartRate?.toString() ?: "--"),
             KEY_STEPS to PebbleDictionaryItem.Int32(stats.steps),
-            KEY_TYPE to PebbleDictionaryItem.Int32(stats.activityType.ordinal),
+            KEY_TYPE to PebbleDictionaryItem.Int32(
+                hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry.findByActivityType(stats.activityType)?.id ?: stats.activityType.ordinal
+            ),
             KEY_HR_INTERVAL to PebbleDictionaryItem.UInt32(settings.hrSamplingInterval.toUInt())
         )
         commandQueue.trySend(PebbleMessageRequest("SYNC", dict, retryCount = 3))
         sendGraphData(stats)
+
+        // Pebble起動時・同期時にアクティビティ種別マスタを自動プッシュ
+        sendActivitiesData(hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry.toPebbleProtocolString())
 
         // Pebble起動時・同期時に最新の保存済みコース一覧を自動プッシュ
         val courses = settings.savedGpxCourses
@@ -719,6 +725,10 @@ class AndroidPebbleMessenger(
 
     override fun sendCoursesData(coursesDataString: String) {
         commandQueue.trySend(PebbleMessageRequest("COURSES_DATA", mapOf(KEY_COURSES_DATA to PebbleDictionaryItem.Text(coursesDataString))))
+    }
+
+    override fun sendActivitiesData(activitiesDataString: String) {
+        commandQueue.trySend(PebbleMessageRequest("ACTIVITIES_DATA", mapOf(KEY_ACTIVITIES_DATA to PebbleDictionaryItem.Text(activitiesDataString))))
     }
 
     override fun setPlannedCourse(points: List<hag1987haaa.pebble.iron.domain.model.LocationPoint>?) {

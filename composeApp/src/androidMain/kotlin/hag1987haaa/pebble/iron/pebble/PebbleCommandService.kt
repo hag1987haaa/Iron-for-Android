@@ -15,6 +15,7 @@ import io.rebble.pebblekit2.common.model.ReceiveResult
 import hag1987haaa.pebble.iron.AndroidDependencies
 import hag1987haaa.pebble.iron.KmpDependencies
 import hag1987haaa.pebble.iron.domain.model.ActivityType
+import hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry
 import hag1987haaa.pebble.iron.domain.model.AppEventID
 import hag1987haaa.pebble.iron.domain.settings.LongPressMode
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
@@ -78,11 +79,17 @@ class PebbleCommandService : BasePebbleListenerService() {
         // Activity Type (10012)
         data[KEY_ACTIVITY_TYPE]?.let { parsePebbleItemToInt(it) }?.let { typeIdx ->
             try {
-                val types = ActivityType.entries
-                if (typeIdx in types.indices) {
-                    val newType = types[typeIdx]
-                    Log.i("PebbleCommand", "Changing Activity Type to: $newType")
-                    engine.setActivityType(newType)
+                val workoutDef = WorkoutTypeRegistry.findById(typeIdx)
+                if (workoutDef != null) {
+                    Log.i("PebbleCommand", "Changing Activity Type to: ${workoutDef.name} (${workoutDef.baseActivityType})")
+                    engine.setActivityType(workoutDef.baseActivityType)
+                } else {
+                    val types = ActivityType.entries
+                    if (typeIdx in types.indices) {
+                        val newType = types[typeIdx]
+                        Log.i("PebbleCommand", "Changing Activity Type to fallback: $newType")
+                        engine.setActivityType(newType)
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("PebbleCommand", "Failed to change Activity Type", e)

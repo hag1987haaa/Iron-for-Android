@@ -156,6 +156,11 @@ interface PebbleMessenger {
     fun sendCoursesData(coursesDataString: String) {}
 
     /**
+     * アクティビティ種別一覧データ文字列（例: "v:1|0,RUNNING,1,WALKING,..."）をウォッチに一括送信する
+     */
+    fun sendActivitiesData(activitiesDataString: String) {}
+
+    /**
      * マップの内部キャッシュ（前回の位置情報ポイント等）をクリアする
      */
     fun clearMapCache() {}
