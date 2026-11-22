@@ -881,12 +881,7 @@ class RunTrackerEngine(
                 resetTimeoutTimer()
 
                 if (appSettings?.isAutoShowMapOnReadyEnabled == true) {
-                    val defaultZoom = when (activityType) {
-                        hag1987haaa.pebble.iron.domain.model.ActivityType.WALKING,
-                        hag1987haaa.pebble.iron.domain.model.ActivityType.HIKING -> 16
-                        hag1987haaa.pebble.iron.domain.model.ActivityType.CYCLING -> 14
-                        else -> 15
-                    }
+                    val defaultZoom = appSettings.getMapZoomForActivity(activityType)
                     pebbleMessenger?.setMapZoom(defaultZoom)
                     scope.launch {
                         kotlinx.coroutines.delay(600)

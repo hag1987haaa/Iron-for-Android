@@ -127,6 +127,8 @@
     <string name="settings_hc_title">Health Connect 連携の設定</string>
     <string name="settings_hc_desc">ワークアウト記録（距離、ルート、心拍数、歩数、カロリー）を他の健康管理アプリと同期します。同期する項目は、次の画面のシステム設定で個別に選択できます。</string>
     <string name="settings_hc_button_manage">権限を管理・設定する</string>
+    <string name="settings_hc_duplicate_warning_title">歩数の重複を防ぐには</string>
+    <string name="settings_hc_duplicate_warning_desc">Pebble公式アプリやGravel、Rebble等で日常の歩数を同期している場合、Ironからも歩数を書き込むと二重にカウントされてしまいます。\n重複を防ぎたい場合は、上記のHealth Connect設定で「歩数」の書き込み権限のチェックを外すことをおすすめします。\n（※チェックを外しても、TCX/GPXエクスポートファイルには歩数データが保持されます）</string>
     <string name="settings_hc_rationale_title">Health Connect 連携</string>
     <string name="settings_hc_rationale_text">ワークアウト記録（心拍数、距離、ルート、歩数、カロリー）を Health Connect と同期するために、次の画面で権限の許可が必要です。\n\nこれにより、他の健康管理アプリでも Iron のデータを確認できるようになります。</string>
     <string name="settings_hc_button_settings">設定へ</string>
@@ -379,6 +381,8 @@
     <string name="settings_map_auto_close_off">オフ (手動終了のみ)</string>
     <string name="settings_map_swipe_pan_title">マップ表示中のスワイプ操作</string>
     <string name="settings_map_swipe_pan_desc">ON: 地図スクロール（パン） / OFF: マップ表示中も音楽操作（曲送り・音量）を維持</string>
+    <string name="settings_map_heading_up_title">マップの向き（進行方向上）</string>
+    <string name="settings_map_heading_up_desc">ON: 進行方向を上（ヘディングアップ） / OFF: 北を上（ノースアップ）</string>
     <!-- Map Colors -->
     <string name="settings_map_colors_header">マップ描画色設定</string>
     <string name="settings_map_route_color_title">走行実績ルートの色</string>

@@ -92,6 +92,9 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _isMapSwipePanEnabled = MutableStateFlow(settings.isMapSwipePanEnabled)
     val isMapSwipePanEnabled: StateFlow<Boolean> = _isMapSwipePanEnabled.asStateFlow()
 
+    private val _isMapHeadingUp = MutableStateFlow(settings.isMapHeadingUp)
+    val isMapHeadingUp: StateFlow<Boolean> = _isMapHeadingUp.asStateFlow()
+
     private val _isAutoShowMapOnReadyEnabled = MutableStateFlow(settings.isAutoShowMapOnReadyEnabled)
     val isAutoShowMapOnReadyEnabled: StateFlow<Boolean> = _isAutoShowMapOnReadyEnabled.asStateFlow()
 
@@ -593,6 +596,12 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     fun updateMapSwipePanEnabled(enabled: Boolean) {
         settings.isMapSwipePanEnabled = enabled
         _isMapSwipePanEnabled.value = enabled
+        settings.save()
+    }
+
+    fun updateMapHeadingUp(enabled: Boolean) {
+        settings.isMapHeadingUp = enabled
+        _isMapHeadingUp.value = enabled
         settings.save()
     }
 

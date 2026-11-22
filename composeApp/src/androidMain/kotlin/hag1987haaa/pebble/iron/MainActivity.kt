@@ -296,7 +296,9 @@ class MainActivity : ComponentActivity() {
                 when (sdkStatus) {
                     HealthConnectClient.SDK_AVAILABLE -> {
                         lifecycleScope.launch {
-                            if (manager.hasAllPermissions()) {
+                            // セッション権限が付与済みであれば、すでに連携済みと判断してOSのHealth Connect設定画面へ遷移
+                            // （歩数などを意図的にオフにしているユーザーに対しても毎回再リクエストダイアログが出るのを防ぐ）
+                            if (manager.hasSessionPermission()) {
                                 openHealthConnectSettings()
                             } else {
                                 try {

@@ -2,6 +2,7 @@ package hag1987haaa.pebble.iron.domain.tracker
 
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.LocationPoint
+import hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry
 import hag1987haaa.pebble.iron.util.LocationUtils
 
 /**
@@ -178,16 +179,5 @@ internal class WorkoutLocationFilter(
 
     private fun maximumReasonableSpeedMetersPerSecond(
         activityType: ActivityType,
-    ): Double = when (activityType) {
-        ActivityType.WALKING,
-        ActivityType.HIKING -> 7.0
-
-        ActivityType.RUNNING -> 12.0
-        ActivityType.CYCLING -> 30.0
-
-        ActivityType.KAYAKING,
-        ActivityType.ROWING -> 15.0
-
-        ActivityType.OTHER -> 35.0
-    }
+    ): Double = WorkoutTypeRegistry.getDefinition(activityType).maxReasonableSpeedMps
 }

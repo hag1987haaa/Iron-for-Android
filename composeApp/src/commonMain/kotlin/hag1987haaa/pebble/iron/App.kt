@@ -397,7 +397,10 @@ fun RunScreen(actions: AppActions) {
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(text = stats.formattedPace, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                            Text(text = if (stats.activityType == ActivityType.CYCLING) "SPEED" else "PACE", style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                text = if (hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry.getDefinition(stats.activityType).preferSpeedOverPace) "SPEED" else "PACE",
+                                style = MaterialTheme.typography.labelMedium
+                            )
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(

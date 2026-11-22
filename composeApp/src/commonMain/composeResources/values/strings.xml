@@ -127,6 +127,8 @@
     <string name="settings_hc_title">Health Connect Settings</string>
     <string name="settings_hc_desc">Sync your workout records (distance, route, heart rate, steps, calories) with other health apps. You can choose which data to sync in the following system settings.</string>
     <string name="settings_hc_button_manage">Manage Permissions</string>
+    <string name="settings_hc_duplicate_warning_title">Preventing duplicate steps</string>
+    <string name="settings_hc_duplicate_warning_desc">If your companion app (official Pebble app, Gravel, or Rebble) already syncs daily steps from your watch, writing steps from Iron can cause steps to be counted twice.\nTo avoid duplicates, uncheck the \"Steps\" write permission in the Health Connect settings above.\n(Workout steps will still be preserved in exported TCX/GPX files.)</string>
     <string name="settings_hc_rationale_title">Health Connect Sync</string>
     <string name="settings_hc_rationale_text">Permissions are required to sync workout records (heart rate, distance, route, steps, calories) with Health Connect.\n\nThis allows you to see Iron data in other health management apps.</string>
     <string name="settings_hc_button_settings">To Settings</string>
@@ -379,6 +381,8 @@
     <string name="settings_map_auto_close_off">Off (Manual exit)</string>
     <string name="settings_map_swipe_pan_title">Map Swipe Action</string>
     <string name="settings_map_swipe_pan_desc">ON: Pan map with swipes / OFF: Keep music controls active on map screen</string>
+    <string name="settings_map_heading_up_title">Map Orientation (Heading Up)</string>
+    <string name="settings_map_heading_up_desc">ON: Heading Up (facing direction) / OFF: North Up</string>
     <!-- Map Colors -->
     <string name="settings_map_colors_header">Map Colors</string>
     <string name="settings_map_route_color_title">Tracked Route Color</string>

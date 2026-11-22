@@ -896,6 +896,7 @@ fun MapSettingsContent(viewModel: SettingsViewModel) {
     val isAutoShowMapOnReady by viewModel.isAutoShowMapOnReadyEnabled.collectAsState()
     val autoCloseTimeout by viewModel.mapAutoCloseTimeoutSeconds.collectAsState()
     val isMapSwipePan by viewModel.isMapSwipePanEnabled.collectAsState()
+    val isMapHeadingUp by viewModel.isMapHeadingUp.collectAsState()
 
     val mapRouteColor by viewModel.mapRouteColor.collectAsState()
     val mapPlannedColor by viewModel.mapPlannedColor.collectAsState()
@@ -965,6 +966,21 @@ fun MapSettingsContent(viewModel: SettingsViewModel) {
             Switch(
                 checked = isMapSwipePan,
                 onCheckedChange = { viewModel.updateMapSwipePanEnabled(it) },
+                modifier = Modifier.scale(0.7f)
+            )
+        }
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
+
+        // 3-B. マップの向き設定（デフォルト）
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.settings_map_heading_up_title), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.settings_map_heading_up_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+            Switch(
+                checked = isMapHeadingUp,
+                onCheckedChange = { viewModel.updateMapHeadingUp(it) },
                 modifier = Modifier.scale(0.7f)
             )
         }

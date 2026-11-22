@@ -62,7 +62,7 @@ class AndroidPebbleMessenger(
     private var panOffsetPixelsX: Double = 0.0
     private var panOffsetPixelsY: Double = 0.0
     @Volatile
-    private var isHeadingUp: Boolean = false
+    private var isOverviewMode: Boolean = false
     private var mapAutoCloseJob: kotlinx.coroutines.Job? = null
 
     // マップ操作の集約・保留制御（メモリ内のみ保持、保存・永続化は一切行わない）
@@ -275,7 +275,7 @@ class AndroidPebbleMessenger(
             KEY_STATE to PebbleDictionaryItem.Int32(mapToPebbleState(stats.status)),
             KEY_HR to PebbleDictionaryItem.Text(stats.currentHeartRate?.toString() ?: "--"),
             KEY_STEPS to PebbleDictionaryItem.Int32(stats.steps),
-            KEY_TYPE to PebbleDictionaryItem.Int32(stats.activityType.ordinal),
+            KEY_TYPE to PebbleDictionaryItem.Int32(hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry.getDefinition(stats.activityType).id),
             KEY_MID_ID to PebbleDictionaryItem.Int32(currentMidDataId),
             KEY_LOWER_ID to PebbleDictionaryItem.Int32(currentLowerDataId)
         )
@@ -410,7 +410,7 @@ class AndroidPebbleMessenger(
             }
             11 -> {
                 val cad = calculateCurrentCadence(stats)
-                val unit = if (stats.activityType == hag1987haaa.pebble.iron.domain.model.ActivityType.CYCLING) "rpm" else "spm"
+                val unit = hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry.getDefinition(stats.activityType).cadenceUnit
                 Triple("CADENCE", cad.toString(), unit)
             }
             18 -> Triple("POWER", stats.currentPower?.toString() ?: "--", "W")
@@ -534,13 +534,8 @@ class AndroidPebbleMessenger(
         if (sensorCadence != null) return sensorCadence
         if (stats.route.size < 5) return 0
         val last = stats.route.last()
-        val activityType = stats.activityType
-        val maxWindowSec = when (activityType) {
-            hag1987haaa.pebble.iron.domain.model.ActivityType.RUNNING -> 20
-            hag1987haaa.pebble.iron.domain.model.ActivityType.WALKING,
-            hag1987haaa.pebble.iron.domain.model.ActivityType.HIKING -> 30
-            else -> 0
-        }
+        val maxWindowSec = hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry
+            .getDefinition(stats.activityType).stepCadenceWindowSec
         if (maxWindowSec == 0) return 0
         val firstTs = stats.route.first().timestamp.epochSeconds
         val elapsedFromStart = last.timestamp.epochSeconds - firstTs
@@ -996,20 +991,6 @@ class AndroidPebbleMessenger(
             ?: points.lastOrNull()
             ?: return@withContext bitmap
 
-        // 1. 中心の決定 (最新の地点を画像の中央にする)
-        val centerLat = currentPoint.latitude
-        val centerLon = currentPoint.longitude
-        
-        // 2. ズームレベルの設定 (デフォルト 16: 半径約200m。UP/DOWNで動的変更可能)
-        val zoom = (zoomOverride ?: currentMapZoom).coerceIn(11, 18)
-        val n = Math.pow(2.0, zoom.toDouble())
-
-        // メルカトル投影での世界座標ピクセル (256pxタイル基準)
-        val currentPointWorldX = (centerLon + 180.0) / 360.0 * n * 256.0
-        val currentPointWorldY = (1.0 - Math.log(Math.tan(Math.toRadians(centerLat)) + (1.0 / Math.cos(Math.toRadians(centerLat)))) / Math.PI) / 2.0 * n * 256.0
-        val xCenterWorld = currentPointWorldX + panOffsetPixelsX
-        val yCenterWorld = currentPointWorldY + panOffsetPixelsY
-
         // 停止判定および進行方位角 (bearing) の計算
         val STOPPED_SPEED_THRESHOLD_MPS = 0.5 // 0.5 m/s (時速1.8km) 未満を停止と判定
         val latestActivePoint = if (points.isNotEmpty() && points !== plannedPoints) points.last() else currentPoint
@@ -1071,23 +1052,145 @@ class AndroidPebbleMessenger(
             0f
         }
 
-        val rotateHeadingUp = isHeadingUp
+        // マップの向き（設定のヘディングアップに連動）
+        val rotateHeadingUp = settings.isMapHeadingUp
         if (rotateHeadingUp) {
             canvas.save()
             canvas.rotate(-bearing, (width / 2.0).toFloat(), (height / 2.0).toFloat())
         }
 
-        val xtileCenter = Math.floor(xCenterWorld / 256.0).toInt()
-        val ytileCenter = Math.floor(yCenterWorld / 256.0).toInt()
+        // 全体表示モード (Overview Mode) の判定とズーム・中心座標の自動計算
+        // 通常マップ(currentMapZoom)の画面内に予定コースが入っていれば、該当コース(複数可)＋走った軌跡＋現在地を全体表示。
+        // 画面内に予定コースがなければ、これまで走った軌跡＋現在地のみを対象とする。
+        val isOverview = isOverviewMode && zoomOverride == null
+        val allOverviewPoints = if (isOverview) {
+            val list = mutableListOf<hag1987haaa.pebble.iron.domain.model.LocationPoint>()
+            if (points.isNotEmpty() && points !== plannedPoints) list.addAll(points)
+            currentLoc?.let { list.add(it) }
 
-        // 3. 周辺4タイル (2x2) を並列取得して描画
-        val xStartTile = if (xCenterWorld % 256.0 < 128.0) xtileCenter - 1 else xtileCenter
-        val yStartTile = if (yCenterWorld % 256.0 < 128.0) ytileCenter - 1 else ytileCenter
+            if (!plannedPoints.isNullOrEmpty()) {
+                val normalZoom = currentMapZoom.coerceIn(11, 18)
+                val normalN = Math.pow(2.0, normalZoom.toDouble())
+                val centerX = (currentPoint.longitude + 180.0) / 360.0 * normalN * 256.0
+                val centerY = (1.0 - Math.log(Math.tan(Math.toRadians(currentPoint.latitude)) + (1.0 / Math.cos(Math.toRadians(currentPoint.latitude)))) / Math.PI) / 2.0 * normalN * 256.0
+                val halfW = width / 2.0
+                val halfH = height / 2.0
+                val rotRad = Math.toRadians(-bearing.toDouble())
+                val cosR = Math.cos(rotRad)
+                val sinR = Math.sin(rotRad)
 
-        val tileJobs = (0..1).flatMap { ty ->
-            (0..1).map { tx ->
-                val curX = xStartTile + tx
-                val curY = yStartTile + ty
+                // plannedPoints を isSegmentStart ごとにコース単位へ分割
+                val segments = mutableListOf<MutableList<hag1987haaa.pebble.iron.domain.model.LocationPoint>>()
+                for (pt in plannedPoints) {
+                    if (segments.isEmpty() || pt.isSegmentStart) {
+                        segments.add(mutableListOf(pt))
+                    } else {
+                        segments.last().add(pt)
+                    }
+                }
+
+                // 通常マップ画面内に1点でも入っているコースを抽出して全体表示対象に追加
+                var matchedSegments = 0
+                for (seg in segments) {
+                    val isVisibleInNormalMap = seg.any { pt ->
+                        val px = (pt.longitude + 180.0) / 360.0 * normalN * 256.0
+                        val py = (1.0 - Math.log(Math.tan(Math.toRadians(pt.latitude)) + (1.0 / Math.cos(Math.toRadians(pt.latitude)))) / Math.PI) / 2.0 * normalN * 256.0
+                        val dx = px - centerX
+                        val dy = py - centerY
+                        val rx = if (rotateHeadingUp) dx * cosR - dy * sinR else dx
+                        val ry = if (rotateHeadingUp) dx * sinR + dy * cosR else dy
+                        Math.abs(rx) <= halfW && Math.abs(ry) <= halfH
+                    }
+                    if (isVisibleInNormalMap) {
+                        list.addAll(seg)
+                        matchedSegments++
+                    }
+                }
+                Log.d("PebbleMessenger", "renderMap: Overview nearby course check matched $matchedSegments/${segments.size} segments")
+            }
+            list
+        } else {
+            emptyList()
+        }
+
+        var minLat = Double.MAX_VALUE
+        var maxLat = -Double.MAX_VALUE
+        var minLon = Double.MAX_VALUE
+        var maxLon = -Double.MAX_VALUE
+        for (p in allOverviewPoints) {
+            if (p.latitude < minLat) minLat = p.latitude
+            if (p.latitude > maxLat) maxLat = p.latitude
+            if (p.longitude < minLon) minLon = p.longitude
+            if (p.longitude > maxLon) maxLon = p.longitude
+        }
+
+        val canOverview = isOverview && allOverviewPoints.size >= 2 && (maxLat - minLat >= 0.0004 || maxLon - minLon >= 0.0004)
+
+        val zoom: Int
+        val n: Double
+        val xCenterWorld: Double
+        val yCenterWorld: Double
+
+        if (canOverview) {
+            val minX0 = (minLon + 180.0) / 360.0 * 256.0
+            val maxX0 = (maxLon + 180.0) / 360.0 * 256.0
+            val minY0 = (1.0 - Math.log(Math.tan(Math.toRadians(maxLat)) + (1.0 / Math.cos(Math.toRadians(maxLat)))) / Math.PI) / 2.0 * 256.0
+            val maxY0 = (1.0 - Math.log(Math.tan(Math.toRadians(minLat)) + (1.0 / Math.cos(Math.toRadians(minLat)))) / Math.PI) / 2.0 * 256.0
+
+            val spanX0 = Math.max(0.00001, maxX0 - minX0)
+            val spanY0 = Math.max(0.00001, maxY0 - minY0)
+
+            val usableW = width * 0.80
+            val usableH = height * 0.80
+
+            val bearingRad = Math.toRadians(bearing.toDouble())
+            val cosTheta = Math.abs(Math.cos(bearingRad))
+            val sinTheta = Math.abs(Math.sin(bearingRad))
+
+            var selectedZoom = 11
+            for (z in 18 downTo 11) {
+                val scale = Math.pow(2.0, z.toDouble())
+                val wRot = if (rotateHeadingUp) {
+                    scale * (spanX0 * cosTheta + spanY0 * sinTheta)
+                } else {
+                    scale * spanX0
+                }
+                val hRot = if (rotateHeadingUp) {
+                    scale * (spanX0 * sinTheta + spanY0 * cosTheta)
+                } else {
+                    scale * spanY0
+                }
+                if (wRot <= usableW && hRot <= usableH) {
+                    selectedZoom = z
+                    break
+                }
+            }
+
+            zoom = selectedZoom
+            n = Math.pow(2.0, zoom.toDouble())
+            xCenterWorld = ((minX0 + maxX0) / 2.0 * n) + panOffsetPixelsX
+            yCenterWorld = ((minY0 + maxY0) / 2.0 * n) + panOffsetPixelsY
+            Log.d("PebbleMessenger", "renderMap: Overview mode active (zoom=$zoom, bounds=[$minLat..$maxLat, $minLon..$maxLon])")
+        } else {
+            zoom = (zoomOverride ?: currentMapZoom).coerceIn(11, 18)
+            n = Math.pow(2.0, zoom.toDouble())
+            val centerLat = currentPoint.latitude
+            val centerLon = currentPoint.longitude
+            val currentPointWorldX = (centerLon + 180.0) / 360.0 * n * 256.0
+            val currentPointWorldY = (1.0 - Math.log(Math.tan(Math.toRadians(centerLat)) + (1.0 / Math.cos(Math.toRadians(centerLat)))) / Math.PI) / 2.0 * n * 256.0
+            xCenterWorld = currentPointWorldX + panOffsetPixelsX
+            yCenterWorld = currentPointWorldY + panOffsetPixelsY
+        }
+
+        // 3. 周辺タイルを並列取得して描画（回転時も四隅が欠けない範囲を取得）
+        val radius = if (rotateHeadingUp) Math.hypot(width / 2.0, height / 2.0) else Math.max(width / 2.0, height / 2.0)
+        val startTileX = Math.floor((xCenterWorld - radius) / 256.0).toInt()
+        val endTileX = Math.floor((xCenterWorld + radius) / 256.0).toInt()
+        val startTileY = Math.floor((yCenterWorld - radius) / 256.0).toInt()
+        val endTileY = Math.floor((yCenterWorld + radius) / 256.0).toInt()
+
+        val tileJobs = (startTileY..endTileY).flatMap { curY ->
+            (startTileX..endTileX).map { curX ->
                 async(Dispatchers.IO) {
                     try {
                         val tileBitmap = getTileBitmap(zoom, curX, curY)
@@ -1187,7 +1290,30 @@ class AndroidPebbleMessenger(
             }
         }
 
+        // 5-B. スタート地点マーカー (全体表示時、またはポイントが複数ある場合)
+        val firstTrackPoint = if (points.isNotEmpty() && points !== plannedPoints) points.first() else plannedPoints?.firstOrNull()
+        if (firstTrackPoint != null && (canOverview || points.size >= 2)) {
+            val spx = (firstTrackPoint.longitude + 180.0) / 360.0 * n * 256.0
+            val spy = (1.0 - Math.log(Math.tan(Math.toRadians(firstTrackPoint.latitude)) + (1.0 / Math.cos(Math.toRadians(firstTrackPoint.latitude)))) / Math.PI) / 2.0 * n * 256.0
+            val sx = (spx - xCenterWorld + (width / 2.0)).toFloat()
+            val sy = (spy - yCenterWorld + (height / 2.0)).toFloat()
+            val startOuterPaint = Paint().apply {
+                color = Color.WHITE
+                style = Paint.Style.FILL
+                isAntiAlias = false
+            }
+            val startInnerPaint = Paint().apply {
+                color = Color.rgb(0, 180, 0)
+                style = Paint.Style.FILL
+                isAntiAlias = false
+            }
+            canvas.drawCircle(sx, sy, 5f, startOuterPaint)
+            canvas.drawCircle(sx, sy, 3f, startInnerPaint)
+        }
+
         // 6. 現在地インジケータの描画 (停止時: 単色グリーンドット / 移動時: 単色グリーン二等辺三角形)
+        val currentPointWorldX = (currentPoint.longitude + 180.0) / 360.0 * n * 256.0
+        val currentPointWorldY = (1.0 - Math.log(Math.tan(Math.toRadians(currentPoint.latitude)) + (1.0 / Math.cos(Math.toRadians(currentPoint.latitude)))) / Math.PI) / 2.0 * n * 256.0
         val cx = (currentPointWorldX - xCenterWorld + (width / 2.0)).toFloat()
         val cy = (currentPointWorldY - yCenterWorld + (height / 2.0)).toFloat()
 
@@ -1548,6 +1674,7 @@ class AndroidPebbleMessenger(
 
     override fun openMap() {
         isMapActive = true
+        isOverviewMode = false
         panOffsetPixelsX = 0.0
         panOffsetPixelsY = 0.0
         val currentActivity = KmpDependencies.trackerEngine.statistics.value.activityType
@@ -1561,6 +1688,7 @@ class AndroidPebbleMessenger(
     override fun setMapState(isActive: Boolean) {
         isMapActive = isActive
         if (!isActive) {
+            isOverviewMode = false
             mapAutoCloseJob?.cancel()
             mapAutoCloseJob = null
             mapDebounceJob?.cancel()
@@ -1578,6 +1706,7 @@ class AndroidPebbleMessenger(
     }
 
     override fun zoomInMap() {
+        isOverviewMode = false
         if (currentMapZoom < 18) {
             currentMapZoom++
             val currentActivity = KmpDependencies.trackerEngine.statistics.value.activityType
@@ -1590,6 +1719,7 @@ class AndroidPebbleMessenger(
     }
 
     override fun zoomOutMap() {
+        isOverviewMode = false
         if (currentMapZoom > 11) {
             currentMapZoom--
             val currentActivity = KmpDependencies.trackerEngine.statistics.value.activityType
@@ -1628,11 +1758,13 @@ class AndroidPebbleMessenger(
     override fun resetAndToggleMapOrientation() {
         panOffsetPixelsX = 0.0
         panOffsetPixelsY = 0.0
+        isOverviewMode = !isOverviewMode
         val currentActivity = KmpDependencies.trackerEngine.statistics.value.activityType
         val defaultZoom = settings.getMapZoomForActivity(currentActivity)
-        currentMapZoom = defaultZoom
-        isHeadingUp = !isHeadingUp
-        Log.i("PebbleMessenger", "resetAndToggleMapOrientation: Re-centered for $currentActivity, zoom=$defaultZoom, isHeadingUp=$isHeadingUp")
+        if (!isOverviewMode) {
+            currentMapZoom = defaultZoom
+        }
+        Log.i("PebbleMessenger", "resetAndToggleMapOrientation: isOverviewMode=$isOverviewMode, currentActivity=$currentActivity, defaultZoom=$defaultZoom, isHeadingUp=${settings.isMapHeadingUp}")
         resetAutoCloseTimer()
         scheduleMapRefresh(0L)
     }

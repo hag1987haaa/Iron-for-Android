@@ -57,6 +57,7 @@ object AndroidDependencies {
         settings.isMusicControlEnabled = prefs.getBoolean("music_enabled", false)
         settings.isTouchControlEnabled = prefs.getBoolean("touch_enabled", false)
         settings.isMapSwipePanEnabled = prefs.getBoolean("map_swipe_pan_enabled", true)
+        settings.isMapHeadingUp = prefs.getBoolean("map_heading_up_enabled", false)
         settings.isLongPressEnabled = prefs.getBoolean("longpress_enabled", false)
         settings.upLongPressMode = hag1987haaa.pebble.iron.domain.settings.LongPressMode.valueOf(
             prefs.getString("longpress_up_mode", hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name) ?: hag1987haaa.pebble.iron.domain.settings.LongPressMode.MUSIC.name
@@ -297,6 +298,7 @@ object AndroidDependencies {
                 putBoolean("music_enabled", settings.isMusicControlEnabled)
                 putBoolean("touch_enabled", settings.isTouchControlEnabled)
                 putBoolean("map_swipe_pan_enabled", settings.isMapSwipePanEnabled)
+                putBoolean("map_heading_up_enabled", settings.isMapHeadingUp)
                 putBoolean("longpress_enabled", settings.isLongPressEnabled)
                 putString("longpress_up_mode", settings.upLongPressMode.name)
                 putString("longpress_select_mode", settings.selectLongPressMode.name)

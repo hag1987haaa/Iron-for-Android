@@ -8,6 +8,7 @@ import android.widget.Toast
 import hag1987haaa.pebble.iron.KmpDependencies
 import hag1987haaa.pebble.iron.domain.assistant.AssistantSpeechFormatter
 import hag1987haaa.pebble.iron.domain.model.ActivityType
+import hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry
 import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.service.TrackingService
 
@@ -97,22 +98,7 @@ object AssistantActionHandler {
     }
 
     internal fun parseActivityType(rawName: String): ActivityType {
-        val lower = rawName.lowercase().trim()
-        return when {
-            // ランニング
-            lower.contains("run") || lower.contains("ラン") || lower.contains("走") || lower.contains("jog") -> ActivityType.RUNNING
-            // ウォーキング
-            lower.contains("walk") || lower.contains("ウォーク") || lower.contains("歩") || lower.contains("散歩") -> ActivityType.WALKING
-            // サイクリング
-            lower.contains("cycl") || lower.contains("bike") || lower.contains("サイク") || lower.contains("自転") -> ActivityType.CYCLING
-            // ハイキング
-            lower.contains("hike") || lower.contains("ハイキング") || lower.contains("登") || lower.contains("trek") -> ActivityType.HIKING
-            // カヤック
-            lower.contains("kayak") || lower.contains("カヤック") || lower.contains("カヌー") -> ActivityType.KAYAKING
-            // ボート
-            lower.contains("row") || lower.contains("ボート") || lower.contains("ローイング") -> ActivityType.ROWING
-            else -> ActivityType.RUNNING
-        }
+        return WorkoutTypeRegistry.findByAssistantKeyword(rawName)?.baseActivityType ?: ActivityType.RUNNING
     }
 
     internal fun dispatchCommand(context: Context, action: String) {

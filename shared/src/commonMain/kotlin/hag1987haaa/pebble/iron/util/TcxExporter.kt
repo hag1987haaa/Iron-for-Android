@@ -1,7 +1,7 @@
 package hag1987haaa.pebble.iron.util
 
-import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
+import hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry
 import kotlinx.datetime.Instant
 
 object TcxExporter {
@@ -24,11 +24,7 @@ object TcxExporter {
 
         sb.append("  <Activities>\n")
         
-        val sportType = when(run.type) {
-            ActivityType.RUNNING -> "Running"
-            ActivityType.CYCLING -> "Biking"
-            else -> "Other"
-        }
+        val sportType = WorkoutTypeRegistry.getDefinition(run.type).tcxSportType
         
         sb.append("    <Activity Sport=\"$sportType\">\n")
         sb.append("      <Id>${run.startTime}</Id>\n")
@@ -86,7 +82,7 @@ object TcxExporter {
 
             // ケイデンス (センサー値優先、なければ歩数差分計算)
             val cadenceVal = pt.cadence ?: run {
-                if (run.type == ActivityType.RUNNING || run.type == ActivityType.WALKING) {
+                if (WorkoutTypeRegistry.getDefinition(run.type).stepCadenceWindowSec > 0) {
                     val currentSteps = pt.steps ?: 0
                     val currentTime = pt.timestamp
                     prevTime?.let { pTime ->

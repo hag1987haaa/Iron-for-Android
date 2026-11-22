@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.BiologicalSex
 import hag1987haaa.pebble.iron.domain.model.CalorieProfile
+import hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -20,6 +21,15 @@ class AppSettings {
     var isMapSwipePanEnabled: Boolean
         get() = _isMapSwipePanEnabled.value
         set(value) { _isMapSwipePanEnabled.value = value }
+
+    private val _isMapHeadingUp = MutableStateFlow(value = false)
+    val isMapHeadingUpFlow: StateFlow<Boolean> = _isMapHeadingUp.asStateFlow()
+    var isMapHeadingUp: Boolean
+        get() = _isMapHeadingUp.value
+        set(value) {
+            _isMapHeadingUp.value = value
+            save()
+        }
 
     // 距離通知（オートラップ）用
     private val _isDistNotificationVibrationEnabled = MutableStateFlow(value = true)
@@ -69,25 +79,13 @@ class AppSettings {
             save()
         }
 
-    private val defaultHrZoneMins = mapOf(
-        ActivityType.RUNNING.name to 130,
-        ActivityType.WALKING.name to 95,
-        ActivityType.CYCLING.name to 115,
-        ActivityType.HIKING.name to 100,
-        ActivityType.KAYAKING.name to 105,
-        ActivityType.ROWING.name to 115,
-        ActivityType.OTHER.name to 110
-    )
+    private val defaultHrZoneMins: Map<String, Int> = ActivityType.entries.associate {
+        it.name to WorkoutTypeRegistry.getDefinition(it).watchDefaults.hrZoneMin
+    }
 
-    private val defaultHrZoneMaxs = mapOf(
-        ActivityType.RUNNING.name to 165,
-        ActivityType.WALKING.name to 125,
-        ActivityType.CYCLING.name to 150,
-        ActivityType.HIKING.name to 135,
-        ActivityType.KAYAKING.name to 140,
-        ActivityType.ROWING.name to 150,
-        ActivityType.OTHER.name to 145
-    )
+    private val defaultHrZoneMaxs: Map<String, Int> = ActivityType.entries.associate {
+        it.name to WorkoutTypeRegistry.getDefinition(it).watchDefaults.hrZoneMax
+    }
 
     private val _activityHrZoneMins = MutableStateFlow<Map<String, Int>>(defaultHrZoneMins)
     val activityHrZoneMinsFlow: StateFlow<Map<String, Int>> = _activityHrZoneMins.asStateFlow()
@@ -235,18 +233,12 @@ class AppSettings {
 
     /**
      * アクティビティ種別ごとのマップ拡大率（ズームレベル 11..18）
-     * 描画・通信速度優先のため、全ワークアウトでウォーキングと同じく Zoom 16 をデフォルトとし、サイクリングのみ 15 とします。
+     * デフォルト値は WorkoutTypeRegistry の watchDefaults.mapZoom で定義。
      */
     private val _activityMapZooms = MutableStateFlow<Map<String, Int>>(
-        mapOf(
-            ActivityType.RUNNING.name to 16,
-            ActivityType.WALKING.name to 16,
-            ActivityType.CYCLING.name to 16,
-            ActivityType.HIKING.name to 16,
-            ActivityType.KAYAKING.name to 16,
-            ActivityType.ROWING.name to 16,
-            ActivityType.OTHER.name to 16
-        )
+        ActivityType.entries.associate {
+            it.name to WorkoutTypeRegistry.getDefinition(it).watchDefaults.mapZoom
+        }
     )
     val activityMapZoomsFlow: StateFlow<Map<String, Int>> = _activityMapZooms.asStateFlow()
     var activityMapZooms: Map<String, Int>
@@ -257,12 +249,12 @@ class AppSettings {
         }
 
     fun getMapZoomForActivity(type: ActivityType): Int {
-        return activityMapZooms[type.name] ?: 16
+        return activityMapZooms[type.name] ?: WorkoutTypeRegistry.getDefinition(type).watchDefaults.mapZoom
     }
 
     fun setMapZoomForActivity(type: ActivityType, zoom: Int) {
         val clamped = zoom.coerceIn(11, 18)
-        val current = activityMapZooms[type.name] ?: 16
+        val current = getMapZoomForActivity(type)
         if (current != clamped) {
             val newMap = activityMapZooms.toMutableMap()
             newMap[type.name] = clamped
@@ -309,23 +301,11 @@ class AppSettings {
      */
     companion object {
         fun getDefaultMidTypes(activityType: ActivityType): List<Int> {
-            return when (activityType) {
-                ActivityType.RUNNING, ActivityType.WALKING -> listOf(9, 8, 17, 1, 4, 10)
-                ActivityType.CYCLING -> listOf(9, 8, 11, 18, 1, 4, 10)
-                ActivityType.HIKING -> listOf(9, 1, 10, 8, 4, 3)
-                ActivityType.KAYAKING, ActivityType.ROWING -> listOf(9, 8, 17, 1, 4)
-                ActivityType.OTHER -> listOf(9, 4, 1, 8, 5)
-            }
+            return WorkoutTypeRegistry.getDefinition(activityType).watchDefaults.midTypes
         }
 
         fun getDefaultLowerTypes(activityType: ActivityType): List<Int> {
-            return when (activityType) {
-                ActivityType.RUNNING, ActivityType.WALKING -> listOf(101, 102, 103, 104, 105)
-                ActivityType.CYCLING -> listOf(100, 101, 103, 104, 105)
-                ActivityType.HIKING -> listOf(101, 103, 102, 104, 105)
-                ActivityType.KAYAKING, ActivityType.ROWING -> listOf(100, 101, 104, 105)
-                ActivityType.OTHER -> listOf(104, 105, 101)
-            }
+            return WorkoutTypeRegistry.getDefinition(activityType).watchDefaults.lowerTypes
         }
     }
 
