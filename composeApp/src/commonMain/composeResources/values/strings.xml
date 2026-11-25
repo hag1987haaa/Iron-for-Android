@@ -96,7 +96,7 @@
     <string name="settings_label_weight">Weight (kg)</string>
     <string name="settings_label_weight_desc">Used for calculating calories burned during workouts</string>
     <string name="settings_optional_title">Optional body data</string>
-    <string name="settings_optional_desc">Makes the calorie estimate more accurate. Leave empty if unknown.</string>
+    <string name="settings_optional_desc">Makes the calorie estimate more accurate. Standard default values are used automatically for any fields left blank.</string>
     <string name="settings_label_height">Height</string>
     <string name="settings_height_desc">Used to estimate resting energy when BMR and body fat aren't set</string>
     <string name="settings_label_body_fat">Body fat</string>

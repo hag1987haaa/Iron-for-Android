@@ -119,50 +119,78 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
                 }
                 Spacer(Modifier.height(16.dp))
 
-                // 任意の身体データ (カロリー推定の精度向上)。空欄 = 未設定
-                Text(stringResource(Res.string.settings_optional_title))
-                Text(
-                    stringResource(Res.string.settings_optional_desc),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-                Spacer(Modifier.height(8.dp))
-                OptionalNumberField(
-                    value = userHeightCm,
-                    label = stringResource(Res.string.settings_label_height),
-                    description = stringResource(Res.string.settings_height_desc),
-                    suffix = if (isMetric) "cm" else "in",
-                    validRange = 100f..250f,
-                    resetKey = isMetric,
-                    toDisplay = { cm -> if (isMetric) cm else cm / 2.54f },
-                    fromDisplay = { v -> if (isMetric) v else v * 2.54f },
-                    onValueChange = viewModel::updateUserHeight,
-                )
-                OptionalNumberField(
-                    value = userBodyFatPct,
-                    label = stringResource(Res.string.settings_label_body_fat),
-                    description = stringResource(Res.string.settings_body_fat_desc),
-                    suffix = "%",
-                    validRange = 3f..60f,
-                    decimals = true,
-                    onValueChange = viewModel::updateUserBodyFat,
-                )
-                OptionalNumberField(
-                    value = userRestingHr?.toFloat(),
-                    label = stringResource(Res.string.settings_label_resting_hr),
-                    description = stringResource(Res.string.settings_resting_hr_desc),
-                    suffix = "bpm",
-                    validRange = 30f..110f,
-                    onValueChange = { viewModel.updateUserRestingHr(it?.roundToInt()) },
-                )
-                OptionalNumberField(
-                    value = userBmr,
-                    label = stringResource(Res.string.settings_label_bmr),
-                    description = stringResource(Res.string.settings_bmr_desc),
-                    suffix = "kcal",
-                    validRange = 800f..4500f,
-                    onValueChange = viewModel::updateUserBmr,
-                )
+                // 任意の身体データ (カロリー推定の精度向上)。空欄 = 未設定（折りたたみ）
+                var isOptionalBodyExpanded by remember { mutableStateOf(false) }
+                val filledOptionalCount = listOf(userHeightCm, userBodyFatPct, userRestingHr, userBmr).count { it != null }
+                Surface(
+                    onClick = { isOptionalBodyExpanded = !isOptionalBodyExpanded },
+                    tonalElevation = 1.dp,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${stringResource(Res.string.settings_optional_title)} ($filledOptionalCount/4)",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(Res.string.settings_optional_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                        Icon(
+                            imageVector = if (isOptionalBodyExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                if (isOptionalBodyExpanded) {
+                    Spacer(Modifier.height(8.dp))
+                    OptionalNumberField(
+                        value = userHeightCm,
+                        label = stringResource(Res.string.settings_label_height),
+                        description = stringResource(Res.string.settings_height_desc),
+                        suffix = if (isMetric) "cm" else "in",
+                        validRange = 100f..250f,
+                        resetKey = isMetric,
+                        toDisplay = { cm -> if (isMetric) cm else cm / 2.54f },
+                        fromDisplay = { v -> if (isMetric) v else v * 2.54f },
+                        onValueChange = viewModel::updateUserHeight,
+                    )
+                    OptionalNumberField(
+                        value = userBodyFatPct,
+                        label = stringResource(Res.string.settings_label_body_fat),
+                        description = stringResource(Res.string.settings_body_fat_desc),
+                        suffix = "%",
+                        validRange = 3f..60f,
+                        decimals = true,
+                        onValueChange = viewModel::updateUserBodyFat,
+                    )
+                    OptionalNumberField(
+                        value = userRestingHr?.toFloat(),
+                        label = stringResource(Res.string.settings_label_resting_hr),
+                        description = stringResource(Res.string.settings_resting_hr_desc),
+                        suffix = "bpm",
+                        validRange = 30f..110f,
+                        onValueChange = { viewModel.updateUserRestingHr(it?.roundToInt()) },
+                    )
+                    OptionalNumberField(
+                        value = userBmr,
+                        label = stringResource(Res.string.settings_label_bmr),
+                        description = stringResource(Res.string.settings_bmr_desc),
+                        suffix = "kcal",
+                        validRange = 800f..4500f,
+                        onValueChange = viewModel::updateUserBmr,
+                    )
+                }
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val unitSystemLabel = if (isMetric) {

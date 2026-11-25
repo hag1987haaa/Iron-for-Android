@@ -96,7 +96,7 @@
     <string name="settings_label_weight">体重 (kg)</string>
     <string name="settings_label_weight_desc">ワークアウト中の消費カロリー計算に使用されます</string>
     <string name="settings_optional_title">任意の身体データ</string>
-    <string name="settings_optional_desc">カロリー推定がより正確になります。不明な場合は空欄のままにしてください。</string>
+    <string name="settings_optional_desc">カロリー推定の精度が上がります。入力されていない項目は一般的な標準値を使って自動で計算されます。</string>
     <string name="settings_label_height">身長</string>
     <string name="settings_height_desc">基礎代謝・体脂肪率が未設定の場合、安静時消費エネルギーの推定に使用します</string>
     <string name="settings_label_body_fat">体脂肪率</string>
