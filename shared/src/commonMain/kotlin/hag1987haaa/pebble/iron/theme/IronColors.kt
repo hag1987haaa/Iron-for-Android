@@ -16,6 +16,15 @@ object IronColors {
     const val COLOR_KAYAKING = 0xFFD1FFFF
     const val COLOR_ROWING = 0xFFE8D1FF
     const val COLOR_OTHER = 0xFFE5E5E5
+    const val COLOR_TRAIL_RUNNING = 0xFFFFE0B2
+    const val COLOR_MTB = 0xFFC5CAE9
+    const val COLOR_SKIING = 0xFFB3E5FC
+    const val COLOR_SNOWBOARDING = 0xFFB2EBF2
+    const val COLOR_SUP = 0xFFB2DFDB
+    const val COLOR_INLINE_SKATING = 0xFFF8BBD0
+    const val COLOR_TREADMILL = 0xFFFFCDD2
+    const val COLOR_INDOOR_CYCLING = 0xFFBBDEFB
+    const val COLOR_STRENGTH_TRAINING = 0xFFD7CCC8
 
     // 心拍数（BPM）関連
     const val HEART_RATE_PINK = 0xFFE91E63

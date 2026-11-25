@@ -69,6 +69,15 @@
     <string name="activity_kayaking">Kayaking</string>
     <string name="activity_rowing">Rowing</string>
     <string name="activity_other">Other</string>
+    <string name="activity_trail_running">Trail Run</string>
+    <string name="activity_mtb">MTB</string>
+    <string name="activity_skiing">Skiing</string>
+    <string name="activity_snowboarding">Snowboarding</string>
+    <string name="activity_sup">SUP</string>
+    <string name="activity_inline_skating">Inline Skating</string>
+    <string name="activity_treadmill">Treadmill</string>
+    <string name="activity_indoor_cycling">Indoor Cycling</string>
+    <string name="activity_strength_training">Strength Training</string>
 
     <string name="settings_tab_phone">Phone</string>
     <string name="settings_tab_watch">Watch</string>

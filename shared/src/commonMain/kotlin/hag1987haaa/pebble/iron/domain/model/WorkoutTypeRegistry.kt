@@ -12,7 +12,9 @@ data class WorkoutTypeDefinition(
     val id: Int,
     val name: String,
     val displayName: String,
+    val pebbleLabel: String = name,
     val baseActivityType: ActivityType,
+    val usesGps: Boolean = true,
     val maxReasonableSpeedMps: Double,
     val preferSpeedOverPace: Boolean,
     val cadenceUnit: String,
@@ -23,7 +25,7 @@ data class WorkoutTypeDefinition(
 )
 
 object WorkoutTypeRegistry {
-    const val CURRENT_VERSION = 1
+    const val CURRENT_VERSION = 2
 
     /**
      * ActivityTypeごとのマスター定義。
@@ -163,6 +165,195 @@ object WorkoutTypeRegistry {
                 lowerTypes = listOf(104, 105, 101),
             ),
         )
+        ActivityType.TRAIL_RUNNING -> WorkoutTypeDefinition(
+            id = 7,
+            name = "TRAIL_RUNNING",
+            displayName = "Trail Run",
+            pebbleLabel = "TRAIL RUN",
+            baseActivityType = ActivityType.TRAIL_RUNNING,
+            usesGps = true,
+            maxReasonableSpeedMps = 12.0,
+            preferSpeedOverPace = false,
+            cadenceUnit = "spm",
+            stepCadenceWindowSec = 20,
+            tcxSportType = "Running",
+            assistantKeywords = listOf("trail", "トレイル", "トレラン"),
+            watchDefaults = WatchWorkoutDefaults(
+                mapZoom = 16,
+                hrZoneMin = 130,
+                hrZoneMax = 165,
+                midTypes = listOf(9, 17, 1, 10, 4, 3),
+                lowerTypes = listOf(103, 101, 104, 102, 105),
+            ),
+        )
+        ActivityType.MTB -> WorkoutTypeDefinition(
+            id = 8,
+            name = "MTB",
+            displayName = "MTB",
+            pebbleLabel = "MTB",
+            baseActivityType = ActivityType.MTB,
+            usesGps = true,
+            maxReasonableSpeedMps = 25.0,
+            preferSpeedOverPace = true,
+            cadenceUnit = "rpm",
+            stepCadenceWindowSec = 0,
+            tcxSportType = "Biking",
+            assistantKeywords = listOf("mtb", "mountain bike", "マウンテンバイク"),
+            watchDefaults = WatchWorkoutDefaults(
+                mapZoom = 16,
+                hrZoneMin = 120,
+                hrZoneMax = 160,
+                midTypes = listOf(9, 8, 1, 10, 4, 3),
+                lowerTypes = listOf(103, 100, 101, 104, 105),
+            ),
+        )
+        ActivityType.SKIING -> WorkoutTypeDefinition(
+            id = 9,
+            name = "SKIING",
+            displayName = "Skiing",
+            pebbleLabel = "SKIING",
+            baseActivityType = ActivityType.SKIING,
+            usesGps = true,
+            maxReasonableSpeedMps = 35.0,
+            preferSpeedOverPace = true,
+            cadenceUnit = "spm",
+            stepCadenceWindowSec = 0,
+            tcxSportType = "Other",
+            assistantKeywords = listOf("ski", "スキー"),
+            watchDefaults = WatchWorkoutDefaults(
+                mapZoom = 15,
+                hrZoneMin = 110,
+                hrZoneMax = 150,
+                midTypes = listOf(9, 8, 3, 1, 4, 5),
+                lowerTypes = listOf(103, 100, 101, 104, 105),
+            ),
+        )
+        ActivityType.SNOWBOARDING -> WorkoutTypeDefinition(
+            id = 10,
+            name = "SNOWBOARDING",
+            displayName = "Snowboarding",
+            pebbleLabel = "SNOWBOARD",
+            baseActivityType = ActivityType.SNOWBOARDING,
+            usesGps = true,
+            maxReasonableSpeedMps = 35.0,
+            preferSpeedOverPace = true,
+            cadenceUnit = "spm",
+            stepCadenceWindowSec = 0,
+            tcxSportType = "Other",
+            assistantKeywords = listOf("snowboard", "スノボ", "スノーボード"),
+            watchDefaults = WatchWorkoutDefaults(
+                mapZoom = 15,
+                hrZoneMin = 110,
+                hrZoneMax = 150,
+                midTypes = listOf(9, 8, 3, 1, 4, 5),
+                lowerTypes = listOf(103, 100, 101, 104, 105),
+            ),
+        )
+        ActivityType.SUP -> WorkoutTypeDefinition(
+            id = 11,
+            name = "SUP",
+            displayName = "SUP",
+            pebbleLabel = "SUP",
+            baseActivityType = ActivityType.SUP,
+            usesGps = true,
+            maxReasonableSpeedMps = 12.0,
+            preferSpeedOverPace = false,
+            cadenceUnit = "spm",
+            stepCadenceWindowSec = 0,
+            tcxSportType = "Other",
+            assistantKeywords = listOf("sup", "サップ", "パドルボード"),
+            watchDefaults = WatchWorkoutDefaults(
+                mapZoom = 16,
+                hrZoneMin = 105,
+                hrZoneMax = 145,
+                midTypes = listOf(9, 8, 17, 1, 4),
+                lowerTypes = listOf(100, 101, 104, 105),
+            ),
+        )
+        ActivityType.INLINE_SKATING -> WorkoutTypeDefinition(
+            id = 12,
+            name = "INLINE_SKATING",
+            displayName = "Inline Skating",
+            pebbleLabel = "INLINE SKATE",
+            baseActivityType = ActivityType.INLINE_SKATING,
+            usesGps = true,
+            maxReasonableSpeedMps = 20.0,
+            preferSpeedOverPace = true,
+            cadenceUnit = "spm",
+            stepCadenceWindowSec = 0,
+            tcxSportType = "Other",
+            assistantKeywords = listOf("inline", "skate", "インライン", "スケート"),
+            watchDefaults = WatchWorkoutDefaults(
+                mapZoom = 16,
+                hrZoneMin = 120,
+                hrZoneMax = 160,
+                midTypes = listOf(9, 8, 1, 4, 5),
+                lowerTypes = listOf(100, 101, 104, 105),
+            ),
+        )
+        ActivityType.TREADMILL -> WorkoutTypeDefinition(
+            id = 13,
+            name = "TREADMILL",
+            displayName = "Treadmill",
+            pebbleLabel = "TREADMILL",
+            baseActivityType = ActivityType.TREADMILL,
+            usesGps = false,
+            maxReasonableSpeedMps = 12.0,
+            preferSpeedOverPace = false,
+            cadenceUnit = "spm",
+            stepCadenceWindowSec = 20,
+            tcxSportType = "Running",
+            assistantKeywords = listOf("treadmill", "トレッドミル", "ランニングマシン"),
+            watchDefaults = WatchWorkoutDefaults(
+                mapZoom = 16,
+                hrZoneMin = 130,
+                hrZoneMax = 165,
+                midTypes = listOf(9, 4, 2, 11, 5),
+                lowerTypes = listOf(104, 102, 105),
+            ),
+        )
+        ActivityType.INDOOR_CYCLING -> WorkoutTypeDefinition(
+            id = 14,
+            name = "INDOOR_CYCLING",
+            displayName = "Indoor Cycling",
+            pebbleLabel = "INDOOR BIKE",
+            baseActivityType = ActivityType.INDOOR_CYCLING,
+            usesGps = false,
+            maxReasonableSpeedMps = 30.0,
+            preferSpeedOverPace = true,
+            cadenceUnit = "rpm",
+            stepCadenceWindowSec = 0,
+            tcxSportType = "Biking",
+            assistantKeywords = listOf("indoor bike", "indoor cycling", "ローラー", "インドアバイク", "エアロバイク"),
+            watchDefaults = WatchWorkoutDefaults(
+                mapZoom = 15,
+                hrZoneMin = 115,
+                hrZoneMax = 155,
+                midTypes = listOf(9, 4, 11, 18, 8, 1, 5),
+                lowerTypes = listOf(104, 106, 107, 105),
+            ),
+        )
+        ActivityType.STRENGTH_TRAINING -> WorkoutTypeDefinition(
+            id = 15,
+            name = "STRENGTH_TRAINING",
+            displayName = "Strength Training",
+            pebbleLabel = "STRENGTH",
+            baseActivityType = ActivityType.STRENGTH_TRAINING,
+            usesGps = false,
+            maxReasonableSpeedMps = 5.0,
+            preferSpeedOverPace = false,
+            cadenceUnit = "spm",
+            stepCadenceWindowSec = 0,
+            tcxSportType = "Other",
+            assistantKeywords = listOf("strength", "gym", "筋トレ", "ウエイト", "ウェイト"),
+            watchDefaults = WatchWorkoutDefaults(
+                mapZoom = 16,
+                hrZoneMin = 100,
+                hrZoneMax = 145,
+                midTypes = listOf(9, 4, 5, 2),
+                lowerTypes = listOf(104, 105),
+            ),
+        )
     }
 
     val defaultTypes: List<WorkoutTypeDefinition> = ActivityType.entries.map { getDefinition(it) }
@@ -184,17 +375,23 @@ object WorkoutTypeRegistry {
     fun findByAssistantKeyword(rawName: String): WorkoutTypeDefinition? {
         val lower = rawName.lowercase().trim()
         if (lower.isEmpty()) return null
-        return defaultTypes.firstOrNull { def ->
-            def.assistantKeywords.any { keyword -> lower.contains(keyword) }
-        }
+        // より具体的なキーワード（例: "トレイルラン" が "ラン" より先にマッチ）を優先するため、キーワード長の降順で検索
+        return defaultTypes
+            .flatMap { def -> def.assistantKeywords.map { kw -> kw to def } }
+            .sortedByDescending { it.first.length }
+            .firstOrNull { (keyword, _) -> lower.contains(keyword) }
+            ?.second
     }
 
     /**
      * Pebble AppMessage protocol format:
      * "v:<version>|<id1>,<name1>,<id2>,<name2>,..."
      */
-    fun toPebbleProtocolString(version: Int = CURRENT_VERSION): String {
-        val itemsStr = defaultTypes.joinToString(",") { "${it.id},${it.name}" }
+    fun toPebbleProtocolString(
+        types: List<WorkoutTypeDefinition> = defaultTypes,
+        version: Int = CURRENT_VERSION
+    ): String {
+        val itemsStr = types.joinToString(",") { "${it.id},${it.pebbleLabel}" }
         return "v:$version|$itemsStr"
     }
 }

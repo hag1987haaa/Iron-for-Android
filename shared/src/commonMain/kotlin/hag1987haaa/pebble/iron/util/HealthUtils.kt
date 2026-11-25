@@ -92,22 +92,39 @@ object HealthUtils {
             speedKmh < 8.0 -> 0.5 * speedKmh + 1.5 // 4km/h->3.5, 6km/h->4.5
             else -> 5.5
         }
+        val runningMets = when {
+            speedKmh < 6.0 -> 6.0
+            speedKmh < 20.0 -> 0.75 * speedKmh + 2.3 // 8km/h->8.3, 12km/h->11.3
+            else -> 16.0
+        }
+        val cyclingMets = when {
+            speedKmh < 15.0 -> 6.0
+            speedKmh < 30.0 -> 0.4 * speedKmh // 20km/h->8.0, 25km/h->10.0
+            else -> 12.0
+        }
         var mets = when (type) {
-            ActivityType.RUNNING -> when {
-                speedKmh < 6.0 -> 6.0
-                speedKmh < 20.0 -> 0.75 * speedKmh + 2.3 // 8km/h->8.3, 12km/h->11.3
-                else -> 16.0
-            }
+            ActivityType.RUNNING -> runningMets
+            // トレイルは不整地のため舗装路ランより約15%負荷が高い
+            ActivityType.TRAIL_RUNNING -> (runningMets * 1.15).coerceAtLeast(7.0)
             ActivityType.WALKING -> walkingMets
             // 不整地は舗装路より約20%負荷が高い (Pandolf の地形係数)
             ActivityType.HIKING -> (walkingMets * 1.2).coerceAtLeast(4.0)
-            ActivityType.CYCLING -> when {
-                speedKmh < 15.0 -> 6.0
-                speedKmh < 30.0 -> 0.4 * speedKmh // 20km/h->8.0, 25km/h->10.0
-                else -> 12.0
-            }
+            ActivityType.CYCLING -> cyclingMets
+            // MTBは不整地のためロードバイクより約20%負荷が高い
+            ActivityType.MTB -> (cyclingMets * 1.2).coerceAtLeast(7.5)
             ActivityType.KAYAKING -> 5.0
             ActivityType.ROWING -> 7.0
+            ActivityType.SKIING -> 6.0
+            ActivityType.SNOWBOARDING -> 5.5
+            ActivityType.SUP -> 6.0
+            ActivityType.INLINE_SKATING -> when {
+                speedKmh < 10.0 -> 6.0
+                speedKmh < 24.0 -> 0.45 * speedKmh + 1.5
+                else -> 12.5
+            }
+            ActivityType.TREADMILL -> 8.0
+            ActivityType.INDOOR_CYCLING -> 7.0
+            ActivityType.STRENGTH_TRAINING -> 5.0
             ActivityType.OTHER -> 4.0
         }
 

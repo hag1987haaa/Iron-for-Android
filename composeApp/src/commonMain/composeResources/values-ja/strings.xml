@@ -69,6 +69,15 @@
     <string name="activity_kayaking">カヤック</string>
     <string name="activity_rowing">ボート</string>
     <string name="activity_other">その他</string>
+    <string name="activity_trail_running">トレイルラン</string>
+    <string name="activity_mtb">マウンテンバイク</string>
+    <string name="activity_skiing">スキー</string>
+    <string name="activity_snowboarding">スノーボード</string>
+    <string name="activity_sup">SUP</string>
+    <string name="activity_inline_skating">インラインスケート</string>
+    <string name="activity_treadmill">トレッドミル</string>
+    <string name="activity_indoor_cycling">インドアバイク</string>
+    <string name="activity_strength_training">筋トレ</string>
 
     <string name="settings_tab_phone">スマホ設定</string>
     <string name="settings_tab_watch">ウォッチ設定</string>

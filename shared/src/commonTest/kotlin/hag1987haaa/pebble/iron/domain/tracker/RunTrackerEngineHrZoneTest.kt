@@ -14,8 +14,15 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class FakeLocationTracker : LocationTracker {
-    override fun startTracking(): Flow<LocationPoint> = emptyFlow()
-    override fun stopTracking() {}
+    var startTrackingCallCount = 0
+    var stopTrackingCallCount = 0
+    override fun startTracking(): Flow<LocationPoint> {
+        startTrackingCallCount++
+        return emptyFlow()
+    }
+    override fun stopTracking() {
+        stopTrackingCallCount++
+    }
 }
 
 class FakePebbleMessenger : PebbleMessenger {
@@ -236,5 +243,29 @@ class RunTrackerEngineHrZoneTest {
         engine.setActivityType(ActivityType.WALKING)
         repeat(10) { engine.checkHeartRateZoneNotification(150) }
         assertEquals(listOf(22), messenger.sentNotifications)
+    }
+
+    @Test
+    fun testIndoorWorkoutSkipsGpsAndStartsImmediately() {
+        val locationTracker = FakeLocationTracker()
+        val messenger = FakePebbleMessenger()
+        val engine = RunTrackerEngine(
+            locationTracker = locationTracker,
+            pebbleMessenger = messenger,
+            appSettings = AppSettings(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        )
+
+        engine.setActivityType(ActivityType.TREADMILL)
+        engine.prepare()
+
+        // 屋内種別は GPS を起動せず即 READY になる
+        assertEquals(0, locationTracker.startTrackingCallCount)
+        assertEquals(RunStatus.READY, engine.statistics.value.status)
+
+        // GPS 測位なしでも即 ACTIVE 開始できる
+        engine.start()
+        assertEquals(RunStatus.ACTIVE, engine.statistics.value.status)
+        engine.pause()
     }
 }

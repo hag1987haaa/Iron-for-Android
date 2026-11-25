@@ -9,6 +9,7 @@ import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.CalorieProfile
 import hag1987haaa.pebble.iron.domain.model.LocationPoint
 import hag1987haaa.pebble.iron.domain.model.RunActivity
+import hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry
 import hag1987haaa.pebble.iron.domain.repository.RunRepository
 import hag1987haaa.pebble.iron.domain.settings.AppSettings
 import hag1987haaa.pebble.iron.domain.ble.BleHeartRateManager
@@ -365,7 +366,27 @@ class RunTrackerEngine(
     }
 
     fun setActivityType(type: ActivityType) {
-        _statistics.update { it.copy(activityType = type) }
+        val currentStatus = _statistics.value.status
+        val usesGps = WorkoutTypeRegistry.getDefinition(type).usesGps
+
+        if (currentStatus == RunStatus.PREPARING || currentStatus == RunStatus.READY) {
+            if (!usesGps) {
+                trackingJob?.cancel(); trackingJob = null
+                locationTracker.stopTracking()
+                _statistics.update { it.copy(activityType = type, status = RunStatus.READY, hasGpsFix = false) }
+                RunState.setStatus(RunStatus.READY)
+            } else {
+                val nextStatus = if (_statistics.value.hasGpsFix) RunStatus.READY else RunStatus.PREPARING
+                _statistics.update { it.copy(activityType = type, status = nextStatus) }
+                RunState.setStatus(nextStatus)
+                if (trackingJob == null) {
+                    trackingJob = locationTracker.startTracking().onEach { handleNewLocation(it) }.launchIn(scope)
+                }
+            }
+        } else {
+            _statistics.update { it.copy(activityType = type) }
+        }
+
         appSettings?.let { it.lastActivityType = type.name; it.save() }
         val newStats = _statistics.value
         RunState.updateStats(newStats)
@@ -381,27 +402,32 @@ class RunTrackerEngine(
         if (trackingJob != null) return
         startSmartAutoConnect()
 
-        _statistics.update { it.copy(status = RunStatus.PREPARING) }
+        val usesGps = WorkoutTypeRegistry.getDefinition(_statistics.value.activityType).usesGps
+        val initialStatus = if (usesGps) RunStatus.PREPARING else RunStatus.READY
+
+        _statistics.update { it.copy(status = initialStatus) }
         RunState.updateStats(_statistics.value)
-        RunState.setStatus(RunStatus.PREPARING)
+        RunState.setStatus(initialStatus)
         resetTimeoutTimer()
 
         pebbleMessenger?.launchWatchApp()
         pebbleMessenger?.requestWatchInfo()
-        pebbleMessenger?.sendState(RunStatus.PREPARING, _statistics.value)
+        pebbleMessenger?.sendState(initialStatus, _statistics.value)
         pebbleMessenger?.sendGraphData(_statistics.value)
 
-        scope.launch {
-            try {
-                val lastLoc = locationTracker.getLastKnownLocation()
-                if (lastLoc != null && !_statistics.value.hasGpsFix) {
-                    _statistics.update { it.copy(currentLocation = lastLoc) }
-                    RunState.updateStats(_statistics.value)
-                }
-            } catch (_: Exception) {}
-        }
+        if (usesGps) {
+            scope.launch {
+                try {
+                    val lastLoc = locationTracker.getLastKnownLocation()
+                    if (lastLoc != null && !_statistics.value.hasGpsFix) {
+                        _statistics.update { it.copy(currentLocation = lastLoc) }
+                        RunState.updateStats(_statistics.value)
+                    }
+                } catch (_: Exception) {}
+            }
 
-        trackingJob = locationTracker.startTracking().onEach { handleNewLocation(it) }.launchIn(scope)
+            trackingJob = locationTracker.startTracking().onEach { handleNewLocation(it) }.launchIn(scope)
+        }
     }
 
     private fun clearWorkoutData() {
@@ -435,7 +461,8 @@ class RunTrackerEngine(
     }
 
     fun start() {
-        if (!_statistics.value.hasGpsFix) { isStartPending = true; pebbleMessenger?.sendState(RunStatus.PREPARING, _statistics.value); return }
+        val usesGps = WorkoutTypeRegistry.getDefinition(_statistics.value.activityType).usesGps
+        if (usesGps && !_statistics.value.hasGpsFix) { isStartPending = true; pebbleMessenger?.sendState(RunStatus.PREPARING, _statistics.value); return }
         isStartPending = false
         isResumePending = false; timeoutJob?.cancel()
 

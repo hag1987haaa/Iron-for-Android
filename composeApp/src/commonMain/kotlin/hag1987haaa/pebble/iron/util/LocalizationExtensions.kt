@@ -17,6 +17,15 @@ fun ActivityType.getDisplayName(): String {
         ActivityType.KAYAKING -> stringResource(Res.string.activity_kayaking)
         ActivityType.ROWING -> stringResource(Res.string.activity_rowing)
         ActivityType.OTHER -> stringResource(Res.string.activity_other)
+        ActivityType.TRAIL_RUNNING -> stringResource(Res.string.activity_trail_running)
+        ActivityType.MTB -> stringResource(Res.string.activity_mtb)
+        ActivityType.SKIING -> stringResource(Res.string.activity_skiing)
+        ActivityType.SNOWBOARDING -> stringResource(Res.string.activity_snowboarding)
+        ActivityType.SUP -> stringResource(Res.string.activity_sup)
+        ActivityType.INLINE_SKATING -> stringResource(Res.string.activity_inline_skating)
+        ActivityType.TREADMILL -> stringResource(Res.string.activity_treadmill)
+        ActivityType.INDOOR_CYCLING -> stringResource(Res.string.activity_indoor_cycling)
+        ActivityType.STRENGTH_TRAINING -> stringResource(Res.string.activity_strength_training)
     }
 }
 
@@ -29,6 +38,15 @@ fun ActivityType.getPastelColor(): androidx.compose.ui.graphics.Color {
         ActivityType.KAYAKING -> IronColors.COLOR_KAYAKING
         ActivityType.ROWING -> IronColors.COLOR_ROWING
         ActivityType.OTHER -> IronColors.COLOR_OTHER
+        ActivityType.TRAIL_RUNNING -> IronColors.COLOR_TRAIL_RUNNING
+        ActivityType.MTB -> IronColors.COLOR_MTB
+        ActivityType.SKIING -> IronColors.COLOR_SKIING
+        ActivityType.SNOWBOARDING -> IronColors.COLOR_SNOWBOARDING
+        ActivityType.SUP -> IronColors.COLOR_SUP
+        ActivityType.INLINE_SKATING -> IronColors.COLOR_INLINE_SKATING
+        ActivityType.TREADMILL -> IronColors.COLOR_TREADMILL
+        ActivityType.INDOOR_CYCLING -> IronColors.COLOR_INDOOR_CYCLING
+        ActivityType.STRENGTH_TRAINING -> IronColors.COLOR_STRENGTH_TRAINING
     }
     return androidx.compose.ui.graphics.Color(hex)
 }

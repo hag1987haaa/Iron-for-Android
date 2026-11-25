@@ -140,11 +140,20 @@ class HealthConnectManager(private val context: Context) {
             // 2. エクササイズセッションの作成
             val exerciseType = when (sanitizedRun.type) {
                 ActivityType.RUNNING -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING
+                ActivityType.TRAIL_RUNNING -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING
                 ActivityType.WALKING -> ExerciseSessionRecord.EXERCISE_TYPE_WALKING
                 ActivityType.CYCLING -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING
+                ActivityType.MTB -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING
                 ActivityType.HIKING -> ExerciseSessionRecord.EXERCISE_TYPE_HIKING
                 ActivityType.KAYAKING -> ExerciseSessionRecord.EXERCISE_TYPE_PADDLING
                 ActivityType.ROWING -> ExerciseSessionRecord.EXERCISE_TYPE_ROWING
+                ActivityType.SKIING -> ExerciseSessionRecord.EXERCISE_TYPE_SKIING
+                ActivityType.SNOWBOARDING -> ExerciseSessionRecord.EXERCISE_TYPE_SNOWBOARDING
+                ActivityType.SUP -> ExerciseSessionRecord.EXERCISE_TYPE_PADDLING
+                ActivityType.INLINE_SKATING -> ExerciseSessionRecord.EXERCISE_TYPE_SKATING
+                ActivityType.TREADMILL -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL
+                ActivityType.INDOOR_CYCLING -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY
+                ActivityType.STRENGTH_TRAINING -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
                 ActivityType.OTHER -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
             }
 

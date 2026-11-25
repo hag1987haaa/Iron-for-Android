@@ -10,5 +10,14 @@ enum class ActivityType(val displayName: String) {
     HIKING("Hiking"),
     KAYAKING("Kayaking"),
     ROWING("Rowing"),
-    OTHER("Other")
+    OTHER("Other"),
+    TRAIL_RUNNING("Trail Run"),
+    MTB("MTB"),
+    SKIING("Skiing"),
+    SNOWBOARDING("Snowboarding"),
+    SUP("SUP"),
+    INLINE_SKATING("Inline Skating"),
+    TREADMILL("Treadmill"),
+    INDOOR_CYCLING("Indoor Cycling"),
+    STRENGTH_TRAINING("Strength Training")
 }
