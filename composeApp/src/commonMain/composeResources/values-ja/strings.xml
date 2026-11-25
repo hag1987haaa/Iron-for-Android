@@ -79,8 +79,9 @@
     <string name="activity_indoor_cycling">インドアバイク</string>
     <string name="activity_strength_training">筋トレ</string>
 
-    <string name="settings_tab_phone">スマホ設定</string>
-    <string name="settings_tab_watch">ウォッチ設定</string>
+    <string name="settings_tab_phone">スマホ</string>
+    <string name="settings_tab_workout">ワークアウト</string>
+    <string name="settings_tab_watch">ウォッチ</string>
     <string name="settings_tab_sensors">センサー</string>
     <string name="settings_section_sensor_priority">記録データの優先順位</string>
     <string name="settings_label_ble_hr_priority">Pebble内蔵より外部BLE心拍計を優先</string>
@@ -433,4 +434,9 @@
     <string name="settings_profile_copy_source_label">コピー元の種別</string>
     <string name="settings_profile_copy_items_label">コピーする項目</string>
     <string name="settings_profile_copy_confirm">コピーする</string>
+    <string name="settings_workout_order_title">表示する種別と並び順</string>
+    <string name="settings_workout_order_desc">Pebbleウォッチとホーム画面に表示するワークアウト種別と順番を設定します（長押しドラッグまたは矢印で並び替え）。</string>
+    <string name="settings_workout_order_reset_title">種別リストを初期値に戻しますか？</string>
+    <string name="settings_workout_order_reset_desc">すべてのワークアウト種別が標準の並び順で有効になります。</string>
+    <string name="settings_workout_hidden_label">非表示</string>
 </resources>

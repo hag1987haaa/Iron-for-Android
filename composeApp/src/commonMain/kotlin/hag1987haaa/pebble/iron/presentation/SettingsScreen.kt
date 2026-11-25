@@ -14,7 +14,7 @@ import hag1987haaa.pebble.iron.*
 import org.jetbrains.compose.resources.stringResource
 
 enum class SettingsTab {
-    PHONE, WATCH, SENSORS
+    PHONE, WORKOUT, WATCH, SENSORS
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,29 +34,35 @@ fun SettingsScreen(actions: AppActions, onShowLicenses: () -> Unit, onShowSimula
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // --- Tab Switcher (Phone / Watch / Sensors) ---
+            // --- Tab Switcher (Phone / Workout / Watch / Sensors) ---
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
                 SegmentedButton(
                     selected = currentTab == SettingsTab.PHONE,
                     onClick = { viewModel.updateCurrentTab(SettingsTab.PHONE) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3)
-                ) { Text(stringResource(Res.string.settings_tab_phone), fontSize = 11.sp) }
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 4)
+                ) { Text(stringResource(Res.string.settings_tab_phone), fontSize = 10.sp, maxLines = 1, softWrap = false) }
+                SegmentedButton(
+                    selected = currentTab == SettingsTab.WORKOUT,
+                    onClick = { viewModel.updateCurrentTab(SettingsTab.WORKOUT) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 4)
+                ) { Text(stringResource(Res.string.settings_tab_workout), fontSize = 10.sp, maxLines = 1, softWrap = false) }
                 SegmentedButton(
                     selected = currentTab == SettingsTab.WATCH,
                     onClick = { viewModel.updateCurrentTab(SettingsTab.WATCH) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3)
-                ) { Text(stringResource(Res.string.settings_tab_watch), fontSize = 11.sp) }
+                    shape = SegmentedButtonDefaults.itemShape(index = 2, count = 4)
+                ) { Text(stringResource(Res.string.settings_tab_watch), fontSize = 10.sp, maxLines = 1, softWrap = false) }
                 SegmentedButton(
                     selected = currentTab == SettingsTab.SENSORS,
                     onClick = { viewModel.updateCurrentTab(SettingsTab.SENSORS) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3)
-                ) { Text(stringResource(Res.string.settings_tab_sensors), fontSize = 11.sp) }
+                    shape = SegmentedButtonDefaults.itemShape(index = 3, count = 4)
+                ) { Text(stringResource(Res.string.settings_tab_sensors), fontSize = 10.sp, maxLines = 1, softWrap = false) }
             }
 
             // 各タブの内容を表示
             Box(modifier = Modifier.weight(1f)) {
                 when (currentTab) {
                     SettingsTab.PHONE -> PhoneSettingsTab(viewModel, actions, onShowLicenses, onShowSimulation)
+                    SettingsTab.WORKOUT -> WorkoutSettingsTab(viewModel)
                     SettingsTab.WATCH -> WatchSettingsTab(viewModel, actions)
                     SettingsTab.SENSORS -> SensorsSettingsTab(viewModel, actions)
                 }

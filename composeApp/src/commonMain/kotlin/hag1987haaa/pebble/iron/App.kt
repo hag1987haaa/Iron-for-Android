@@ -347,9 +347,14 @@ fun RunScreen(actions: AppActions) {
                 ) {
                     if (status != RunStatus.IDLE) {
                         val gpsStatusColor = if (stats.hasGpsFix) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        val usesGps = hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry.getDefinition(stats.activityType).usesGps
                         Text(
-                            text = if (stats.hasGpsFix) "GPS FIXED" else "SEARCHING GPS...", 
-                            color = gpsStatusColor, 
+                            text = when {
+                                !usesGps -> "INDOOR (GPS OFF)"
+                                stats.hasGpsFix -> "GPS FIXED"
+                                else -> "SEARCHING GPS..."
+                            },
+                            color = if (!usesGps) MaterialTheme.colorScheme.secondary else gpsStatusColor,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleMedium
                         )
@@ -359,6 +364,13 @@ fun RunScreen(actions: AppActions) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    val enabledActivityTypeNames by KmpDependencies.appSettings.enabledActivityTypesFlow.collectAsState()
+                    val orderedActivityTypes = remember(enabledActivityTypeNames) {
+                        enabledActivityTypeNames.mapNotNull { name ->
+                            ActivityType.entries.find { it.name == name }
+                        }.ifEmpty { ActivityType.entries }
+                    }
+
                     if (status == RunStatus.IDLE) {
                         Box {
                             OutlinedButton(onClick = { expanded = true }) {
@@ -366,7 +378,7 @@ fun RunScreen(actions: AppActions) {
                                 Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                             }
                             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                                ActivityType.entries.forEach { type ->
+                                orderedActivityTypes.forEach { type ->
                                     DropdownMenuItem(
                                         text = { Text(type.getDisplayName()) },
                                         onClick = {

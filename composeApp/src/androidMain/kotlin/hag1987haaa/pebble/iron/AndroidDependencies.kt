@@ -211,6 +211,12 @@ object AndroidDependencies {
         settings.autoExportGpxUri = prefs.getString("auto_export_gpx_uri", null)
         
         settings.hrSamplingInterval = prefs.getInt("hr_interval", 0)
+        prefs.getString("enabled_activity_types", null)?.let { str ->
+            val list = str.split(",").filter { it.isNotEmpty() }
+            if (list.isNotEmpty()) {
+                settings.enabledActivityTypes = list
+            }
+        }
         settings.lastActivityType = prefs.getString("last_activity_type", ActivityType.RUNNING.name) ?: ActivityType.RUNNING.name
         
         val lastMidId = prefs.getInt("last_mid_id", -1)
@@ -366,6 +372,7 @@ object AndroidDependencies {
                 putString("auto_export_gpx_uri", settings.autoExportGpxUri)
                 
                 putInt("hr_interval", settings.hrSamplingInterval)
+                putString("enabled_activity_types", settings.enabledActivityTypes.joinToString(","))
                 putString("last_activity_type", settings.lastActivityType)
                 putInt("last_mid_id", settings.lastMidId)
                 putInt("last_lower_id", settings.lastLowerId)

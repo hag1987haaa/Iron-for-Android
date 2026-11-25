@@ -472,6 +472,37 @@ class AppSettings {
     // 心拍サンプリング間隔 (0: システムデフォルト, 1, 10, 30, etc.)
     var hrSamplingInterval: Int = 0
 
+    // 表示するワークアウト種別と並び順（Pebbleピッカー & ホーム画面のドロップダウンに反映）
+    private val defaultEnabledActivityTypes: List<String> = ActivityType.entries.map { it.name }
+    private val _enabledActivityTypes = MutableStateFlow<List<String>>(defaultEnabledActivityTypes)
+    val enabledActivityTypesFlow: StateFlow<List<String>> = _enabledActivityTypes.asStateFlow()
+    var enabledActivityTypes: List<String>
+        get() = _enabledActivityTypes.value
+        set(value) {
+            val validNames = ActivityType.entries.map { it.name }.toSet()
+            val sanitized = value.filter { it in validNames }.distinct()
+            if (sanitized.isNotEmpty()) {
+                _enabledActivityTypes.value = sanitized
+                save()
+            }
+        }
+
+    fun getOrderedEnabledActivityTypes(): List<ActivityType> {
+        val list = enabledActivityTypes.mapNotNull { name ->
+            ActivityType.entries.find { it.name == name }
+        }
+        return list.ifEmpty { ActivityType.entries }
+    }
+
+    fun setOrderedEnabledActivityTypes(types: List<ActivityType>) {
+        if (types.isEmpty()) return
+        enabledActivityTypes = types.map { it.name }
+    }
+
+    fun resetEnabledActivityTypes() {
+        enabledActivityTypes = defaultEnabledActivityTypes
+    }
+
     // 最後に使用したアクティビティ種別
     var lastActivityType: String = ActivityType.RUNNING.name
 

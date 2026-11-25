@@ -160,4 +160,26 @@ class WorkoutTypeRegistryTest {
         assertEquals(ActivityType.STRENGTH_TRAINING, WorkoutTypeRegistry.findByAssistantKeyword("筋トレ")?.baseActivityType)
         assertNull(WorkoutTypeRegistry.findByAssistantKeyword("unknown_activity"))
     }
+
+    @Test
+    fun testEnabledActivityTypesOrderAndGuard() {
+        val settings = AppSettings()
+        assertEquals(ActivityType.entries, settings.getOrderedEnabledActivityTypes())
+
+        val customOrder = listOf(ActivityType.TRAIL_RUNNING, ActivityType.CYCLING, ActivityType.TREADMILL)
+        settings.setOrderedEnabledActivityTypes(customOrder)
+        assertEquals(customOrder, settings.getOrderedEnabledActivityTypes())
+
+        // 空リストは無視され、最低1件が維持される
+        settings.setOrderedEnabledActivityTypes(emptyList())
+        assertEquals(customOrder, settings.getOrderedEnabledActivityTypes())
+
+        // カスタム順の Pebble プロトコル文字列
+        val defs = settings.getOrderedEnabledActivityTypes().map { WorkoutTypeRegistry.getDefinition(it) }
+        assertEquals("v:2|7,TRAIL RUN,2,CYCLING,13,TREADMILL", WorkoutTypeRegistry.toPebbleProtocolString(defs, version = 2))
+
+        // リセットで全16種別に戻る
+        settings.resetEnabledActivityTypes()
+        assertEquals(ActivityType.entries, settings.getOrderedEnabledActivityTypes())
+    }
 }

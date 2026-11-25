@@ -396,6 +396,13 @@ class RunTrackerEngine(
 
     fun launchWatchApp() { pebbleMessenger?.launchWatchApp() }
 
+    fun syncActivitiesToWatch() {
+        val orderedDefs = (appSettings?.getOrderedEnabledActivityTypes() ?: ActivityType.entries).map {
+            WorkoutTypeRegistry.getDefinition(it)
+        }
+        pebbleMessenger?.sendActivitiesData(WorkoutTypeRegistry.toPebbleProtocolString(orderedDefs))
+    }
+
     fun prepare() {
         clearWorkoutData()
 

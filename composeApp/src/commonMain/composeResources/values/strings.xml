@@ -80,6 +80,7 @@
     <string name="activity_strength_training">Strength Training</string>
 
     <string name="settings_tab_phone">Phone</string>
+    <string name="settings_tab_workout">Workout</string>
     <string name="settings_tab_watch">Watch</string>
     <string name="settings_tab_sensors">Sensors</string>
     <string name="settings_section_sensor_priority">Data Priority</string>
@@ -433,4 +434,9 @@
     <string name="settings_profile_copy_source_label">Copy from</string>
     <string name="settings_profile_copy_items_label">Items to copy</string>
     <string name="settings_profile_copy_confirm">Copy</string>
+    <string name="settings_workout_order_title">Workout List &amp; Order</string>
+    <string name="settings_workout_order_desc">Choose which workouts appear on Pebble and Home, and reorder them via drag or arrows.</string>
+    <string name="settings_workout_order_reset_title">Reset workout list?</string>
+    <string name="settings_workout_order_reset_desc">All workout types will be enabled in the default order.</string>
+    <string name="settings_workout_hidden_label">Hidden</string>
 </resources>

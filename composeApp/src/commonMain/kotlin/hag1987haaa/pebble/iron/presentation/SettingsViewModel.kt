@@ -74,6 +74,7 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
 
     val activityMidTypes: StateFlow<Map<String, List<Int>>> = settings.activityMidTypesFlow
     val activityLowerTypes: StateFlow<Map<String, List<Int>>> = settings.activityLowerTypesFlow
+    val enabledActivityTypes: StateFlow<List<String>> = settings.enabledActivityTypesFlow
 
     private val _isMetric = MutableStateFlow(settings.isMetric)
     val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
@@ -344,6 +345,17 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.resetLowerTypes(type)
         _enabledLowerTypes.value = settings.enabledLowerTypes
         settings.save()
+    }
+
+    fun updateEnabledActivityTypes(types: List<ActivityType>) {
+        if (types.isEmpty()) return
+        settings.setOrderedEnabledActivityTypes(types)
+        hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.syncActivitiesToWatch()
+    }
+
+    fun resetEnabledActivityTypes() {
+        settings.resetEnabledActivityTypes()
+        hag1987haaa.pebble.iron.KmpDependencies.trackerEngine.syncActivitiesToWatch()
     }
 
     fun updateMetric(isMetric: Boolean) {

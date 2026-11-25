@@ -649,8 +649,13 @@ class AndroidPebbleMessenger(
         commandQueue.trySend(PebbleMessageRequest("SYNC", dict, retryCount = 3))
         sendGraphData(stats)
 
-        // Pebble起動時・同期時にアクティビティ種別マスタを自動プッシュ
-        sendActivitiesData(hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry.toPebbleProtocolString())
+        // Pebble起動時・同期時に有効なアクティビティ種別リスト（ユーザー設定順）を自動プッシュ
+        val orderedDefs = settings.getOrderedEnabledActivityTypes().map {
+            hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry.getDefinition(it)
+        }
+        sendActivitiesData(
+            hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry.toPebbleProtocolString(orderedDefs)
+        )
 
         // Pebble起動時・同期時に最新の保存済みコース一覧を自動プッシュ
         val courses = settings.savedGpxCourses
