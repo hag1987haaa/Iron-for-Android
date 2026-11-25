@@ -754,7 +754,7 @@ class RunTrackerEngine(
                     }
                 }
 
-                if (appSettings?.isHrZoneNotificationEnabled == true) {
+                if (appSettings?.isHrZoneNotificationEnabled(s.activityType) == true) {
                     checkHeartRateZoneNotification(s.currentHeartRate)
                 } else {
                     resetHrZoneState()
@@ -772,7 +772,8 @@ class RunTrackerEngine(
 
     internal fun checkHeartRateZoneNotification(currentHr: Int?) {
         val settings = appSettings ?: return
-        if (!settings.isHrZoneNotificationEnabled) {
+        val currentType = _statistics.value.activityType
+        if (!settings.isHrZoneNotificationEnabled(currentType)) {
             resetHrZoneState()
             return
         }
@@ -784,7 +785,6 @@ class RunTrackerEngine(
             return
         }
 
-        val currentType = _statistics.value.activityType
         val minBpm = settings.getHrZoneMin(currentType)
         val maxBpm = settings.getHrZoneMax(currentType)
         val outDuration = settings.hrZoneOutDurationSeconds.coerceAtLeast(3)

@@ -411,4 +411,17 @@
     <string name="settings_gpx_course_title">GPX Planned Courses</string>
     <string name="settings_gpx_course_desc">Import GPX files, toggle planned routes on map, and sync to watch</string>
     <string name="settings_gpx_course_btn">Manage Courses</string>
+    <!-- Workout Profile Settings -->
+    <string name="settings_section_workout_profile">Workout Profiles</string>
+    <string name="settings_workout_profile_desc">Configure heart rate zone alerts, initial map zoom, and watch display items per workout type.</string>
+    <string name="settings_workout_profile_editing">Editing profile</string>
+    <string name="settings_section_common">Common Settings</string>
+    <string name="settings_profile_map_zoom_title">Initial Map Zoom</string>
+    <string name="settings_notif_hr_zone_common_title">Heart Rate Zone Alert (Common)</string>
+    <string name="settings_notif_hr_zone_common_desc">Alert timing shared across all workouts. Enable/disable and target BPM ranges are set per workout profile above.</string>
+    <string name="settings_profile_copy_button">Copy from another workout</string>
+    <string name="settings_profile_copy_title">Copy settings to %1$s</string>
+    <string name="settings_profile_copy_source_label">Copy from</string>
+    <string name="settings_profile_copy_items_label">Items to copy</string>
+    <string name="settings_profile_copy_confirm">Copy</string>
 </resources>

@@ -70,11 +70,36 @@ class AppSettings {
         }
 
     // 心拍ゾーン通知用
+    private val defaultHrZoneEnabled: Map<String, Boolean> = ActivityType.entries.associate {
+        it.name to false
+    }
+
+    private val _activityHrZoneEnabled = MutableStateFlow<Map<String, Boolean>>(defaultHrZoneEnabled)
+    val activityHrZoneEnabledFlow: StateFlow<Map<String, Boolean>> = _activityHrZoneEnabled.asStateFlow()
+    var activityHrZoneEnabled: Map<String, Boolean>
+        get() = _activityHrZoneEnabled.value
+        set(value) {
+            _activityHrZoneEnabled.value = value
+            _isHrZoneNotificationEnabled.value = value.values.any { it }
+            save()
+        }
+
+    fun isHrZoneNotificationEnabled(type: ActivityType): Boolean =
+        activityHrZoneEnabled[type.name] ?: false
+
+    fun setHrZoneNotificationEnabled(type: ActivityType, enabled: Boolean) {
+        val newMap = activityHrZoneEnabled.toMutableMap()
+        newMap[type.name] = enabled
+        activityHrZoneEnabled = newMap
+    }
+
+    // 下位互換用（1つでも有効なら true、代入時は全種別を一括更新）
     private val _isHrZoneNotificationEnabled = MutableStateFlow(value = false)
     val isHrZoneNotificationEnabledFlow: StateFlow<Boolean> = _isHrZoneNotificationEnabled.asStateFlow()
     var isHrZoneNotificationEnabled: Boolean
-        get() = _isHrZoneNotificationEnabled.value
+        get() = _activityHrZoneEnabled.value.values.any { it }
         set(value) {
+            _activityHrZoneEnabled.value = ActivityType.entries.associate { it.name to value }
             _isHrZoneNotificationEnabled.value = value
             save()
         }
@@ -139,6 +164,18 @@ class AppSettings {
             newMins[type.name] = newMin
             _activityHrZoneMins.value = newMins
         }
+        save()
+    }
+
+    fun setHrZoneRange(type: ActivityType, min: Int, max: Int) {
+        val clampedMin = min.coerceIn(50, 190)
+        val clampedMax = max.coerceIn((clampedMin + 30).coerceAtMost(220), 220)
+        val newMins = activityHrZoneMins.toMutableMap()
+        val newMaxs = activityHrZoneMaxs.toMutableMap()
+        newMins[type.name] = clampedMin
+        newMaxs[type.name] = clampedMax
+        _activityHrZoneMins.value = newMins
+        _activityHrZoneMaxs.value = newMaxs
         save()
     }
 

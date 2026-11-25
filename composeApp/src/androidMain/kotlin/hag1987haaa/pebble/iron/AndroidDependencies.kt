@@ -126,7 +126,18 @@ object AndroidDependencies {
         settings.autoShowMapAfterTimeNotificationSeconds = prefs.getInt("time_auto_show_map_sec", oldAutoShowMap)
         
         // 心拍ゾーン通知設定の読み込み
-        settings.isHrZoneNotificationEnabled = prefs.getBoolean("hr_zone_notif_enabled", false)
+        val legacyHrZoneEnabled = prefs.getBoolean("hr_zone_notif_enabled", false)
+        val actHrEnabledStr = prefs.getString("activity_hr_enabled", null)
+        if (!actHrEnabledStr.isNullOrEmpty()) {
+            val map = actHrEnabledStr.split(",").filter { it.contains(":") }.associate {
+                val (k, v) = it.split(":")
+                k to v.toBoolean()
+            }
+            settings.activityHrZoneEnabled = settings.activityHrZoneEnabled + map
+        } else if (legacyHrZoneEnabled) {
+            // 既存ユーザー互換: 旧グローバルON設定を全種別の初期値へ引き継ぐ
+            settings.isHrZoneNotificationEnabled = true
+        }
         settings.hrZoneOutDurationSeconds = prefs.getInt("hr_zone_out_duration_sec", 10)
         settings.hrZoneRepeatIntervalSeconds = prefs.getInt("hr_zone_repeat_interval_sec", 20)
         prefs.getString("activity_hr_mins", null)?.let { str ->
@@ -337,6 +348,7 @@ object AndroidDependencies {
                 putInt("dist_auto_show_map_sec", settings.autoShowMapAfterDistNotificationSeconds)
                 putInt("time_auto_show_map_sec", settings.autoShowMapAfterTimeNotificationSeconds)
                 putBoolean("hr_zone_notif_enabled", settings.isHrZoneNotificationEnabled)
+                putString("activity_hr_enabled", settings.activityHrZoneEnabled.entries.joinToString(",") { "${it.key}:${it.value}" })
                 putInt("hr_zone_out_duration_sec", settings.hrZoneOutDurationSeconds)
                 putInt("hr_zone_repeat_interval_sec", settings.hrZoneRepeatIntervalSeconds)
                 putString("activity_hr_mins", settings.activityHrZoneMins.entries.joinToString(",") { "${it.key}:${it.value}" })

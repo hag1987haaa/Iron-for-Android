@@ -411,4 +411,17 @@
     <string name="settings_gpx_course_title">GPX計画コース管理</string>
     <string name="settings_gpx_course_desc">GPXファイルのインポート、予定ルートの表示・非表示、ウォッチへの転送などを管理します</string>
     <string name="settings_gpx_course_btn">コース管理を開く</string>
+    <!-- Workout Profile Settings -->
+    <string name="settings_section_workout_profile">ワークアウト別設定</string>
+    <string name="settings_workout_profile_desc">ワークアウト種別ごとの心拍ゾーン通知・マップ拡大率・ウォッチ表示項目を設定します。</string>
+    <string name="settings_workout_profile_editing">編集中の種別</string>
+    <string name="settings_section_common">共通設定</string>
+    <string name="settings_profile_map_zoom_title">マップ初期拡大率</string>
+    <string name="settings_notif_hr_zone_common_title">心拍ゾーン通知（共通設定）</string>
+    <string name="settings_notif_hr_zone_common_desc">全ワークアウト種別で共通の判定・再通知タイミングです。有効/無効や目標BPM範囲は上部のワークアウト別設定で行います。</string>
+    <string name="settings_profile_copy_button">他の種別から設定をコピー</string>
+    <string name="settings_profile_copy_title">%1$s へ設定をコピー</string>
+    <string name="settings_profile_copy_source_label">コピー元の種別</string>
+    <string name="settings_profile_copy_items_label">コピーする項目</string>
+    <string name="settings_profile_copy_confirm">コピーする</string>
 </resources>

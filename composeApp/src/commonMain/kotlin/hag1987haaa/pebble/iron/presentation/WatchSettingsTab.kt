@@ -1,9 +1,10 @@
 package hag1987haaa.pebble.iron.presentation
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -11,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import hag1987haaa.pebble.iron.Res
 import hag1987haaa.pebble.iron.*
@@ -19,9 +21,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
+import hag1987haaa.pebble.iron.domain.settings.AppSettings
 import hag1987haaa.pebble.iron.domain.settings.MapColorPreset
 import hag1987haaa.pebble.iron.domain.model.ActivityType
+import hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry
 import hag1987haaa.pebble.iron.util.getDisplayName
+import hag1987haaa.pebble.iron.util.getPastelColor
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.graphicsLayer
@@ -29,6 +34,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.shape.RoundedCornerShape
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
     val hrInterval by viewModel.hrSamplingInterval.collectAsState()
@@ -38,6 +44,10 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
     val isAutoLaunchTimeEnabled by viewModel.isAutoLaunchTimeEnabled.collectAsState()
     val activityMidTypes by viewModel.activityMidTypes.collectAsState()
     val activityLowerTypes by viewModel.activityLowerTypes.collectAsState()
+    val activityHrZoneEnabled by viewModel.activityHrZoneEnabled.collectAsState()
+    val activityHrZoneMins by viewModel.activityHrZoneMins.collectAsState()
+    val activityHrZoneMaxs by viewModel.activityHrZoneMaxs.collectAsState()
+    val activityMapZooms by viewModel.activityMapZooms.collectAsState()
     val isMetric by viewModel.isMetric.collectAsState()
 
     var isNotifExpanded by remember { mutableStateOf(false) }
@@ -45,58 +55,637 @@ fun WatchSettingsTab(viewModel: SettingsViewModel, actions: AppActions) {
     var isLowerDataExpanded by remember { mutableStateOf(false) }
     var selectedActivityType by remember { mutableStateOf(ActivityType.RUNNING) }
 
-    val scrollState = rememberScrollState()
+    val currentMidTypes = activityMidTypes[selectedActivityType.name]
+        ?: AppSettings.getDefaultMidTypes(selectedActivityType)
+    val currentLowerTypes = activityLowerTypes[selectedActivityType.name]
+        ?: AppSettings.getDefaultLowerTypes(selectedActivityType)
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp)) {
-        // 1. エクササイズ設定
-        SettingsSectionHeader(stringResource(Res.string.settings_section_exercise))
-        ExpandableSubSection(stringResource(Res.string.settings_section_notification), isNotifExpanded, { isNotifExpanded = !isNotifExpanded }) {
-            NotificationSettingsContent(notifDistanceStep, notifTime, isAutoLaunchDistEnabled, isAutoLaunchTimeEnabled, isMetric, selectedActivityType, { selectedActivityType = it }, viewModel)
-        }
-        ExpandableSubSection(stringResource(Res.string.settings_section_mid_data), isMidDataExpanded, { isMidDataExpanded = !isMidDataExpanded }) {
-            MidDataSettingsContent(activityMidTypes, selectedActivityType, { selectedActivityType = it }, viewModel)
-        }
-        ExpandableSubSection(stringResource(Res.string.settings_section_lower_data), isLowerDataExpanded, { isLowerDataExpanded = !isLowerDataExpanded }) {
-            LowerDataSettingsContent(activityLowerTypes, selectedActivityType, { selectedActivityType = it }, viewModel)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
+        // ============================================================
+        // 1. ワークアウト別設定（プロフィール）- スティッキーヘッダー付き
+        // ============================================================
+        stickyHeader(key = "workout_profile_header") {
+            WorkoutProfileStickyHeader(
+                selectedActivityType = selectedActivityType,
+                activityHrZoneEnabled = activityHrZoneEnabled,
+                onActivityTypeSelected = { selectedActivityType = it }
+            )
         }
 
-        // 2. 心拍サンプリング設定
-        Spacer(Modifier.height(24.dp))
-        SettingsSectionHeader(stringResource(Res.string.settings_section_hr_interval))
-        Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(stringResource(Res.string.settings_hr_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                Spacer(Modifier.height(12.dp))
-                HrIntervalSelector(hrInterval) { viewModel.updateHrSamplingInterval(it) }
+        item(key = "workout_profile_desc") {
+            Text(
+                text = stringResource(Res.string.settings_workout_profile_desc),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
+        item(key = "workout_profile_card") {
+            Surface(
+                tonalElevation = 2.dp,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+            ) {
+                WorkoutProfileCardContent(
+                    selectedActivityType = selectedActivityType,
+                    activityHrZoneEnabled = activityHrZoneEnabled,
+                    activityHrZoneMins = activityHrZoneMins,
+                    activityHrZoneMaxs = activityHrZoneMaxs,
+                    activityMapZooms = activityMapZooms,
+                    viewModel = viewModel
+                )
             }
         }
 
-        // 2. マップ表示・操作設定
-        Spacer(Modifier.height(24.dp))
-        SettingsSectionHeader(stringResource(Res.string.settings_section_map))
-        Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-            MapSettingsContent(viewModel)
+        item(key = "workout_profile_mid_data") {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                ExpandableSubSection(
+                    title = "${stringResource(Res.string.settings_section_mid_data)} (${currentMidTypes.size})",
+                    expanded = isMidDataExpanded,
+                    onToggle = { isMidDataExpanded = !isMidDataExpanded }
+                ) {
+                    MidDataSettingsContent(activityMidTypes, selectedActivityType, viewModel)
+                }
+            }
         }
 
-        // 3. デバイス連携
-        Spacer(Modifier.height(24.dp))
-        SettingsSectionHeader(stringResource(Res.string.settings_section_device))
-        Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-            val (showPebbleDialog, setShowPebbleDialog) = remember { mutableStateOf(false) }
-            LocalPebblePermissionDialog.current.Show(show = showPebbleDialog, onDismiss = { setShowPebbleDialog(false) })
-            ListItem(
-                headlineContent = { Text(stringResource(Res.string.settings_pebble_app_title)) },
-                supportingContent = { Text(stringResource(Res.string.settings_pebble_app_desc)) },
-                leadingContent = { Icon(Icons.Default.Watch, null) },
-                trailingContent = { TextButton(onClick = { setShowPebbleDialog(true) }) { Text(stringResource(Res.string.settings_button_configure)) } }
-            )
+        item(key = "workout_profile_lower_data") {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                ExpandableSubSection(
+                    title = "${stringResource(Res.string.settings_section_lower_data)} (${currentLowerTypes.size})",
+                    expanded = isLowerDataExpanded,
+                    onToggle = { isLowerDataExpanded = !isLowerDataExpanded }
+                ) {
+                    LowerDataSettingsContent(activityLowerTypes, selectedActivityType, viewModel)
+                }
+            }
         }
-        Spacer(Modifier.height(32.dp))
+
+        // ============================================================
+        // 2. 共通設定（スクロール時にワークアウト選択ヘッダーを自然に押し出す）
+        // ============================================================
+        stickyHeader(key = "common_settings_header") {
+            Surface(
+                color = MaterialTheme.colorScheme.background,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp)) {
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp))
+                    SettingsSectionHeader(stringResource(Res.string.settings_section_common))
+                }
+            }
+        }
+
+        // 2-1. ウォッチ通知（共通）
+        item(key = "common_notifications") {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                ExpandableSubSection(
+                    title = stringResource(Res.string.settings_section_notification),
+                    expanded = isNotifExpanded,
+                    onToggle = { isNotifExpanded = !isNotifExpanded }
+                ) {
+                    NotificationSettingsContent(
+                        notifDistanceStep = notifDistanceStep,
+                        time = notifTime,
+                        launchDist = isAutoLaunchDistEnabled,
+                        launchTime = isAutoLaunchTimeEnabled,
+                        isMetric = isMetric,
+                        viewModel = viewModel
+                    )
+                }
+            }
+        }
+
+        // 2-2. 心拍サンプリング設定
+        item(key = "common_hr_interval") {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Spacer(Modifier.height(24.dp))
+                SettingsSectionHeader(stringResource(Res.string.settings_section_hr_interval))
+                Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(stringResource(Res.string.settings_hr_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        Spacer(Modifier.height(12.dp))
+                        HrIntervalSelector(hrInterval) { viewModel.updateHrSamplingInterval(it) }
+                    }
+                }
+            }
+        }
+
+        // 2-3. マップ表示・操作設定（共通）
+        item(key = "common_map") {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Spacer(Modifier.height(24.dp))
+                SettingsSectionHeader(stringResource(Res.string.settings_section_map))
+                Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                    MapSettingsContent(viewModel)
+                }
+            }
+        }
+
+        // 2-4. デバイス連携
+        item(key = "common_device") {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Spacer(Modifier.height(24.dp))
+                SettingsSectionHeader(stringResource(Res.string.settings_section_device))
+                Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                    val (showPebbleDialog, setShowPebbleDialog) = remember { mutableStateOf(false) }
+                    LocalPebblePermissionDialog.current.Show(show = showPebbleDialog, onDismiss = { setShowPebbleDialog(false) })
+                    ListItem(
+                        headlineContent = { Text(stringResource(Res.string.settings_pebble_app_title)) },
+                        supportingContent = { Text(stringResource(Res.string.settings_pebble_app_desc)) },
+                        leadingContent = { Icon(Icons.Default.Watch, null) },
+                        trailingContent = { TextButton(onClick = { setShowPebbleDialog(true) }) { Text(stringResource(Res.string.settings_button_configure)) } }
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist: Boolean, launchTime: Boolean, isMetric: Boolean, selectedActivityType: ActivityType, onActivityTypeSelected: (ActivityType) -> Unit, viewModel: SettingsViewModel) {
+private fun WorkoutProfileStickyHeader(
+    selectedActivityType: ActivityType,
+    activityHrZoneEnabled: Map<String, Boolean>,
+    onActivityTypeSelected: (ActivityType) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp,
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(Res.string.settings_section_workout_profile),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = stringResource(Res.string.settings_workout_profile_editing),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+
+                Box {
+                    OutlinedButton(
+                        onClick = { expanded = true },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .background(selectedActivityType.getPastelColor(), CircleShape)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = selectedActivityType.getDisplayName(),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        ActivityType.entries.forEach { type ->
+                            val isSelected = type == selectedActivityType
+                            val isHrEnabled = activityHrZoneEnabled[type.name] == true
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(10.dp)
+                                                .background(type.getPastelColor(), CircleShape)
+                                        )
+                                        Spacer(Modifier.width(10.dp))
+                                        Text(
+                                            text = type.getDisplayName(),
+                                            style = if (isSelected) {
+                                                MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                            } else {
+                                                MaterialTheme.typography.bodyMedium
+                                            },
+                                            color = if (isSelected) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurface
+                                            },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        if (isHrEnabled) {
+                                            Spacer(Modifier.width(8.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.Favorite,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                },
+                                onClick = {
+                                    onActivityTypeSelected(type)
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+        }
+    }
+}
+
+@Composable
+private fun WorkoutProfileCardContent(
+    selectedActivityType: ActivityType,
+    activityHrZoneEnabled: Map<String, Boolean>,
+    activityHrZoneMins: Map<String, Int>,
+    activityHrZoneMaxs: Map<String, Int>,
+    activityMapZooms: Map<String, Int>,
+    viewModel: SettingsViewModel
+) {
+    val defaults = WorkoutTypeRegistry.getDefinition(selectedActivityType).watchDefaults
+    val isHrZoneEnabled = activityHrZoneEnabled[selectedActivityType.name] ?: false
+    val currentMin = activityHrZoneMins[selectedActivityType.name] ?: defaults.hrZoneMin
+    val currentMax = activityHrZoneMaxs[selectedActivityType.name] ?: defaults.hrZoneMax
+    val currentZoom = activityMapZooms[selectedActivityType.name] ?: defaults.mapZoom
+
+    Column(modifier = Modifier.padding(14.dp)) {
+        // 1. 心拍ゾーン通知（種別ごと ON/OFF + Min/Max BPM）
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(Res.string.settings_notif_hr_zone_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = stringResource(Res.string.settings_notif_hr_zone_desc),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+            Switch(
+                checked = isHrZoneEnabled,
+                onCheckedChange = { viewModel.updateActivityHrZoneEnabled(selectedActivityType, it) },
+                modifier = Modifier.scale(0.75f)
+            )
+        }
+
+        if (isHrZoneEnabled) {
+            Spacer(Modifier.height(8.dp))
+
+            // 下限 (Min) BPM 選択
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(Res.string.settings_notif_hr_zone_min),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                var minExpanded by remember { mutableStateOf(false) }
+                Box {
+                    TextButton(onClick = { minExpanded = true }) {
+                        Text("$currentMin bpm")
+                    }
+                    DropdownMenu(expanded = minExpanded, onDismissRequest = { minExpanded = false }) {
+                        (60..180 step 5).forEach { bpm ->
+                            DropdownMenuItem(
+                                text = { Text("$bpm bpm") },
+                                onClick = {
+                                    viewModel.updateActivityHrZoneMin(selectedActivityType, bpm)
+                                    minExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 上限 (Max) BPM 選択
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(Res.string.settings_notif_hr_zone_max),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                var maxExpanded by remember { mutableStateOf(false) }
+                Box {
+                    TextButton(onClick = { maxExpanded = true }) {
+                        Text("$currentMax bpm")
+                    }
+                    DropdownMenu(expanded = maxExpanded, onDismissRequest = { maxExpanded = false }) {
+                        (90..210 step 5).forEach { bpm ->
+                            DropdownMenuItem(
+                                text = { Text("$bpm bpm") },
+                                onClick = {
+                                    viewModel.updateActivityHrZoneMax(selectedActivityType, bpm)
+                                    maxExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Text(
+                text = stringResource(Res.string.settings_notif_hr_zone_diff_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
+
+        // 2. マップ初期拡大率（種別ごと）
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(Res.string.settings_profile_map_zoom_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = stringResource(Res.string.settings_map_zooms_desc),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+            var zoomExpanded by remember { mutableStateOf(false) }
+            Box {
+                TextButton(
+                    onClick = { zoomExpanded = true },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(getZoomLevelLabel(currentZoom), style = MaterialTheme.typography.bodySmall)
+                }
+                DropdownMenu(
+                    expanded = zoomExpanded,
+                    onDismissRequest = { zoomExpanded = false }
+                ) {
+                    listOf(13, 14, 15, 16, 17, 18).forEach { z ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = getZoomLevelLabel(z),
+                                    style = if (z == currentZoom) {
+                                        MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                    } else {
+                                        MaterialTheme.typography.bodyMedium
+                                    },
+                                    color = if (z == currentZoom) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    }
+                                )
+                            },
+                            onClick = {
+                                viewModel.updateActivityMapZoom(selectedActivityType, z)
+                                zoomExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+
+        // 3. 他の種別から設定をコピー
+        var showCopyDialog by remember { mutableStateOf(false) }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            TextButton(
+                onClick = { showCopyDialog = true },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = stringResource(Res.string.settings_profile_copy_button),
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+        }
+
+        if (showCopyDialog) {
+            CopyWorkoutProfileDialog(
+                targetActivityType = selectedActivityType,
+                onDismiss = { showCopyDialog = false },
+                onConfirm = { source, copyMid, copyLower, copyHrZone, copyMapZoom ->
+                    viewModel.copyWorkoutProfile(
+                        source = source,
+                        target = selectedActivityType,
+                        copyMid = copyMid,
+                        copyLower = copyLower,
+                        copyHrZone = copyHrZone,
+                        copyMapZoom = copyMapZoom
+                    )
+                    showCopyDialog = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun CopyWorkoutProfileDialog(
+    targetActivityType: ActivityType,
+    onDismiss: () -> Unit,
+    onConfirm: (source: ActivityType, copyMid: Boolean, copyLower: Boolean, copyHrZone: Boolean, copyMapZoom: Boolean) -> Unit
+) {
+    val candidates = remember(targetActivityType) {
+        ActivityType.entries.filter { it != targetActivityType }
+    }
+    var selectedSource by remember(targetActivityType) {
+        mutableStateOf(candidates.firstOrNull() ?: targetActivityType)
+    }
+    var sourceDropdownExpanded by remember { mutableStateOf(false) }
+    var copyMid by remember { mutableStateOf(true) }
+    var copyLower by remember { mutableStateOf(true) }
+    var copyHrZone by remember { mutableStateOf(false) }
+    var copyMapZoom by remember { mutableStateOf(false) }
+
+    val hasAnySelection = copyMid || copyLower || copyHrZone || copyMapZoom
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(stringResource(Res.string.settings_profile_copy_title, targetActivityType.getDisplayName()))
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = stringResource(Res.string.settings_profile_copy_source_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Spacer(Modifier.height(6.dp))
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { sourceDropdownExpanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .background(selectedSource.getPastelColor(), CircleShape)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(selectedSource.getDisplayName())
+                        Spacer(Modifier.weight(1f))
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    }
+                    DropdownMenu(
+                        expanded = sourceDropdownExpanded,
+                        onDismissRequest = { sourceDropdownExpanded = false }
+                    ) {
+                        candidates.forEach { candidate ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(10.dp)
+                                                .background(candidate.getPastelColor(), CircleShape)
+                                        )
+                                        Spacer(Modifier.width(10.dp))
+                                        Text(candidate.getDisplayName())
+                                    }
+                                },
+                                onClick = {
+                                    selectedSource = candidate
+                                    sourceDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    text = stringResource(Res.string.settings_profile_copy_items_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Spacer(Modifier.height(4.dp))
+
+                CopyOptionCheckboxRow(
+                    label = stringResource(Res.string.settings_section_mid_data),
+                    checked = copyMid,
+                    onCheckedChange = { copyMid = it }
+                )
+                CopyOptionCheckboxRow(
+                    label = stringResource(Res.string.settings_section_lower_data),
+                    checked = copyLower,
+                    onCheckedChange = { copyLower = it }
+                )
+                CopyOptionCheckboxRow(
+                    label = stringResource(Res.string.settings_notif_hr_zone_title),
+                    checked = copyHrZone,
+                    onCheckedChange = { copyHrZone = it }
+                )
+                CopyOptionCheckboxRow(
+                    label = stringResource(Res.string.settings_profile_map_zoom_title),
+                    checked = copyMapZoom,
+                    onCheckedChange = { copyMapZoom = it }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(selectedSource, copyMid, copyLower, copyHrZone, copyMapZoom) },
+                enabled = hasAnySelection && selectedSource != targetActivityType
+            ) {
+                Text(stringResource(Res.string.settings_profile_copy_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.settings_button_cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun CopyOptionCheckboxRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(text = label, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+fun NotificationSettingsContent(
+    notifDistanceStep: Float,
+    time: Int,
+    launchDist: Boolean,
+    launchTime: Boolean,
+    isMetric: Boolean,
+    viewModel: SettingsViewModel
+) {
     val isDistVibEnabled by viewModel.isDistNotificationVibrationEnabled.collectAsState()
     val distAutoShowMapSec by viewModel.autoShowMapAfterDistNotificationSeconds.collectAsState()
 
@@ -260,225 +849,76 @@ fun NotificationSettingsContent(notifDistanceStep: Float, time: Int, launchDist:
 
         HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
 
-        // --- 心拍ゾーン通知 ---
+        // --- 心拍ゾーン通知（共通設定） ---
         Text(
-            text = stringResource(Res.string.settings_notif_hr_zone_title),
+            text = stringResource(Res.string.settings_notif_hr_zone_common_title),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(bottom = 4.dp)
         )
+        Text(
+            text = stringResource(Res.string.settings_notif_hr_zone_common_desc),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
 
-        val isHrZoneEnabled by viewModel.isHrZoneNotificationEnabled.collectAsState()
-        val activityMins by viewModel.activityHrZoneMins.collectAsState()
-        val activityMaxs by viewModel.activityHrZoneMaxs.collectAsState()
         val hrZoneOutDuration by viewModel.hrZoneOutDurationSeconds.collectAsState()
         val hrZoneRepeatInterval by viewModel.hrZoneRepeatIntervalSeconds.collectAsState()
 
-        var isHrZoneDetailsExpanded by remember { mutableStateOf(false) }
-
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        // ゾーン外判定時間 (秒数) 選択
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+        ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(stringResource(Res.string.settings_notif_hr_zone_enable), style = MaterialTheme.typography.bodyMedium)
-                Text(stringResource(Res.string.settings_notif_hr_zone_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Text(stringResource(Res.string.settings_notif_hr_zone_out_duration), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.settings_notif_hr_zone_out_duration_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             }
-            Switch(
-                checked = isHrZoneEnabled,
-                onCheckedChange = { viewModel.updateHrZoneNotificationEnabled(it) },
-                modifier = Modifier.scale(0.7f)
-            )
+            var durationExpanded by remember { mutableStateOf(false) }
+            Box {
+                TextButton(onClick = { durationExpanded = true }) {
+                    Text("${hrZoneOutDuration}s")
+                }
+                DropdownMenu(expanded = durationExpanded, onDismissRequest = { durationExpanded = false }) {
+                    listOf(5, 10, 15, 20, 30, 45, 60).forEach { sec ->
+                        DropdownMenuItem(
+                            text = { Text("${sec}s") },
+                            onClick = {
+                                viewModel.updateHrZoneOutDurationSeconds(sec)
+                                durationExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
         }
 
-        if (isHrZoneEnabled) {
-            val currentMin = activityMins[selectedActivityType.name] ?: 120
-            val currentMax = activityMaxs[selectedActivityType.name] ?: 160
-
-            // 折りたたみ（開閉）トグルバー
-            Surface(
-                onClick = { isHrZoneDetailsExpanded = !isHrZoneDetailsExpanded },
-                tonalElevation = 1.dp,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (isHrZoneDetailsExpanded) {
-                                stringResource(Res.string.settings_notif_hr_zone_details_collapse)
-                            } else {
-                                stringResource(Res.string.settings_notif_hr_zone_details_expand)
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        if (!isHrZoneDetailsExpanded) {
-                            val repeatText = if (hrZoneRepeatInterval > 0) " / ${hrZoneRepeatInterval}s" else ""
-                            Text(
-                                text = "${selectedActivityType.getDisplayName()}: $currentMin - $currentMax bpm (${hrZoneOutDuration}s$repeatText)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                        }
-                    }
-                    Icon(
-                        imageVector = if (isHrZoneDetailsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+        // ゾーン外再通知間隔 (秒数) 選択
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.settings_notif_hr_zone_repeat_interval), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.settings_notif_hr_zone_repeat_interval_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             }
-
-            if (isHrZoneDetailsExpanded) {
-                Spacer(Modifier.height(12.dp))
-
-                // 対象アクティビティ種別チップ
-                Text(
-                    text = stringResource(Res.string.settings_notif_hr_zone_target_activity),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.outline
-                )
-                Spacer(Modifier.height(4.dp))
-                val horizontalScrollState = rememberScrollState()
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(horizontalScrollState),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    ActivityType.entries.forEach { type ->
-                        val isSelected = type == selectedActivityType
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { onActivityTypeSelected(type) },
-                            label = { Text(type.getDisplayName()) }
+            var repeatExpanded by remember { mutableStateOf(false) }
+            Box {
+                TextButton(onClick = { repeatExpanded = true }) {
+                    Text(if (hrZoneRepeatInterval == 0) stringResource(Res.string.settings_notif_off) else "${hrZoneRepeatInterval}s")
+                }
+                DropdownMenu(expanded = repeatExpanded, onDismissRequest = { repeatExpanded = false }) {
+                    listOf(0, 5, 10, 15, 20, 30, 45, 60).forEach { sec ->
+                        DropdownMenuItem(
+                            text = { Text(if (sec == 0) stringResource(Res.string.settings_notif_off) else "${sec}s") },
+                            onClick = {
+                                viewModel.updateHrZoneRepeatIntervalSeconds(sec)
+                                repeatExpanded = false
+                            }
                         )
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                // 下限 (Min) BPM 選択
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "${selectedActivityType.getDisplayName()} ${stringResource(Res.string.settings_notif_hr_zone_min)}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    var minExpanded by remember { mutableStateOf(false) }
-                    Box {
-                        TextButton(onClick = { minExpanded = true }) {
-                            Text("$currentMin bpm")
-                        }
-                        DropdownMenu(expanded = minExpanded, onDismissRequest = { minExpanded = false }) {
-                            (60..180 step 5).forEach { bpm ->
-                                DropdownMenuItem(
-                                    text = { Text("$bpm bpm") },
-                                    onClick = {
-                                        viewModel.updateActivityHrZoneMin(selectedActivityType, bpm)
-                                        minExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 上限 (Max) BPM 選択
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "${selectedActivityType.getDisplayName()} ${stringResource(Res.string.settings_notif_hr_zone_max)}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    var maxExpanded by remember { mutableStateOf(false) }
-                    Box {
-                        TextButton(onClick = { maxExpanded = true }) {
-                            Text("$currentMax bpm")
-                        }
-                        DropdownMenu(expanded = maxExpanded, onDismissRequest = { maxExpanded = false }) {
-                            (90..210 step 5).forEach { bpm ->
-                                DropdownMenuItem(
-                                    text = { Text("$bpm bpm") },
-                                    onClick = {
-                                        viewModel.updateActivityHrZoneMax(selectedActivityType, bpm)
-                                        maxExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Text(
-                    text = stringResource(Res.string.settings_notif_hr_zone_diff_hint),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
-                )
-
-                HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
-
-                // ゾーン外判定時間 (秒数) 選択
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(Res.string.settings_notif_hr_zone_out_duration), style = MaterialTheme.typography.bodyMedium)
-                        Text(stringResource(Res.string.settings_notif_hr_zone_out_duration_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                    }
-                    var durationExpanded by remember { mutableStateOf(false) }
-                    Box {
-                        TextButton(onClick = { durationExpanded = true }) {
-                            Text("${hrZoneOutDuration}s")
-                        }
-                        DropdownMenu(expanded = durationExpanded, onDismissRequest = { durationExpanded = false }) {
-                            listOf(5, 10, 15, 20, 30, 45, 60).forEach { sec ->
-                                DropdownMenuItem(
-                                    text = { Text("${sec}s") },
-                                    onClick = {
-                                        viewModel.updateHrZoneOutDurationSeconds(sec)
-                                        durationExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // ゾーン外再通知間隔 (秒数) 選択
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(Res.string.settings_notif_hr_zone_repeat_interval), style = MaterialTheme.typography.bodyMedium)
-                        Text(stringResource(Res.string.settings_notif_hr_zone_repeat_interval_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                    }
-                    var repeatExpanded by remember { mutableStateOf(false) }
-                    Box {
-                        TextButton(onClick = { repeatExpanded = true }) {
-                            Text(if (hrZoneRepeatInterval == 0) stringResource(Res.string.settings_notif_off) else "${hrZoneRepeatInterval}s")
-                        }
-                        DropdownMenu(expanded = repeatExpanded, onDismissRequest = { repeatExpanded = false }) {
-                            listOf(0, 5, 10, 15, 20, 30, 45, 60).forEach { sec ->
-                                DropdownMenuItem(
-                                    text = { Text(if (sec == 0) stringResource(Res.string.settings_notif_off) else "${sec}s") },
-                                    onClick = {
-                                        viewModel.updateHrZoneRepeatIntervalSeconds(sec)
-                                        repeatExpanded = false
-                                    }
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -691,10 +1131,9 @@ fun ReorderableDataSettingsList(
 fun MidDataSettingsContent(
     activityMidTypes: Map<String, List<Int>>,
     selectedActivityType: ActivityType,
-    onActivityTypeSelected: (ActivityType) -> Unit,
     viewModel: SettingsViewModel
 ) {
-    val currentTypes = activityMidTypes[selectedActivityType.name] ?: hag1987haaa.pebble.iron.domain.settings.AppSettings.getDefaultMidTypes(selectedActivityType)
+    val currentTypes = activityMidTypes[selectedActivityType.name] ?: AppSettings.getDefaultMidTypes(selectedActivityType)
 
     Column(modifier = Modifier.padding(8.dp)) {
         Text(
@@ -702,21 +1141,6 @@ fun MidDataSettingsContent(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.outline
         )
-
-        Spacer(Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ActivityType.entries.forEach { type ->
-                FilterChip(
-                    selected = type == selectedActivityType,
-                    onClick = { onActivityTypeSelected(type) },
-                    label = { Text(type.getDisplayName()) }
-                )
-            }
-        }
 
         Spacer(Modifier.height(4.dp))
 
@@ -804,10 +1228,9 @@ fun GraphSettingsContent(enabledGraphs: List<Int>, viewModel: SettingsViewModel)
 fun LowerDataSettingsContent(
     activityLowerTypes: Map<String, List<Int>>,
     selectedActivityType: ActivityType,
-    onActivityTypeSelected: (ActivityType) -> Unit,
     viewModel: SettingsViewModel
 ) {
-    val currentTypes = activityLowerTypes[selectedActivityType.name] ?: hag1987haaa.pebble.iron.domain.settings.AppSettings.getDefaultLowerTypes(selectedActivityType)
+    val currentTypes = activityLowerTypes[selectedActivityType.name] ?: AppSettings.getDefaultLowerTypes(selectedActivityType)
 
     Column(modifier = Modifier.padding(8.dp)) {
         Text(
@@ -815,21 +1238,6 @@ fun LowerDataSettingsContent(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.outline
         )
-
-        Spacer(Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ActivityType.entries.forEach { type ->
-                FilterChip(
-                    selected = type == selectedActivityType,
-                    onClick = { onActivityTypeSelected(type) },
-                    label = { Text(type.getDisplayName()) }
-                )
-            }
-        }
 
         Spacer(Modifier.height(4.dp))
 
@@ -901,7 +1309,6 @@ fun MapSettingsContent(viewModel: SettingsViewModel) {
     val mapRouteColor by viewModel.mapRouteColor.collectAsState()
     val mapPlannedColor by viewModel.mapPlannedColor.collectAsState()
     val mapLocationColor by viewModel.mapLocationColor.collectAsState()
-    val activityZooms by viewModel.activityMapZooms.collectAsState()
 
     Column(modifier = Modifier.padding(16.dp)) {
         Text(
@@ -1024,29 +1431,6 @@ fun MapSettingsContent(viewModel: SettingsViewModel) {
         )
 
         HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
-
-        // 5. ワークアウト別マップ拡大率設定
-        Text(
-            text = stringResource(Res.string.settings_map_zooms_header),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-        Text(
-            text = stringResource(Res.string.settings_map_zooms_desc),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        ActivityType.entries.forEach { act ->
-            val zoom = activityZooms[act.name] ?: 16
-            WorkoutZoomSettingRow(
-                activityType = act,
-                currentZoom = zoom,
-                onZoomSelected = { viewModel.updateActivityMapZoom(act, it) }
-            )
-        }
         HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
         Text(
             text = "Map Data: \u00a9 CARTO, \u00a9 OpenStreetMap contributors",
@@ -1066,55 +1450,6 @@ private fun getZoomLevelLabel(zoom: Int): String {
         17 -> stringResource(Res.string.zoom_level_17)
         18 -> stringResource(Res.string.zoom_level_18)
         else -> "Zoom $zoom"
-    }
-}
-
-@Composable
-private fun WorkoutZoomSettingRow(
-    activityType: ActivityType,
-    currentZoom: Int,
-    onZoomSelected: (Int) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
-    ) {
-        Text(
-            text = activityType.getDisplayName(),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
-        )
-        Box {
-            TextButton(
-                onClick = { expanded = true },
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-            ) {
-                Text(getZoomLevelLabel(currentZoom), style = MaterialTheme.typography.bodySmall)
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                listOf(13, 14, 15, 16, 17, 18).forEach { z ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = getZoomLevelLabel(z),
-                                style = if (z == currentZoom) MaterialTheme.typography.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) else MaterialTheme.typography.bodyMedium,
-                                color = if (z == currentZoom) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                            )
-                        },
-                        onClick = {
-                            onZoomSelected(z)
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
     }
 }
 

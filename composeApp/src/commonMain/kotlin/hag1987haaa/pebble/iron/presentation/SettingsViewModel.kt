@@ -107,6 +107,7 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     val autoShowMapAfterTimeNotificationSeconds: StateFlow<Int> = settings.autoShowMapAfterTimeNotificationSecondsFlow
 
     val isHrZoneNotificationEnabled: StateFlow<Boolean> = settings.isHrZoneNotificationEnabledFlow
+    val activityHrZoneEnabled: StateFlow<Map<String, Boolean>> = settings.activityHrZoneEnabledFlow
     val hrZoneOutDurationSeconds: StateFlow<Int> = settings.hrZoneOutDurationSecondsFlow
     val hrZoneRepeatIntervalSeconds: StateFlow<Int> = settings.hrZoneRepeatIntervalSecondsFlow
     val activityHrZoneMins: StateFlow<Map<String, Int>> = settings.activityHrZoneMinsFlow
@@ -379,6 +380,10 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.isHrZoneNotificationEnabled = enabled
     }
 
+    fun updateActivityHrZoneEnabled(type: ActivityType, enabled: Boolean) {
+        settings.setHrZoneNotificationEnabled(type, enabled)
+    }
+
     fun updateHrZoneMinBpm(minBpm: Int) {
         updateActivityHrZoneMin(ActivityType.RUNNING, minBpm)
     }
@@ -405,6 +410,33 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
 
     fun getHrZoneMin(type: ActivityType): Int = settings.getHrZoneMin(type)
     fun getHrZoneMax(type: ActivityType): Int = settings.getHrZoneMax(type)
+
+    fun copyWorkoutProfile(
+        source: ActivityType,
+        target: ActivityType,
+        copyMid: Boolean,
+        copyLower: Boolean,
+        copyHrZone: Boolean,
+        copyMapZoom: Boolean
+    ) {
+        if (source == target) return
+        if (copyMid) {
+            settings.setMidTypes(target, settings.getMidTypes(source))
+            _enabledMidTypes.value = settings.enabledMidTypes
+        }
+        if (copyLower) {
+            settings.setLowerTypes(target, settings.getLowerTypes(source))
+            _enabledLowerTypes.value = settings.enabledLowerTypes
+        }
+        if (copyHrZone) {
+            settings.setHrZoneNotificationEnabled(target, settings.isHrZoneNotificationEnabled(source))
+            settings.setHrZoneRange(target, settings.getHrZoneMin(source), settings.getHrZoneMax(source))
+        }
+        if (copyMapZoom) {
+            settings.setMapZoomForActivity(target, settings.getMapZoomForActivity(source))
+        }
+        settings.save()
+    }
 
     fun updateAutoExportTcxEnabled(enabled: Boolean) {
         settings.isAutoExportTcxEnabled = enabled

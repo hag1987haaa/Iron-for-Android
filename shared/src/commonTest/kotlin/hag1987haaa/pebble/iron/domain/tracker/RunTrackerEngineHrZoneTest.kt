@@ -212,4 +212,29 @@ class RunTrackerEngineHrZoneTest {
         repeat(60) { engine.checkHeartRateZoneNotification(110) }
         assertEquals(listOf(20, 22), messenger.sentNotifications)
     }
+
+    @Test
+    fun testPerActivityHrZoneNotificationEnabled() {
+        val settings = AppSettings().apply {
+            setHrZoneNotificationEnabled(ActivityType.RUNNING, true)
+            setHrZoneNotificationEnabled(ActivityType.WALKING, false)
+            hrZoneOutDurationSeconds = 5
+            hrZoneRepeatIntervalSeconds = 0
+            setHrZoneMin(ActivityType.RUNNING, 130)
+            setHrZoneMax(ActivityType.RUNNING, 160)
+            setHrZoneMin(ActivityType.WALKING, 95)
+            setHrZoneMax(ActivityType.WALKING, 125)
+        }
+        val messenger = FakePebbleMessenger()
+        val engine = createEngine(settings, messenger)
+
+        // デフォルトの RUNNING は有効なので 5秒後に 22 (HR TOO LOW) が鳴る
+        repeat(5) { engine.checkHeartRateZoneNotification(100) }
+        assertEquals(listOf(22), messenger.sentNotifications)
+
+        // WALKING に切り替えると OFF なので一切鳴らない
+        engine.setActivityType(ActivityType.WALKING)
+        repeat(10) { engine.checkHeartRateZoneNotification(150) }
+        assertEquals(listOf(22), messenger.sentNotifications)
+    }
 }
