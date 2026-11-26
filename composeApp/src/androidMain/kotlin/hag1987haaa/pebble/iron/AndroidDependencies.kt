@@ -207,8 +207,10 @@ object AndroidDependencies {
         // 自動エクスポート設定
         settings.isAutoExportTcxEnabled = prefs.getBoolean("auto_export_tcx", false)
         settings.isAutoExportGpxEnabled = prefs.getBoolean("auto_export_gpx", false)
+        settings.isAutoExportFitEnabled = prefs.getBoolean("auto_export_fit", false)
         settings.autoExportTcxUri = prefs.getString("auto_export_tcx_uri", null)
         settings.autoExportGpxUri = prefs.getString("auto_export_gpx_uri", null)
+        settings.autoExportFitUri = prefs.getString("auto_export_fit_uri", null)
         
         settings.hrSamplingInterval = prefs.getInt("hr_interval", 0)
         prefs.getString("enabled_activity_types", null)?.let { str ->
@@ -368,8 +370,10 @@ object AndroidDependencies {
                 
                 putBoolean("auto_export_tcx", settings.isAutoExportTcxEnabled)
                 putBoolean("auto_export_gpx", settings.isAutoExportGpxEnabled)
+                putBoolean("auto_export_fit", settings.isAutoExportFitEnabled)
                 putString("auto_export_tcx_uri", settings.autoExportTcxUri)
                 putString("auto_export_gpx_uri", settings.autoExportGpxUri)
+                putString("auto_export_fit_uri", settings.autoExportFitUri)
                 
                 putInt("hr_interval", settings.hrSamplingInterval)
                 putString("enabled_activity_types", settings.enabledActivityTypes.joinToString(","))

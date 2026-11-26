@@ -25,6 +25,8 @@ object IronColors {
     const val COLOR_TREADMILL = 0xFFFFCDD2
     const val COLOR_INDOOR_CYCLING = 0xFFBBDEFB
     const val COLOR_STRENGTH_TRAINING = 0xFFD7CCC8
+    const val COLOR_CLIMBING = 0xFFFFCCBC
+    const val COLOR_BOULDERING = 0xFFE1BEE7
 
     // 心拍数（BPM）関連
     const val HEART_RATE_PINK = 0xFFE91E63

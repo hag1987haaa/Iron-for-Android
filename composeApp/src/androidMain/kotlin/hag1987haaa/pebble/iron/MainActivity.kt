@@ -191,6 +191,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val fitFolderLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let {
+            contentResolver.takePersistableUriPermission(
+                it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            KmpDependencies.appSettings.autoExportFitUri = it.toString()
+            KmpDependencies.appSettings.save()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -362,21 +373,23 @@ class MainActivity : ComponentActivity() {
             override fun shareRunData(run: RunActivity, format: String) {
                 lifecycleScope.launch {
                     try {
-                        val content = if (format == "tcx") {
-                            hag1987haaa.pebble.iron.util.TcxExporter.export(run)
-                        } else {
-                            hag1987haaa.pebble.iron.util.GpxExporter.export(run)
-                        }
-
                         val localTime = run.startTime.toLocalDateTime(TimeZone.currentSystemDefault())
                         val dateStr = "${localTime.year}${localTime.monthNumber.toString().padStart(2, '0')}${localTime.dayOfMonth.toString().padStart(2, '0')}"
                         val timeStr = "${localTime.hour.toString().padStart(2, '0')}${localTime.minute.toString().padStart(2, '0')}${localTime.second.toString().padStart(2, '0')}"
                         val rawName = run.name ?: run.type.name
-                        val extension = if (format == "tcx") "tcx" else "gpx"
+                        val extension = when (format) {
+                            "tcx" -> "tcx"
+                            "fit" -> "fit"
+                            else -> "gpx"
+                        }
                         val fileName = "${rawName.replace(" ", "_")}_${dateStr}_${timeStr}.$extension"
                         
                         val cacheFile = File(cacheDir, fileName)
-                        cacheFile.writeText(content)
+                        when (format) {
+                            "fit" -> cacheFile.writeBytes(hag1987haaa.pebble.iron.util.FitExporter.export(run))
+                            "tcx" -> cacheFile.writeText(hag1987haaa.pebble.iron.util.TcxExporter.export(run))
+                            else -> cacheFile.writeText(hag1987haaa.pebble.iron.util.GpxExporter.export(run))
+                        }
                         
                         val uri = FileProvider.getUriForFile(
                             this@MainActivity,
@@ -384,7 +397,11 @@ class MainActivity : ComponentActivity() {
                             cacheFile
                         )
                         
-                        val mimeType = if (format == "tcx") "application/vnd.garmin.tcx+xml" else "application/gpx+xml"
+                        val mimeType = when (format) {
+                            "tcx" -> "application/vnd.garmin.tcx+xml"
+                            "fit" -> "application/octet-stream"
+                            else -> "application/gpx+xml"
+                        }
                         val intent = Intent(Intent.ACTION_SEND).apply {
                             type = mimeType
                             putExtra(Intent.EXTRA_STREAM, uri)
@@ -443,15 +460,19 @@ class MainActivity : ComponentActivity() {
             }
 
             override fun selectAutoExportFolder(format: String) {
-                if (format == "tcx") {
-                    tcxFolderLauncher.launch(null)
-                } else if (format == "gpx") {
-                    gpxFolderLauncher.launch(null)
+                when (format) {
+                    "tcx" -> tcxFolderLauncher.launch(null)
+                    "gpx" -> gpxFolderLauncher.launch(null)
+                    "fit" -> fitFolderLauncher.launch(null)
                 }
             }
 
             override fun openAutoExportFolder(format: String) {
-                val uriString = if (format == "tcx") KmpDependencies.appSettings.autoExportTcxUri else KmpDependencies.appSettings.autoExportGpxUri
+                val uriString = when (format) {
+                    "tcx" -> KmpDependencies.appSettings.autoExportTcxUri
+                    "fit" -> KmpDependencies.appSettings.autoExportFitUri
+                    else -> KmpDependencies.appSettings.autoExportGpxUri
+                }
                 uriString?.let {
                     try {
                         val uri = Uri.parse(it)

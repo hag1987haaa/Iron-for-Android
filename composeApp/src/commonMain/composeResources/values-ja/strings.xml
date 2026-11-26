@@ -469,6 +469,13 @@
     <string name="settings_backup_import_btn">バックアップから復元</string>
 
     <!-- Indoor GPX export notes -->
-    <string name="export_dialog_gpx_indoor_note">GPSルートがない屋内ワークアウトのためGPX出力は利用できません。心拍・カロリー・時間等はTCX形式で出力できます。</string>
-    <string name="settings_auto_export_indoor_gpx_note">※GPSデータがない屋内ワークアウトでは、GPXの自動出力は自動的にスキップされます（TCXは屋内・屋外ともに出力されます）。</string>
+    <string name="export_dialog_gpx_indoor_note">GPSルートがない屋内ワークアウトのためGPX出力は利用できません。心拍・カロリー・時間等はFITまたはTCX形式で出力できます。</string>
+    <string name="settings_auto_export_fit">FIT 自動エクスポート (Beta)</string>
+    <string name="settings_auto_export_indoor_gpx_note">※GPSデータがない屋内ワークアウトでは、GPXの自動出力は自動的にスキップされます（FIT・TCXは屋内・屋外ともに出力されます）。</string>
+
+    <!-- Climbing & Bouldering + FIT Beta -->
+    <string name="activity_climbing">クライミング</string>
+    <string name="activity_bouldering">ボルダリング</string>
+    <string name="export_dialog_fit_button">FIT (Beta)</string>
+    <string name="export_dialog_fit_desc">FIT（ベータ版）: 全18種目の正確な種別ID・心拍・ケイデンス・パワー・屋内種目に対応したバイナリ形式です。</string>
 </resources>

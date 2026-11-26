@@ -125,6 +125,8 @@ object HealthUtils {
             ActivityType.TREADMILL -> 8.0
             ActivityType.INDOOR_CYCLING -> 7.0
             ActivityType.STRENGTH_TRAINING -> 5.0
+            ActivityType.CLIMBING -> 7.5
+            ActivityType.BOULDERING -> 5.8
             ActivityType.OTHER -> 4.0
         }
 

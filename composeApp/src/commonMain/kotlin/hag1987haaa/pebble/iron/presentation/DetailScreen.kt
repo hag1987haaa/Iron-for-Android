@@ -216,6 +216,10 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                 title = { Text(stringResource(Res.string.export_dialog_title)) },
                 text = {
                     Column {
+                        Text(stringResource(Res.string.export_dialog_fit_desc), style = MaterialTheme.typography.bodySmall)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(stringResource(Res.string.export_dialog_tcx_desc), style = MaterialTheme.typography.bodySmall)
+                        Spacer(modifier = Modifier.height(10.dp))
                         Text(stringResource(Res.string.export_dialog_gpx_desc), style = MaterialTheme.typography.bodySmall)
                         if (!hasGpsForExport) {
                             Spacer(modifier = Modifier.height(6.dp))
@@ -225,24 +229,40 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                 color = MaterialTheme.colorScheme.error
                             )
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(stringResource(Res.string.export_dialog_tcx_desc), style = MaterialTheme.typography.bodySmall)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    runActivity?.let { actions.shareRunData(it, "fit") }
+                                    showExportDialog = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(stringResource(Res.string.export_dialog_fit_button)) }
+                            OutlinedButton(
+                                onClick = {
+                                    runActivity?.let { actions.shareRunData(it, "tcx") }
+                                    showExportDialog = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(stringResource(Res.string.export_dialog_tcx_button)) }
+                            OutlinedButton(
+                                enabled = hasGpsForExport,
+                                onClick = {
+                                    runActivity?.let { actions.shareRunData(it, "gpx") }
+                                    showExportDialog = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(stringResource(Res.string.export_dialog_gpx_button)) }
+                        }
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { 
-                        runActivity?.let { actions.shareRunData(it, "tcx") }
-                        showExportDialog = false 
-                    }) { Text(stringResource(Res.string.export_dialog_tcx_button)) }
-                },
-                dismissButton = {
-                    TextButton(
-                        enabled = hasGpsForExport,
-                        onClick = { 
-                            runActivity?.let { actions.shareRunData(it, "gpx") }
-                            showExportDialog = false 
-                        }
-                    ) { Text(stringResource(Res.string.export_dialog_gpx_button)) }
+                    TextButton(onClick = { showExportDialog = false }) {
+                        Text(stringResource(Res.string.detail_cancel))
+                    }
                 }
             )
         }

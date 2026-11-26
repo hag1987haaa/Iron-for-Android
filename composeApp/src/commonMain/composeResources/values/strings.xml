@@ -469,6 +469,13 @@
     <string name="settings_backup_import_btn">Restore Backup</string>
 
     <!-- Indoor GPX export notes -->
-    <string name="export_dialog_gpx_indoor_note">GPX export is unavailable because this workout has no GPS route. Use TCX to export heart rate, calories, and duration.</string>
-    <string name="settings_auto_export_indoor_gpx_note">Note: GPX auto-export is automatically skipped for indoor workouts without GPS data. TCX auto-export works for both indoor and outdoor workouts.</string>
+    <string name="export_dialog_gpx_indoor_note">GPX export is unavailable because this workout has no GPS route. Use FIT or TCX to export heart rate, calories, and duration.</string>
+    <string name="settings_auto_export_fit">Auto-Export FIT (Beta)</string>
+    <string name="settings_auto_export_indoor_gpx_note">Note: GPX auto-export is automatically skipped for indoor workouts without GPS data. FIT and TCX auto-export work for both indoor and outdoor workouts.</string>
+
+    <!-- Climbing & Bouldering + FIT Beta -->
+    <string name="activity_climbing">Climbing</string>
+    <string name="activity_bouldering">Bouldering</string>
+    <string name="export_dialog_fit_button">FIT (Beta)</string>
+    <string name="export_dialog_fit_desc">FIT (Beta): Binary format with exact workout type (all 18 activities), heart rate, cadence, power, and indoor support.</string>
 </resources>

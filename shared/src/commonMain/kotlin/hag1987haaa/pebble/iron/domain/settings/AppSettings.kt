@@ -466,8 +466,10 @@ class AppSettings {
     // 自動エクスポート設定
     var isAutoExportTcxEnabled: Boolean = false
     var isAutoExportGpxEnabled: Boolean = false
+    var isAutoExportFitEnabled: Boolean = false
     var autoExportTcxUri: String? = null
     var autoExportGpxUri: String? = null
+    var autoExportFitUri: String? = null
 
     // 心拍サンプリング間隔 (0: システムデフォルト, 1, 10, 30, etc.)
     var hrSamplingInterval: Int = 0

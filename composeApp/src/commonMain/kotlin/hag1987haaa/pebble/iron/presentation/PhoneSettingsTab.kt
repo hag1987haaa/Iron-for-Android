@@ -40,8 +40,10 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
     val isPrivacyMapEnabled by viewModel.isPrivacyMapModeEnabled.collectAsState()
     val isAutoTcx by viewModel.isAutoExportTcxEnabled.collectAsState()
     val isAutoGpx by viewModel.isAutoExportGpxEnabled.collectAsState()
+    val isAutoFit by viewModel.isAutoExportFitEnabled.collectAsState()
     val tcxUri by viewModel.autoExportTcxUri.collectAsState()
     val gpxUri by viewModel.autoExportGpxUri.collectAsState()
+    val fitUri by viewModel.autoExportFitUri.collectAsState()
     var showCourseSheet by remember { mutableStateOf(false) }
     val userHeightCm by viewModel.userHeightCm.collectAsState()
     val userBodyFatPct by viewModel.userBodyFatPct.collectAsState()
@@ -213,6 +215,8 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
         SettingsSectionHeader(stringResource(Res.string.settings_section_auto_export))
         Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
+                ExportToggleRow(stringResource(Res.string.settings_auto_export_fit), isAutoFit, fitUri, { viewModel.updateAutoExportFitEnabled(it) }, { actions.selectAutoExportFolder("fit") }, { actions.openAutoExportFolder("fit") })
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
                 ExportToggleRow(stringResource(Res.string.settings_auto_export_tcx), isAutoTcx, tcxUri, { viewModel.updateAutoExportTcxEnabled(it) }, { actions.selectAutoExportFolder("tcx") }, { actions.openAutoExportFolder("tcx") })
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
                 ExportToggleRow(stringResource(Res.string.settings_auto_export_gpx), isAutoGpx, gpxUri, { viewModel.updateAutoExportGpxEnabled(it) }, { actions.selectAutoExportFolder("gpx") }, { actions.openAutoExportFolder("gpx") })

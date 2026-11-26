@@ -132,11 +132,17 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     private val _isAutoExportGpxEnabled = MutableStateFlow(settings.isAutoExportGpxEnabled)
     val isAutoExportGpxEnabled: StateFlow<Boolean> = _isAutoExportGpxEnabled.asStateFlow()
 
+    private val _isAutoExportFitEnabled = MutableStateFlow(settings.isAutoExportFitEnabled)
+    val isAutoExportFitEnabled: StateFlow<Boolean> = _isAutoExportFitEnabled.asStateFlow()
+
     private val _autoExportTcxUri = MutableStateFlow(settings.autoExportTcxUri)
     val autoExportTcxUri: StateFlow<String?> = _autoExportTcxUri.asStateFlow()
 
     private val _autoExportGpxUri = MutableStateFlow(settings.autoExportGpxUri)
     val autoExportGpxUri: StateFlow<String?> = _autoExportGpxUri.asStateFlow()
+
+    private val _autoExportFitUri = MutableStateFlow(settings.autoExportFitUri)
+    val autoExportFitUri: StateFlow<String?> = _autoExportFitUri.asStateFlow()
 
     private val _hrSamplingInterval = MutableStateFlow(settings.hrSamplingInterval)
     val hrSamplingInterval: StateFlow<Int> = _hrSamplingInterval.asStateFlow()
@@ -462,6 +468,12 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
         settings.save()
     }
 
+    fun updateAutoExportFitEnabled(enabled: Boolean) {
+        settings.isAutoExportFitEnabled = enabled
+        _isAutoExportFitEnabled.value = enabled
+        settings.save()
+    }
+
     fun updateHrSamplingInterval(interval: Int) {
         settings.hrSamplingInterval = interval
         _hrSamplingInterval.value = interval
@@ -686,5 +698,6 @@ class SettingsViewModel(private val settings: AppSettings) : ViewModel() {
     fun refreshUris() {
         _autoExportTcxUri.value = settings.autoExportTcxUri
         _autoExportGpxUri.value = settings.autoExportGpxUri
+        _autoExportFitUri.value = settings.autoExportFitUri
     }
 }

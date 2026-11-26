@@ -26,6 +26,8 @@ fun ActivityType.getDisplayName(): String {
         ActivityType.TREADMILL -> stringResource(Res.string.activity_treadmill)
         ActivityType.INDOOR_CYCLING -> stringResource(Res.string.activity_indoor_cycling)
         ActivityType.STRENGTH_TRAINING -> stringResource(Res.string.activity_strength_training)
+        ActivityType.CLIMBING -> stringResource(Res.string.activity_climbing)
+        ActivityType.BOULDERING -> stringResource(Res.string.activity_bouldering)
     }
 }
 
@@ -47,6 +49,8 @@ fun ActivityType.getPastelColor(): androidx.compose.ui.graphics.Color {
         ActivityType.TREADMILL -> IronColors.COLOR_TREADMILL
         ActivityType.INDOOR_CYCLING -> IronColors.COLOR_INDOOR_CYCLING
         ActivityType.STRENGTH_TRAINING -> IronColors.COLOR_STRENGTH_TRAINING
+        ActivityType.CLIMBING -> IronColors.COLOR_CLIMBING
+        ActivityType.BOULDERING -> IronColors.COLOR_BOULDERING
     }
     return androidx.compose.ui.graphics.Color(hex)
 }

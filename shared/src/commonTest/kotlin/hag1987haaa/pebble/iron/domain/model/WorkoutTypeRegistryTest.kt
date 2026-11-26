@@ -12,7 +12,7 @@ class WorkoutTypeRegistryTest {
     @Test
     fun testDefaultWorkoutTypes() {
         val types = WorkoutTypeRegistry.getAllTypes()
-        assertEquals(16, types.size)
+        assertEquals(18, types.size)
         assertEquals(0, types[0].id)
         assertEquals("RUNNING", types[0].name)
         assertEquals(ActivityType.RUNNING, types[0].baseActivityType)
@@ -25,6 +25,14 @@ class WorkoutTypeRegistryTest {
         assertEquals("STRENGTH_TRAINING", types[15].name)
         assertEquals("STRENGTH", types[15].pebbleLabel)
         assertEquals(ActivityType.STRENGTH_TRAINING, types[15].baseActivityType)
+
+        assertEquals(16, types[16].id)
+        assertEquals("CLIMBING", types[16].name)
+        assertEquals(ActivityType.CLIMBING, types[16].baseActivityType)
+
+        assertEquals(17, types[17].id)
+        assertEquals("BOULDERING", types[17].name)
+        assertEquals(ActivityType.BOULDERING, types[17].baseActivityType)
     }
 
     @Test
@@ -68,7 +76,8 @@ class WorkoutTypeRegistryTest {
     fun testToPebbleProtocolString() {
         val protocolStr = WorkoutTypeRegistry.toPebbleProtocolString(version = 2)
         val expected = "v:2|0,RUNNING,1,WALKING,2,CYCLING,3,HIKING,4,KAYAKING,5,ROWING,6,OTHER," +
-            "7,TRAIL RUN,8,MTB,9,SKIING,10,SNOWBOARD,11,SUP,12,INLINE SKATE,13,TREADMILL,14,INDOOR BIKE,15,STRENGTH"
+            "7,TRAIL RUN,8,MTB,9,SKIING,10,SNOWBOARD,11,SUP,12,INLINE SKATE,13,TREADMILL,14,INDOOR BIKE,15,STRENGTH," +
+            "16,CLIMBING,17,BOULDERING"
         assertEquals(expected, protocolStr)
     }
 
@@ -136,7 +145,8 @@ class WorkoutTypeRegistryTest {
         val indoorTypes = setOf(
             ActivityType.TREADMILL,
             ActivityType.INDOOR_CYCLING,
-            ActivityType.STRENGTH_TRAINING
+            ActivityType.STRENGTH_TRAINING,
+            ActivityType.BOULDERING,
         )
         ActivityType.entries.forEach { activityType ->
             val expectedUsesGps = activityType !in indoorTypes
@@ -158,6 +168,8 @@ class WorkoutTypeRegistryTest {
         assertEquals(ActivityType.TREADMILL, WorkoutTypeRegistry.findByAssistantKeyword("トレッドミル")?.baseActivityType)
         assertEquals(ActivityType.INDOOR_CYCLING, WorkoutTypeRegistry.findByAssistantKeyword("インドアバイク")?.baseActivityType)
         assertEquals(ActivityType.STRENGTH_TRAINING, WorkoutTypeRegistry.findByAssistantKeyword("筋トレ")?.baseActivityType)
+        assertEquals(ActivityType.CLIMBING, WorkoutTypeRegistry.findByAssistantKeyword("クライミング")?.baseActivityType)
+        assertEquals(ActivityType.BOULDERING, WorkoutTypeRegistry.findByAssistantKeyword("ボルダリング")?.baseActivityType)
         assertNull(WorkoutTypeRegistry.findByAssistantKeyword("unknown_activity"))
     }
 

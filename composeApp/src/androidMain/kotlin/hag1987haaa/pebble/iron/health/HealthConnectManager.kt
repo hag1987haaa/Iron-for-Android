@@ -152,6 +152,8 @@ class HealthConnectManager(private val context: Context) {
                 ActivityType.TREADMILL -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL
                 ActivityType.INDOOR_CYCLING -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY
                 ActivityType.STRENGTH_TRAINING -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
+                ActivityType.CLIMBING -> ExerciseSessionRecord.EXERCISE_TYPE_ROCK_CLIMBING
+                ActivityType.BOULDERING -> ExerciseSessionRecord.EXERCISE_TYPE_ROCK_CLIMBING
                 ActivityType.OTHER -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
             }
 

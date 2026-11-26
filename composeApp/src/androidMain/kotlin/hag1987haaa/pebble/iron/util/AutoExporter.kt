@@ -24,6 +24,12 @@ object AutoExporter {
 
         val settings = KmpDependencies.appSettings
         
+        if (settings.isAutoExportFitEnabled) {
+            settings.autoExportFitUri?.let { uriString ->
+                exportFile(context, finalRun, "fit", uriString)
+            }
+        }
+
         if (settings.isAutoExportTcxEnabled) {
             settings.autoExportTcxUri?.let { uriString ->
                 exportFile(context, finalRun, "tcx", uriString)
@@ -71,12 +77,20 @@ object AutoExporter {
             val fileName = "${prefix}${dateStr}_${timeStr}_$typeStr$extension"
 
             // 3. ファイルの作成と書き込み
-            val mimeType = if (format == "tcx") "application/vnd.garmin.tcx+xml" else "application/gpx+xml"
+            val mimeType = when (format) {
+                "tcx" -> "application/vnd.garmin.tcx+xml"
+                "fit" -> "application/octet-stream"
+                else -> "application/gpx+xml"
+            }
             val newFile = rootFolder.createFile(mimeType, fileName)
             if (newFile != null) {
-                val content = if (format == "tcx") TcxExporter.export(run) else GpxExporter.export(run)
+                val bytes = when (format) {
+                    "fit" -> FitExporter.export(run)
+                    "tcx" -> TcxExporter.export(run).toByteArray()
+                    else -> GpxExporter.export(run).toByteArray()
+                }
                 context.contentResolver.openOutputStream(newFile.uri)?.use { os ->
-                    os.write(content.toByteArray())
+                    os.write(bytes)
                 }
                 Log.i("AutoExporter", "Auto export successful: $fileName")
                 // 必要ならUIスレッドでToastを出すなどの処理
