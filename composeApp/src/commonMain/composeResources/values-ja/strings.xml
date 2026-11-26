@@ -290,8 +290,8 @@
     <string name="detail_sync_hc_success">Health Connect に同期しました！</string>
     <string name="detail_sync_hc_already">すでに Health Connect に同期済みです</string>
     <string name="settings_unit_title">単位系</string>
-    <string name="settings_unit_metric">メートル法 (km, kg)</string>
-    <string name="settings_unit_imperial">ヤード・ポンド法 (mile, lb)</string>
+    <string name="settings_unit_metric">メートル法 (km, kg, °C, m/s)</string>
+    <string name="settings_unit_imperial">ヤード・ポンド法 (mi, lb, °F, mph)</string>
     <string name="settings_section_mid_data">中段の表示項目</string>
     <string name="settings_mid_data_desc">ACTIVE（計測中）に表示する項目を設定します。Pebble側でSELECTボタンを押すと、この順番で切り替わります。</string>
     <string name="settings_reset_to_default">初期値に戻す</string>
@@ -443,4 +443,28 @@
     <string name="settings_profile_gps_on">ON（屋外）</string>
     <string name="settings_profile_gps_off">OFF（屋内）</string>
     <string name="settings_profile_gps_off_desc">屋内種目のため、GPS計測およびマップ自動起動はオフになります。</string>
+
+    <!-- Weather & Notes on Detail Screen -->
+    <string name="detail_weather_notes_title">天気・メモ</string>
+    <string name="detail_weather_notes_empty">天気・気温・風・メモを記録する</string>
+    <string name="detail_weather_condition_label">天気</string>
+    <string name="detail_weather_sunny">晴れ</string>
+    <string name="detail_weather_cloudy">くもり</string>
+    <string name="detail_weather_rainy">雨</string>
+    <string name="detail_weather_snowy">雪</string>
+    <string name="detail_weather_temp_label">気温</string>
+    <string name="detail_weather_wind_label">風速</string>
+    <string name="detail_wind_calm">弱い</string>
+    <string name="detail_wind_moderate">普通</string>
+    <string name="detail_wind_strong">強い</string>
+    <string name="detail_notes_label">メモ</string>
+    <string name="detail_notes_placeholder">気分や体調、コース状況などを記録…</string>
+    <string name="detail_edit">編集</string>
+    <string name="detail_cancel">キャンセル</string>
+
+    <!-- Backup & Restore -->
+    <string name="settings_backup_title">バックアップと復元</string>
+    <string name="settings_backup_desc">すべてのワークアウト履歴（天気・メモ含む）とアプリ設定を1つのJSONファイルに書き出し、機種変更時などに復元できます。</string>
+    <string name="settings_backup_export_btn">バックアップ作成</string>
+    <string name="settings_backup_import_btn">バックアップから復元</string>
 </resources>

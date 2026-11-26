@@ -11,6 +11,7 @@ import hag1987haaa.pebble.iron.db.PebbleTrackerDatabase
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.LocationPoint
 import hag1987haaa.pebble.iron.domain.model.RunActivity
+import hag1987haaa.pebble.iron.domain.repository.ImportRunsResult
 import hag1987haaa.pebble.iron.domain.repository.RunRepository
 import hag1987haaa.pebble.iron.util.HealthUtils
 
@@ -60,6 +61,10 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                 maxPower = run.maxPower,
                 elevationGain = run.elevationGain,
                 healthConnectId = run.healthConnectId,
+                weatherCondition = run.weatherCondition,
+                temperatureC = run.temperatureC,
+                windSpeedMs = run.windSpeedMs,
+                notes = run.notes,
                 id = runId,
             )
         }
@@ -106,6 +111,10 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                             maxPower = entity.maxPower,
                             elevationGain = entity.elevationGain,
                             healthConnectId = entity.healthConnectId,
+                            weatherCondition = entity.weatherCondition,
+                            temperatureC = entity.temperatureC,
+                            windSpeedMs = entity.windSpeedMs,
+                            notes = entity.notes,
                         )
                     } catch (_: Exception) {
                         null
@@ -154,15 +163,28 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                 maxPower = runEntity.maxPower,
                 elevationGain = runEntity.elevationGain,
                 healthConnectId = runEntity.healthConnectId,
+                weatherCondition = runEntity.weatherCondition,
+                temperatureC = runEntity.temperatureC,
+                windSpeedMs = runEntity.windSpeedMs,
+                notes = runEntity.notes,
                 route = locations,
             )
         }
     }
 
-    override suspend fun importRuns(runs: List<RunActivity>) = withContext(Dispatchers.IO) {
+    override suspend fun importRuns(runs: List<RunActivity>): ImportRunsResult = withContext(Dispatchers.IO) {
+        var importedCount = 0
+        var skippedCount = 0
         queries.transaction {
+            val existingStartTimes = queries.getAllRuns().executeAsList().mapTo(mutableSetOf()) { it.startTime }
             runs.forEach { run ->
-                queries.insertRun(run.name, run.type.name, run.startTime.toString())
+                val startTimeKey = run.startTime.toString()
+                if (!existingStartTimes.add(startTimeKey)) {
+                    skippedCount++
+                    return@forEach
+                }
+
+                queries.insertRun(run.name, run.type.name, startTimeKey)
                 val runId = queries.lastInsertId().executeAsOne()
 
                 run.route.forEach { point ->
@@ -195,11 +217,17 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
                     avgPower = run.avgPower,
                     maxPower = run.maxPower,
                     elevationGain = run.elevationGain,
-                    healthConnectId = run.healthConnectId,
+                    healthConnectId = null,
+                    weatherCondition = run.weatherCondition,
+                    temperatureC = run.temperatureC,
+                    windSpeedMs = run.windSpeedMs,
+                    notes = run.notes,
                     id = runId,
                 )
+                importedCount++
             }
         }
+        ImportRunsResult(importedCount = importedCount, skippedCount = skippedCount)
     }
 
     override suspend fun getRunDetails(runId: Long): RunActivity? = withContext(Dispatchers.IO) {
@@ -241,6 +269,10 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
             maxPower = runEntity.maxPower,
             elevationGain = runEntity.elevationGain,
             healthConnectId = runEntity.healthConnectId,
+            weatherCondition = runEntity.weatherCondition,
+            temperatureC = runEntity.temperatureC,
+            windSpeedMs = runEntity.windSpeedMs,
+            notes = runEntity.notes,
             route = locations,
         )
     }
@@ -254,6 +286,22 @@ class SqlRunRepository(db: PebbleTrackerDatabase) : RunRepository {
 
     override suspend fun updateRunName(runId: Long, name: String) = withContext(Dispatchers.IO) {
         queries.updateRunName(name, runId)
+    }
+
+    override suspend fun updateRunWeatherAndNotes(
+        runId: Long,
+        weatherCondition: String?,
+        temperatureC: Double?,
+        windSpeedMs: Double?,
+        notes: String?,
+    ) = withContext(Dispatchers.IO) {
+        queries.updateRunWeatherAndNotes(
+            weatherCondition = weatherCondition,
+            temperatureC = temperatureC,
+            windSpeedMs = windSpeedMs,
+            notes = notes,
+            id = runId,
+        )
     }
 
     override suspend fun updateActivityType(runId: Long, type: ActivityType, profile: hag1987haaa.pebble.iron.domain.model.CalorieProfile?) = withContext(Dispatchers.IO) {

@@ -247,6 +247,10 @@ class TrackingService : Service() {
                     avgPower = stats.avgPower,
                     maxPower = stats.maxPower?.toDouble(),
                     elevationGain = stats.totalElevationGain,
+                    weatherCondition = stats.weatherCondition,
+                    temperatureC = stats.temperatureC,
+                    windSpeedMs = stats.windSpeedMs,
+                    notes = stats.notes,
                     route = stats.route
                 ).withSanitizedTimestamps()
 
@@ -323,6 +327,10 @@ class TrackingService : Service() {
                     avgPower = stats.avgPower,
                     maxPower = stats.maxPower?.toDouble(),
                     elevationGain = stats.totalElevationGain,
+                    weatherCondition = stats.weatherCondition,
+                    temperatureC = stats.temperatureC,
+                    windSpeedMs = stats.windSpeedMs,
+                    notes = stats.notes,
                     route = stats.route
                 ).withSanitizedTimestamps()
                 

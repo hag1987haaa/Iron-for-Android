@@ -22,6 +22,9 @@
     <string name="ok_button">OK</string>
     <string name="import_failed">Import failed</string>
     <string name="imported_success">Imported %d workouts successfully.</string>
+    <string name="imported_success_skipped">Imported %1$d workouts (%2$d duplicates skipped).</string>
+    <string name="imported_success_with_settings">Restored %d workouts and settings.</string>
+    <string name="imported_success_with_settings_skipped">Restored %1$d workouts (%2$d duplicates skipped) and settings.</string>
     <string name="file_export_failed">File export failed</string>
 
     <!-- Activity names for App Actions & Shortcuts -->

@@ -23,6 +23,10 @@ data class RunActivity(
     val maxPower: Double? = null,
     val elevationGain: Double? = null,
     val healthConnectId: String? = null,
+    val weatherCondition: String? = null,
+    val temperatureC: Double? = null,
+    val windSpeedMs: Double? = null,
+    val notes: String? = null,
     val route: List<LocationPoint> = emptyList()
 ) {
     /**

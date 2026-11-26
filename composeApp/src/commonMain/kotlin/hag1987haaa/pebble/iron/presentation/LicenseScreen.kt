@@ -38,6 +38,12 @@ fun LicenseScreen(onBack: () -> Unit) {
             "OpenStreetMap is open data, licensed under the Open Data Commons Open Database License (ODbL) by the OpenStreetMap Foundation (OSMF).\n\nhttps://www.openstreetmap.org/copyright",
         ),
         LibraryLicense(
+            "Open-Meteo Weather API",
+            "Weather data by Open-Meteo.com",
+            "Creative Commons Attribution 4.0 (CC BY 4.0)",
+            "Weather data provided by Open-Meteo.com under Creative Commons Attribution 4.0 International (CC BY 4.0).\n\nhttps://open-meteo.com/",
+        ),
+        LibraryLicense(
             "Kotlin & Kotlinx Libraries",
             "Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.",
             "Apache License 2.0",

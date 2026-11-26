@@ -438,6 +438,7 @@ object AndroidDependencies {
             bleHrManager = bleHeartRateManager,
             bleCscManager = bleCscManager,
             blePowerManager = blePowerManager,
+            weatherFetcher = hag1987haaa.pebble.iron.weather.OpenMeteoWeatherFetcher(),
             scope = MainScope()
         )
         

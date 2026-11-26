@@ -22,6 +22,9 @@
     <string name="ok_button">OK</string>
     <string name="import_failed">インポートに失敗しました</string>
     <string name="imported_success">%d 件のワークアウトをインポートしました</string>
+    <string name="imported_success_skipped">%1$d 件のワークアウトをインポートしました（重複 %2$d 件をスキップ）</string>
+    <string name="imported_success_with_settings">%d 件のワークアウトと設定を復元しました</string>
+    <string name="imported_success_with_settings_skipped">%1$d 件のワークアウト（重複 %2$d 件をスキップ）と設定を復元しました</string>
     <string name="file_export_failed">ファイルのエクスポートに失敗しました</string>
 
     <!-- Activity names for App Actions & Shortcuts -->

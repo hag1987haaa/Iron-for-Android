@@ -290,8 +290,8 @@
     <string name="detail_sync_hc_success">Synced to Health Connect!</string>
     <string name="detail_sync_hc_already">Already synced to Health Connect</string>
     <string name="settings_unit_title">Unit System</string>
-    <string name="settings_unit_metric">Metric (km, kg)</string>
-    <string name="settings_unit_imperial">Imperial (mile, lb)</string>
+    <string name="settings_unit_metric">Metric (km, kg, °C, m/s)</string>
+    <string name="settings_unit_imperial">Imperial (mi, lb, °F, mph)</string>
     <string name="settings_section_mid_data">Middle Display Items</string>
     <string name="settings_mid_data_desc">Configure items to display in ACTIVE mode. Press SELECT on Pebble to cycle through these items.</string>
     <string name="settings_reset_to_default">Reset to Default</string>
@@ -443,4 +443,28 @@
     <string name="settings_profile_gps_on">ON (Outdoor)</string>
     <string name="settings_profile_gps_off">OFF (Indoor)</string>
     <string name="settings_profile_gps_off_desc">GPS tracking and watch auto-open map are disabled for this indoor workout.</string>
+
+    <!-- Weather & Notes on Detail Screen -->
+    <string name="detail_weather_notes_title">Weather &amp; Notes</string>
+    <string name="detail_weather_notes_empty">Add weather, temperature, wind, or notes</string>
+    <string name="detail_weather_condition_label">Weather</string>
+    <string name="detail_weather_sunny">Sunny</string>
+    <string name="detail_weather_cloudy">Cloudy</string>
+    <string name="detail_weather_rainy">Rainy</string>
+    <string name="detail_weather_snowy">Snowy</string>
+    <string name="detail_weather_temp_label">Temperature</string>
+    <string name="detail_weather_wind_label">Wind Speed</string>
+    <string name="detail_wind_calm">Calm</string>
+    <string name="detail_wind_moderate">Moderate</string>
+    <string name="detail_wind_strong">Strong</string>
+    <string name="detail_notes_label">Notes</string>
+    <string name="detail_notes_placeholder">How did you feel? Course conditions, gear, etc.</string>
+    <string name="detail_edit">Edit</string>
+    <string name="detail_cancel">Cancel</string>
+
+    <!-- Backup & Restore -->
+    <string name="settings_backup_title">Backup &amp; Restore</string>
+    <string name="settings_backup_desc">Export all workout history (including weather &amp; notes) and app settings to a single JSON file for device migration.</string>
+    <string name="settings_backup_export_btn">Export Backup</string>
+    <string name="settings_backup_import_btn">Restore Backup</string>
 </resources>

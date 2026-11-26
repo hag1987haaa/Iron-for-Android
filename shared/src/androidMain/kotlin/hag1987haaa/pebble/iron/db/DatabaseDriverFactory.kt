@@ -76,7 +76,11 @@ class DatabaseDriverFactory(private val context: Context) {
             "ALTER TABLE RunEntity ADD COLUMN avgPower REAL;",
             "ALTER TABLE RunEntity ADD COLUMN maxPower REAL;",
             "ALTER TABLE LocationEntity ADD COLUMN cadence INTEGER;",
-            "ALTER TABLE LocationEntity ADD COLUMN power INTEGER;"
+            "ALTER TABLE LocationEntity ADD COLUMN power INTEGER;",
+            "ALTER TABLE RunEntity ADD COLUMN weatherCondition TEXT;",
+            "ALTER TABLE RunEntity ADD COLUMN temperatureC REAL;",
+            "ALTER TABLE RunEntity ADD COLUMN windSpeedMs REAL;",
+            "ALTER TABLE RunEntity ADD COLUMN notes TEXT;"
         )
         for (sql in addColumns) {
             try {

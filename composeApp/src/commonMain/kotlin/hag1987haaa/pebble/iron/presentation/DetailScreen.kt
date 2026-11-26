@@ -30,12 +30,18 @@ import androidx.lifecycle.viewModelScope
 import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
+import hag1987haaa.pebble.iron.domain.model.WeatherCondition
 import hag1987haaa.pebble.iron.domain.model.hasValidGpsRoute
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
 import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.presentation.components.SimpleLineChart
 import hag1987haaa.pebble.iron.presentation.components.SimpleBarChart
 import hag1987haaa.pebble.iron.presentation.components.SplitsTable
+import hag1987haaa.pebble.iron.presentation.components.WorkoutWeatherNotesCard
+import hag1987haaa.pebble.iron.presentation.components.formatTemperatureInput
+import hag1987haaa.pebble.iron.presentation.components.formatWindSpeedInput
+import hag1987haaa.pebble.iron.presentation.components.parseTemperatureToCelsius
+import hag1987haaa.pebble.iron.presentation.components.parseWindSpeedToMs
 import hag1987haaa.pebble.iron.util.SplitCalculator
 import hag1987haaa.pebble.iron.util.getDisplayName
 import kotlinx.datetime.Clock
@@ -63,6 +69,29 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
     var typeDropdownExpanded by remember { mutableStateOf(false) }
     var isPrivacyMapLocal by remember { mutableStateOf(KmpDependencies.appSettings.isPrivacyMapModeEnabled) }
     var isMapPinned by rememberSaveable { mutableStateOf(KmpDependencies.appSettings.isDetailMapPinned) }
+
+    val isMetricSetting = KmpDependencies.appSettings.isMetric
+    val liveStats by RunState.currentStats.collectAsState()
+    var selectedWeather by remember { mutableStateOf<WeatherCondition?>(null) }
+    var temperatureInput by remember { mutableStateOf("") }
+    var windSpeedInput by remember { mutableStateOf("") }
+    var notesInput by remember { mutableStateOf("") }
+    var isEditingWeatherNotes by remember { mutableStateOf(false) }
+
+    // If auto-fetched weather arrives right after finishing a GPS workout, populate empty fields automatically
+    LaunchedEffect(runId, liveStats.weatherCondition, liveStats.temperatureC, liveStats.windSpeedMs) {
+        if (runId == -1L) {
+            if (selectedWeather == null && liveStats.weatherCondition != null) {
+                selectedWeather = WeatherCondition.fromNameOrNull(liveStats.weatherCondition)
+            }
+            if (temperatureInput.isEmpty() && liveStats.temperatureC != null) {
+                temperatureInput = formatTemperatureInput(liveStats.temperatureC, isMetricSetting)
+            }
+            if (windSpeedInput.isEmpty() && liveStats.windSpeedMs != null) {
+                windSpeedInput = formatWindSpeedInput(liveStats.windSpeedMs, isMetricSetting)
+            }
+        }
+    }
     
     var showExportDialog by remember { mutableStateOf(false) }
     var isDistanceBased by remember { mutableStateOf(false) }
@@ -92,15 +121,27 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                 avgPower = stats.avgPower,
                 maxPower = stats.maxPower?.toDouble(),
                 elevationGain = stats.totalElevationGain,
+                weatherCondition = stats.weatherCondition,
+                temperatureC = stats.temperatureC,
+                windSpeedMs = stats.windSpeedMs,
+                notes = stats.notes,
                 route = stats.route
             )
             editableName = stats.name ?: ""
             selectedType = stats.activityType
+            selectedWeather = WeatherCondition.fromNameOrNull(stats.weatherCondition)
+            temperatureInput = formatTemperatureInput(stats.temperatureC, isMetricSetting)
+            windSpeedInput = formatWindSpeedInput(stats.windSpeedMs, isMetricSetting)
+            notesInput = stats.notes ?: ""
         } else {
             val details = viewModel.getRunDetails(runId)
             runActivity = details
             editableName = details?.name ?: ""
             selectedType = details?.type ?: ActivityType.RUNNING
+            selectedWeather = WeatherCondition.fromNameOrNull(details?.weatherCondition)
+            temperatureInput = formatTemperatureInput(details?.temperatureC, isMetricSetting)
+            windSpeedInput = formatWindSpeedInput(details?.windSpeedMs, isMetricSetting)
+            notesInput = details?.notes ?: ""
         }
     }
 
@@ -129,7 +170,11 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                             val currentStats = RunState.currentStats.value
                             RunState.updateStats(currentStats.copy(
                                 name = editableName,
-                                activityType = selectedType
+                                activityType = selectedType,
+                                weatherCondition = selectedWeather?.name,
+                                temperatureC = parseTemperatureToCelsius(temperatureInput, isMetricSetting),
+                                windSpeedMs = parseWindSpeedToMs(windSpeedInput, isMetricSetting),
+                                notes = notesInput.trim().ifEmpty { null },
                             ))
                             actions.saveTracking()
                         }
@@ -673,6 +718,52 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                                     }
                                 }
                             }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+                            WorkoutWeatherNotesCard(
+                                selectedWeather = selectedWeather,
+                                onWeatherChange = { selectedWeather = it },
+                                temperatureInput = temperatureInput,
+                                onTemperatureInputChange = { temperatureInput = it },
+                                windSpeedInput = windSpeedInput,
+                                onWindSpeedInputChange = { windSpeedInput = it },
+                                notesInput = notesInput,
+                                onNotesInputChange = { notesInput = it },
+                                isMetric = isMetricSetting,
+                                isConfirmMode = runId == -1L,
+                                isEditing = isEditingWeatherNotes,
+                                onStartEdit = { isEditingWeatherNotes = true },
+                                onCancelEdit = {
+                                    selectedWeather = WeatherCondition.fromNameOrNull(run.weatherCondition)
+                                    temperatureInput = formatTemperatureInput(run.temperatureC, isMetricSetting)
+                                    windSpeedInput = formatWindSpeedInput(run.windSpeedMs, isMetricSetting)
+                                    notesInput = run.notes ?: ""
+                                    isEditingWeatherNotes = false
+                                },
+                                onSaveEdit = {
+                                    if (runId != -1L) {
+                                        val parsedTemp = parseTemperatureToCelsius(temperatureInput, isMetricSetting)
+                                        val parsedWind = parseWindSpeedToMs(windSpeedInput, isMetricSetting)
+                                        val trimmedNotes = notesInput.trim().ifEmpty { null }
+                                        coroutineScope.launch {
+                                            viewModel.updateRunWeatherAndNotes(
+                                                id = runId,
+                                                weatherCondition = selectedWeather?.name,
+                                                temperatureC = parsedTemp,
+                                                windSpeedMs = parsedWind,
+                                                notes = trimmedNotes,
+                                            )
+                                            val updatedRun = viewModel.getRunDetails(runId)
+                                            runActivity = updatedRun
+                                            selectedWeather = WeatherCondition.fromNameOrNull(updatedRun?.weatherCondition)
+                                            temperatureInput = formatTemperatureInput(updatedRun?.temperatureC, isMetricSetting)
+                                            windSpeedInput = formatWindSpeedInput(updatedRun?.windSpeedMs, isMetricSetting)
+                                            notesInput = updatedRun?.notes ?: ""
+                                            isEditingWeatherNotes = false
+                                        }
+                                    }
+                                }
+                            )
 
                             // 区間スプリット（1kmまたは1マイルごと）
                             val splits = remember(run.route, KmpDependencies.appSettings.isMetric) {

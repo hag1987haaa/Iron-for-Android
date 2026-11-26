@@ -183,6 +183,22 @@ class HistoryViewModel(private val repository: RunRepository) : ViewModel() {
         }
     }
 
+    suspend fun updateRunWeatherAndNotes(
+        id: Long,
+        weatherCondition: String?,
+        temperatureC: Double?,
+        windSpeedMs: Double?,
+        notes: String?,
+    ) {
+        repository.updateRunWeatherAndNotes(
+            runId = id,
+            weatherCondition = weatherCondition,
+            temperatureC = temperatureC,
+            windSpeedMs = windSpeedMs,
+            notes = notes,
+        )
+    }
+
     fun updateActivityType(id: Long, type: hag1987haaa.pebble.iron.domain.model.ActivityType, profile: hag1987haaa.pebble.iron.domain.model.CalorieProfile? = null) {
         viewModelScope.launch {
             repository.updateActivityType(id, type, profile)

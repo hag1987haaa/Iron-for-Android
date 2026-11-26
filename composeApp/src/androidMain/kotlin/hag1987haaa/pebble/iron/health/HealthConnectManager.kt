@@ -166,7 +166,7 @@ class HealthConnectManager(private val context: Context) {
                     endZoneOffset = zoneOffset,
                     exerciseType = exerciseType,
                     title = (run.name ?: "Workout").ifBlank { "Workout" },
-                    notes = "Recorded via Iron for pebble",
+                    notes = run.notes?.takeIf { it.isNotBlank() } ?: "Recorded via Iron for pebble",
                     metadata = metadata,
                     exerciseRoute = route,
                 )

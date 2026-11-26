@@ -4,14 +4,26 @@ import kotlinx.coroutines.flow.Flow
 import hag1987haaa.pebble.iron.domain.model.LocationPoint
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 
+data class ImportRunsResult(
+    val importedCount: Int,
+    val skippedCount: Int,
+)
+
 interface RunRepository {
     suspend fun saveRun(run: RunActivity): Long
     fun getAllRuns(): Flow<List<RunActivity>>
     suspend fun getAllRunsWithDetails(): List<RunActivity>
-    suspend fun importRuns(runs: List<RunActivity>)
+    suspend fun importRuns(runs: List<RunActivity>): ImportRunsResult
     suspend fun getRunDetails(runId: Long): RunActivity?
     suspend fun deleteRun(runId: Long)
     suspend fun updateRunName(runId: Long, name: String)
+    suspend fun updateRunWeatherAndNotes(
+        runId: Long,
+        weatherCondition: String?,
+        temperatureC: Double?,
+        windSpeedMs: Double?,
+        notes: String?,
+    )
     suspend fun updateActivityType(runId: Long, type: hag1987haaa.pebble.iron.domain.model.ActivityType, profile: hag1987haaa.pebble.iron.domain.model.CalorieProfile? = null)
     suspend fun updateHealthConnectId(runId: Long, healthConnectId: String?)
 }

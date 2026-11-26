@@ -29,6 +29,8 @@ import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import hag1987haaa.pebble.iron.assistant.AssistantActionHandler
+import hag1987haaa.pebble.iron.domain.backup.IronBackupCodec
+import hag1987haaa.pebble.iron.domain.backup.applySettingsBackup
 import hag1987haaa.pebble.iron.health.HealthSyncResult
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
@@ -137,11 +139,30 @@ class MainActivity : ComponentActivity() {
                 try {
                     val content = contentResolver.openInputStream(it)?.bufferedReader()?.use { br -> br.readText() }
                     if (content != null) {
-                        val runs = Json.decodeFromString<List<RunActivity>>(content)
-                        KmpDependencies.runRepository.importRuns(runs)
-                        Toast.makeText(this@MainActivity, getString(R.string.imported_success, runs.size), Toast.LENGTH_SHORT).show()
+                        val bundle = hag1987haaa.pebble.iron.domain.backup.IronBackupCodec.decode(content)
+                        val result = KmpDependencies.runRepository.importRuns(bundle.runs)
+                        val backupSettings = bundle.settings
+                        val restoredSettings = backupSettings != null
+                        if (backupSettings != null) {
+                            KmpDependencies.appSettings.applySettingsBackup(backupSettings)
+                            try {
+                                KmpDependencies.trackerEngine.syncActivitiesToWatch()
+                            } catch (_: Exception) {}
+                        }
+                        val message = when {
+                            restoredSettings && result.skippedCount > 0 ->
+                                getString(R.string.imported_success_with_settings_skipped, result.importedCount, result.skippedCount)
+                            restoredSettings ->
+                                getString(R.string.imported_success_with_settings, result.importedCount)
+                            result.skippedCount > 0 ->
+                                getString(R.string.imported_success_skipped, result.importedCount, result.skippedCount)
+                            else ->
+                                getString(R.string.imported_success, result.importedCount)
+                        }
+                        Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
                     }
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Import failed", e)
                     Toast.makeText(this@MainActivity, getString(R.string.import_failed), Toast.LENGTH_SHORT).show()
                 }
             }
@@ -380,7 +401,10 @@ class MainActivity : ComponentActivity() {
                 lifecycleScope.launch {
                     try {
                         val allRuns = KmpDependencies.runRepository.getAllRunsWithDetails()
-                        val jsonContent = Json.encodeToString(allRuns)
+                        val jsonContent = hag1987haaa.pebble.iron.domain.backup.IronBackupCodec.encode(
+                            runs = allRuns,
+                            settings = KmpDependencies.appSettings,
+                        )
                         val fileName = "iron_backup_${System.currentTimeMillis()}.json"
                         val cacheFile = File(cacheDir, fileName)
                         cacheFile.writeText(jsonContent)
@@ -397,14 +421,15 @@ class MainActivity : ComponentActivity() {
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
                         startActivity(Intent.createChooser(intent, getString(R.string.history_export_chooser_title)))
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Export failed", e)
                         Toast.makeText(this@MainActivity, getString(R.string.file_export_failed), Toast.LENGTH_SHORT).show()
                     }
                 }
             }
 
             override fun importData() {
-                importLauncher.launch("application/json")
+                importLauncher.launch("*/*")
             }
 
             override fun requestOverlayPermission() {

@@ -15,6 +15,7 @@ import hag1987haaa.pebble.iron.domain.settings.AppSettings
 import hag1987haaa.pebble.iron.domain.ble.BleHeartRateManager
 import hag1987haaa.pebble.iron.domain.ble.BleCscManager
 import hag1987haaa.pebble.iron.domain.ble.BlePowerManager
+import hag1987haaa.pebble.iron.domain.weather.WeatherFetcher
 import hag1987haaa.pebble.iron.util.LocationUtils
 import hag1987haaa.pebble.iron.util.HealthUtils
 import kotlinx.datetime.TimeZone
@@ -46,7 +47,11 @@ data class RunStatistics(
     val hrSource: String = "PEBBLE",
     val isBleHrActive: Boolean = false,
     val latestBleHeartRate: Int? = null,
-    val latestPebbleHeartRate: Int? = null
+    val latestPebbleHeartRate: Int? = null,
+    val weatherCondition: String? = null,
+    val temperatureC: Double? = null,
+    val windSpeedMs: Double? = null,
+    val notes: String? = null,
 ) {
     val avgCadence: Double? get() = if (cadences.isNotEmpty()) cadences.average() else null
     val maxCadence: Int? get() = cadences.maxOrNull()
@@ -114,6 +119,7 @@ class RunTrackerEngine(
     private val bleHrManager: BleHeartRateManager? = null,
     private val bleCscManager: BleCscManager? = null,
     private val blePowerManager: BlePowerManager? = null,
+    private val weatherFetcher: WeatherFetcher? = null,
     private val scope: CoroutineScope
 ) {
     private val _statistics = MutableStateFlow(RunStatistics(
@@ -441,6 +447,8 @@ class RunTrackerEngine(
         timeoutJob?.cancel(); timeoutJob = null
         trackingJob?.cancel(); trackingJob = null
         timerJob?.cancel(); timerJob = null
+        weatherFetchJob?.cancel(); weatherFetchJob = null
+        hasAttemptedWeatherFetch = false
         locationTracker.stopTracking()
 
         _statistics.update { current ->
@@ -479,6 +487,7 @@ class RunTrackerEngine(
         RunState.setStatus(RunStatus.ACTIVE)
         pebbleMessenger?.sendState(RunStatus.ACTIVE, _statistics.value)
         pebbleMessenger?.sendGraphData(_statistics.value)
+        _statistics.value.currentLocation?.let { maybeFetchWeather(it) }
         startTimer()
     }
 
@@ -519,6 +528,17 @@ class RunTrackerEngine(
         _statistics.update { it.copy(status = RunStatus.FINISHED, name = defaultName) }
         RunState.updateStats(_statistics.value)
         RunState.setStatus(RunStatus.FINISHED)
+
+        // If weather wasn't fetched yet (e.g. offline at start), retry once on finish for GPS workouts
+        val currentStats = _statistics.value
+        if (currentStats.weatherCondition == null && currentStats.temperatureC == null) {
+            val fallbackLoc = fullRoute.lastOrNull { it.latitude != 0.0 || it.longitude != 0.0 }
+                ?: currentStats.currentLocation
+            if (fallbackLoc != null) {
+                hasAttemptedWeatherFetch = false
+                maybeFetchWeather(fallbackLoc)
+            }
+        }
 
         pebbleMessenger?.sendState(RunStatus.FINISHED, _statistics.value)
     }
@@ -1051,6 +1071,9 @@ class RunTrackerEngine(
         )
 
         fullRoute.add(finalLocation)
+        if (!hasAttemptedWeatherFetch) {
+            maybeFetchWeather(finalLocation)
+        }
 
         _statistics.update {
             it.copy(
@@ -1063,6 +1086,39 @@ class RunTrackerEngine(
                 pebbleMessenger?.sendStatistics(s)
                 RunState.updateStats(s)
             }
+        }
+    }
+
+    private var weatherFetchJob: Job? = null
+    private var hasAttemptedWeatherFetch: Boolean = false
+
+    private fun maybeFetchWeather(location: LocationPoint) {
+        val fetcher = weatherFetcher ?: return
+        if (hasAttemptedWeatherFetch) return
+        val usesGps = WorkoutTypeRegistry.getDefinition(_statistics.value.activityType).usesGps
+        if (!usesGps) return
+        if (location.latitude == 0.0 && location.longitude == 0.0) return
+
+        hasAttemptedWeatherFetch = true
+        weatherFetchJob?.cancel()
+        weatherFetchJob = scope.launch {
+            val snapshot = try {
+                fetcher.fetchCurrentWeather(location.latitude, location.longitude)
+            } catch (_: Exception) {
+                null
+            } ?: return@launch
+
+            val currentStatus = RunState.status.value
+            if (currentStatus == RunStatus.IDLE || currentStatus == RunStatus.RESULT) return@launch
+
+            _statistics.update { stats ->
+                stats.copy(
+                    weatherCondition = stats.weatherCondition ?: snapshot.condition.name,
+                    temperatureC = stats.temperatureC ?: snapshot.temperatureC,
+                    windSpeedMs = stats.windSpeedMs ?: snapshot.windSpeedMs,
+                )
+            }
+            RunState.updateStats(_statistics.value)
         }
     }
 

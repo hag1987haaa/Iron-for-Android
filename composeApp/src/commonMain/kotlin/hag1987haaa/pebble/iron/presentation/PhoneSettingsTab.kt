@@ -193,12 +193,16 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val unitSystemLabel = if (isMetric) {
-                        "${stringResource(Res.string.settings_unit_title)} (Metric / km)"
-                    } else {
-                        "${stringResource(Res.string.settings_unit_title)} (Imperial / mile)"
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(Res.string.settings_unit_title))
+                        Text(
+                            text = stringResource(
+                                if (isMetric) Res.string.settings_unit_metric else Res.string.settings_unit_imperial
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
                     }
-                    Text(unitSystemLabel, modifier = Modifier.weight(1f))
                     Switch(checked = isMetric, onCheckedChange = { viewModel.updateMetric(it) })
                 }
             }
@@ -350,6 +354,38 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
                             )
                         }
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp)
+
+                Text(stringResource(Res.string.settings_backup_title), style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    stringResource(Res.string.settings_backup_desc),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Button(
+                        onClick = { actions.exportData() },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(Res.string.settings_backup_export_btn), maxLines = 1)
+                    }
+                    OutlinedButton(
+                        onClick = { actions.importData() },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(Res.string.settings_backup_import_btn), maxLines = 1)
                     }
                 }
             }
