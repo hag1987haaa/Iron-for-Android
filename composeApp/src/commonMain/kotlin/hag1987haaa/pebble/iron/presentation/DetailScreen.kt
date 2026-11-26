@@ -210,12 +210,21 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
         }
     ) { padding ->
         if (showExportDialog) {
+            val hasGpsForExport = runActivity?.route?.hasValidGpsRoute() == true
             AlertDialog(
                 onDismissRequest = { showExportDialog = false },
                 title = { Text(stringResource(Res.string.export_dialog_title)) },
                 text = {
                     Column {
                         Text(stringResource(Res.string.export_dialog_gpx_desc), style = MaterialTheme.typography.bodySmall)
+                        if (!hasGpsForExport) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = stringResource(Res.string.export_dialog_gpx_indoor_note),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(stringResource(Res.string.export_dialog_tcx_desc), style = MaterialTheme.typography.bodySmall)
                     }
@@ -227,10 +236,13 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                     }) { Text(stringResource(Res.string.export_dialog_tcx_button)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { 
-                        runActivity?.let { actions.shareRunData(it, "gpx") }
-                        showExportDialog = false 
-                    }) { Text(stringResource(Res.string.export_dialog_gpx_button)) }
+                    TextButton(
+                        enabled = hasGpsForExport,
+                        onClick = { 
+                            runActivity?.let { actions.shareRunData(it, "gpx") }
+                            showExportDialog = false 
+                        }
+                    ) { Text(stringResource(Res.string.export_dialog_gpx_button)) }
                 }
             )
         }

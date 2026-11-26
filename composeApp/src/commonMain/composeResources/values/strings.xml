@@ -467,4 +467,8 @@
     <string name="settings_backup_desc">Export all workout history (including weather &amp; notes) and app settings to a single JSON file for device migration.</string>
     <string name="settings_backup_export_btn">Export Backup</string>
     <string name="settings_backup_import_btn">Restore Backup</string>
+
+    <!-- Indoor GPX export notes -->
+    <string name="export_dialog_gpx_indoor_note">GPX export is unavailable because this workout has no GPS route. Use TCX to export heart rate, calories, and duration.</string>
+    <string name="settings_auto_export_indoor_gpx_note">Note: GPX auto-export is automatically skipped for indoor workouts without GPS data. TCX auto-export works for both indoor and outdoor workouts.</string>
 </resources>

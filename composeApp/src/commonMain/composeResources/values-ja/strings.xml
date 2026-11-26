@@ -467,4 +467,8 @@
     <string name="settings_backup_desc">すべてのワークアウト履歴（天気・メモ含む）とアプリ設定を1つのJSONファイルに書き出し、機種変更時などに復元できます。</string>
     <string name="settings_backup_export_btn">バックアップ作成</string>
     <string name="settings_backup_import_btn">バックアップから復元</string>
+
+    <!-- Indoor GPX export notes -->
+    <string name="export_dialog_gpx_indoor_note">GPSルートがない屋内ワークアウトのためGPX出力は利用できません。心拍・カロリー・時間等はTCX形式で出力できます。</string>
+    <string name="settings_auto_export_indoor_gpx_note">※GPSデータがない屋内ワークアウトでは、GPXの自動出力は自動的にスキップされます（TCXは屋内・屋外ともに出力されます）。</string>
 </resources>

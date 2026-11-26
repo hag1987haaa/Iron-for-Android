@@ -1,6 +1,7 @@
 package hag1987haaa.pebble.iron.util
 
 import hag1987haaa.pebble.iron.domain.model.RunActivity
+import hag1987haaa.pebble.iron.domain.model.hasValidGpsCoordinate
 import kotlinx.datetime.Instant
 
 object GpxExporter {
@@ -32,7 +33,8 @@ object GpxExporter {
         var prevTime: Instant? = null
         val PAUSE_GAP_MS = 10_000L
 
-        run.route.forEachIndexed { index, pt ->
+        val validPoints = run.route.filter { it.hasValidGpsCoordinate() }
+        validPoints.forEachIndexed { index, pt ->
             if (index > 0 && prevTime != null) {
                 val timeDiffMs = pt.timestamp.toEpochMilliseconds() - prevTime!!.toEpochMilliseconds()
                 if (pt.isSegmentStart || timeDiffMs >= PAUSE_GAP_MS) {

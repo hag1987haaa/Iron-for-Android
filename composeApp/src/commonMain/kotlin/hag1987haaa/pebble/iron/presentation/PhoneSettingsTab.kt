@@ -218,6 +218,8 @@ fun PhoneSettingsTab(viewModel: SettingsViewModel, actions: AppActions, onShowLi
                 ExportToggleRow(stringResource(Res.string.settings_auto_export_gpx), isAutoGpx, gpxUri, { viewModel.updateAutoExportGpxEnabled(it) }, { actions.selectAutoExportFolder("gpx") }, { actions.openAutoExportFolder("gpx") })
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(text = stringResource(Res.string.settings_auto_export_strava_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(text = stringResource(Res.string.settings_auto_export_indoor_gpx_note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             }
         }
 

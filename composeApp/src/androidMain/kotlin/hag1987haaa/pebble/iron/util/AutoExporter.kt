@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import hag1987haaa.pebble.iron.KmpDependencies
 import hag1987haaa.pebble.iron.domain.model.RunActivity
+import hag1987haaa.pebble.iron.domain.model.hasValidGpsRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
@@ -30,8 +31,12 @@ object AutoExporter {
         }
         
         if (settings.isAutoExportGpxEnabled) {
-            settings.autoExportGpxUri?.let { uriString ->
-                exportFile(context, finalRun, "gpx", uriString)
+            if (finalRun.route.hasValidGpsRoute()) {
+                settings.autoExportGpxUri?.let { uriString ->
+                    exportFile(context, finalRun, "gpx", uriString)
+                }
+            } else {
+                Log.i("AutoExporter", "Skipping GPX auto-export for run ${finalRun.id}: no valid GPS route")
             }
         }
     }

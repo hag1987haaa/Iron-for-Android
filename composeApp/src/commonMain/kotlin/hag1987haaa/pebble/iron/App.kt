@@ -465,8 +465,14 @@ fun RunScreen(actions: AppActions) {
 
                     Spacer(modifier = Modifier.weight(1f))
                     
+                    val isOutdoorActivity = hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry.getDefinition(stats.activityType).usesGps
                     when (status) {
-                        RunStatus.IDLE -> Button(onClick = { actions.prepareTracking() }, modifier = Modifier.fillMaxWidth().height(64.dp)) { Text("PREPARE") }
+                        RunStatus.IDLE -> Button(
+                            onClick = { actions.prepareTracking() },
+                            modifier = Modifier.fillMaxWidth().height(64.dp)
+                        ) {
+                            Text(if (isOutdoorActivity) "PREPARE" else "PREPARE (INDOOR)")
+                        }
                         RunStatus.PREPARING, RunStatus.READY -> {
                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().height(64.dp)) {
                                Button(onClick = { actions.discardTracking() }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.weight(0.4f).fillMaxHeight()) { Text("CANCEL") }
