@@ -689,8 +689,16 @@ class RunTrackerEngine(
                     if (stats.status != RunStatus.ACTIVE) return@update stats
 
                     val nextSeconds = stats.totalSeconds + 1
+                    val usesGps = WorkoutTypeRegistry.getDefinition(stats.activityType).usesGps
+                    val indoorSensorSpeedMps = if (!usesGps) stats.currentSensorSpeedKmh?.let { it / 3.6 } else null
+                    val nextDistanceMeters = if (!usesGps && indoorSensorSpeedMps != null && indoorSensorSpeedMps > 0.0) {
+                        stats.totalDistanceMeters + indoorSensorSpeedMps
+                    } else {
+                        stats.totalDistanceMeters
+                    }
+
                     val profile = appSettings?.calorieProfile() ?: CalorieProfile(weightKg = 70.0f)
-                    val currentCalories = HealthUtils.calculateCalories(stats.activityType, profile, nextSeconds, stats.totalDistanceMeters, stats.totalElevationGain, if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null)
+                    val currentCalories = HealthUtils.calculateCalories(stats.activityType, profile, nextSeconds, nextDistanceMeters, stats.totalElevationGain, if (stats.heartRates.isNotEmpty()) stats.heartRates.average() else null)
 
                     // パワー & ケイデンスの毎秒サンプリング（移動平均計算用）
                     val pwrSample = stats.currentPower ?: if (stats.isBlePowerActive) 0 else null
@@ -699,11 +707,44 @@ class RunTrackerEngine(
                     val cadSample = stats.currentCadence ?: if (stats.isBleCscActive) 0 else null
                     val updatedCadences = if (cadSample != null) stats.cadences + cadSample else stats.cadences
 
+                    // GPSオフ（屋内）ワークアウトでも、心拍・歩数・ケイデンス・パワーの時系列グラフや
+                    // Health Connect / TCX 同期が機能するよう、毎秒タイムスタンプ付きデータ点を記録する
+                    val updatedRoute = if (!usesGps) {
+                        val isSegStart = isResumePending
+                        isResumePending = false
+                        val nowInstant = Clock.System.now()
+                        val prevMs = fullRoute.lastOrNull()?.timestamp?.toEpochMilliseconds() ?: Long.MIN_VALUE
+                        val safeTimestamp = if (nowInstant.toEpochMilliseconds() >= prevMs) {
+                            nowInstant
+                        } else {
+                            Instant.fromEpochMilliseconds(prevMs)
+                        }
+                        fullRoute.add(
+                            LocationPoint(
+                                latitude = 0.0,
+                                longitude = 0.0,
+                                speed = indoorSensorSpeedMps,
+                                heartRate = stats.currentHeartRate,
+                                steps = stats.steps,
+                                cadence = stats.currentCadence,
+                                power = stats.currentPower,
+                                sensorSpeed = indoorSensorSpeedMps,
+                                timestamp = safeTimestamp,
+                                isSegmentStart = isSegStart,
+                            )
+                        )
+                        fullRoute.toList()
+                    } else {
+                        stats.route
+                    }
+
                     val updatedStats = stats.copy(
-                        totalSeconds = nextSeconds, 
+                        totalSeconds = nextSeconds,
+                        totalDistanceMeters = nextDistanceMeters,
                         calories = currentCalories,
                         powers = updatedPowers,
-                        cadences = updatedCadences
+                        cadences = updatedCadences,
+                        route = updatedRoute,
                     )
 
                     val timeStep = appSettings?.notificationTimeSeconds ?: 0

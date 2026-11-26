@@ -10,6 +10,7 @@ import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Length
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
+import hag1987haaa.pebble.iron.domain.model.hasValidGpsCoordinate
 import kotlinx.datetime.toJavaInstant
 import java.time.ZoneOffset
 
@@ -102,10 +103,7 @@ class HealthConnectManager(private val context: Context) {
             // 1. 運動ルートの作成 (ルート権限が付与されている場合のみ付与)
             val canWriteRoute = granted.contains(routePermission)
             val validRoutePoints = if (canWriteRoute && sanitizedRun.route.isNotEmpty()) {
-                val filtered = sanitizedRun.route.filter { pt ->
-                    pt.latitude.isFinite() && pt.latitude in -90.0..90.0 &&
-                        pt.longitude.isFinite() && pt.longitude in -180.0..180.0
-                }
+                val filtered = sanitizedRun.route.filter { pt -> pt.hasValidGpsCoordinate() }
                 // 長時間ワークアウト等でポイント数が極端に多い場合、Binder IPC 制限 (TransactionTooLargeException) を防ぐため最大 7,500 点に安全に間引く
                 val maxRoutePoints = 7500
                 if (filtered.size > maxRoutePoints) {

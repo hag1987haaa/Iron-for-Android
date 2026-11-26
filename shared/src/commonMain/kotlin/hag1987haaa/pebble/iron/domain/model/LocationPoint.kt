@@ -24,3 +24,10 @@ data class LocationPoint(
     val verticalAccuracyMeters: Double? = null,
     @Transient val elapsedRealtimeNanos: Long? = null,
 )
+
+fun LocationPoint.hasValidGpsCoordinate(): Boolean =
+    latitude.isFinite() && longitude.isFinite() &&
+        latitude in -90.0..90.0 && longitude in -180.0..180.0 &&
+        (latitude != 0.0 || longitude != 0.0)
+
+fun List<LocationPoint>.hasValidGpsRoute(): Boolean = any { it.hasValidGpsCoordinate() }

@@ -260,7 +260,7 @@ fun RunScreen(actions: AppActions) {
     }
     val currentLoc = stats.currentLocation
     val trackedPoints = remember(stats.route, currentLoc) {
-        if (stats.route.isNotEmpty()) {
+        if (stats.route.any { it.latitude != 0.0 || it.longitude != 0.0 }) {
             stats.route
         } else {
             currentLoc?.let { listOf(it) } ?: emptyList()

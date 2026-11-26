@@ -182,4 +182,29 @@ class WorkoutTypeRegistryTest {
         settings.resetEnabledActivityTypes()
         assertEquals(ActivityType.entries, settings.getOrderedEnabledActivityTypes())
     }
+
+    @Test
+    fun testIndoorLocationPointGpsValidationAndTcxExport() {
+        val now = kotlinx.datetime.Instant.fromEpochMilliseconds(1_700_000_000_000L)
+        val indoorPt = LocationPoint(latitude = 0.0, longitude = 0.0, heartRate = 142, steps = 50, timestamp = now)
+        val gpsPt = LocationPoint(latitude = 35.6812, longitude = 139.7671, heartRate = 142, timestamp = now)
+
+        assertEquals(false, indoorPt.hasValidGpsCoordinate())
+        assertEquals(true, gpsPt.hasValidGpsCoordinate())
+        assertEquals(false, listOf(indoorPt).hasValidGpsRoute())
+        assertEquals(true, listOf(indoorPt, gpsPt).hasValidGpsRoute())
+
+        val indoorRun = RunActivity(
+            type = ActivityType.TREADMILL,
+            startTime = now,
+            endTime = kotlinx.datetime.Instant.fromEpochMilliseconds(1_700_000_060_000L),
+            durationSeconds = 60,
+            distanceMeters = 0.0,
+            calories = 10.0,
+            route = listOf(indoorPt)
+        )
+        val tcx = hag1987haaa.pebble.iron.util.TcxExporter.export(indoorRun)
+        assertTrue(!tcx.contains("<Position>"), "Indoor TCX should omit <Position> for 0.0,0.0 points")
+        assertTrue(tcx.contains("<HeartRateBpm><Value>142</Value></HeartRateBpm>"), "Indoor TCX should keep heart rate")
+    }
 }

@@ -2,6 +2,7 @@ package hag1987haaa.pebble.iron.util
 
 import hag1987haaa.pebble.iron.domain.model.RunActivity
 import hag1987haaa.pebble.iron.domain.model.WorkoutTypeRegistry
+import hag1987haaa.pebble.iron.domain.model.hasValidGpsCoordinate
 import kotlinx.datetime.Instant
 
 object TcxExporter {
@@ -66,10 +67,12 @@ object TcxExporter {
 
             sb.append("          <Trackpoint>\n")
             sb.append("            <Time>${pt.timestamp}</Time>\n")
-            sb.append("            <Position>\n")
-            sb.append("              <LatitudeDegrees>${pt.latitude}</LatitudeDegrees>\n")
-            sb.append("              <LongitudeDegrees>${pt.longitude}</LongitudeDegrees>\n")
-            sb.append("            </Position>\n")
+            if (pt.hasValidGpsCoordinate()) {
+                sb.append("            <Position>\n")
+                sb.append("              <LatitudeDegrees>${pt.latitude}</LatitudeDegrees>\n")
+                sb.append("              <LongitudeDegrees>${pt.longitude}</LongitudeDegrees>\n")
+                sb.append("            </Position>\n")
+            }
             
             pt.altitude?.let { sb.append("            <AltitudeMeters>$it</AltitudeMeters>\n") }
             

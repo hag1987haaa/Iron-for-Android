@@ -30,6 +30,7 @@ import androidx.lifecycle.viewModelScope
 import hag1987haaa.pebble.iron.*
 import hag1987haaa.pebble.iron.domain.model.ActivityType
 import hag1987haaa.pebble.iron.domain.model.RunActivity
+import hag1987haaa.pebble.iron.domain.model.hasValidGpsRoute
 import hag1987haaa.pebble.iron.domain.tracker.RunStatus
 import hag1987haaa.pebble.iron.domain.tracker.RunState
 import hag1987haaa.pebble.iron.presentation.components.SimpleLineChart
@@ -198,269 +199,376 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
             }
 
             runActivity?.let { run ->
+                val hasGpsRoute = remember(run.route) { run.route.hasValidGpsRoute() }
+                val effectiveMapPinned = hasGpsRoute && isMapPinned
+                if (!hasGpsRoute && isMapFullScreen) {
+                    isMapFullScreen = false
+                }
                 if (!isMapFullScreen) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(padding)
-                            .then(if (!isMapPinned) Modifier.verticalScroll(scrollState) else Modifier),
+                            .then(if (!effectiveMapPinned) Modifier.verticalScroll(scrollState) else Modifier),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Surface(
-                            tonalElevation = 4.dp,
-                            shadowElevation = 4.dp,
-                            modifier = Modifier.fillMaxWidth().zIndex(1f)
-                        ) {
-                            // 固定画面の中いっぱいにマップを表示し、情報をその上に配置する
-                            Box(modifier = Modifier
-                                .fillMaxWidth()
-                                .height(mapHeight)
-                                .clip(RectangleShape)
+                        if (hasGpsRoute) {
+                            Surface(
+                                tonalElevation = 4.dp,
+                                shadowElevation = 4.dp,
+                                modifier = Modifier.fillMaxWidth().zIndex(1f)
                             ) {
-                                RouteMapView(
-                                    points = run.route,
-                                    modifier = Modifier.fillMaxSize(),
-                                    isPrivacyMode = isPrivacyMapLocal,
-                                    isAutoCenter = false,
-                                    mapRotation = 0f
-                                )
-                                
-                                // 右上：拡大ボタン
-                                FilledIconButton(
-                                    onClick = { isMapFullScreen = true },
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(8.dp)
-                                        .size(40.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = Color.Black.copy(alpha = 0.4f),
-                                        contentColor = Color.White
-                                    )
+                                // 固定画面の中いっぱいにマップを表示し、情報をその上に配置する
+                                Box(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(mapHeight)
+                                    .clip(RectangleShape)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AspectRatio,
-                                        contentDescription = "Expand"
+                                    RouteMapView(
+                                        points = run.route,
+                                        modifier = Modifier.fillMaxSize(),
+                                        isPrivacyMode = isPrivacyMapLocal,
+                                        isAutoCenter = false,
+                                        mapRotation = 0f
                                     )
-                                }
+                                    
+                                    // 右上：拡大ボタン
+                                    FilledIconButton(
+                                        onClick = { isMapFullScreen = true },
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(8.dp)
+                                            .size(40.dp),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = Color.Black.copy(alpha = 0.4f),
+                                            contentColor = Color.White
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AspectRatio,
+                                            contentDescription = "Expand"
+                                        )
+                                    }
 
-                                // 著作権表示 (OSM)
-                                val uriHandler = LocalUriHandler.current
-                                Surface(
-                                    modifier = Modifier
-                                        .align(Alignment.TopCenter)
-                                        .padding(top = 4.dp)
-                                        .graphicsLayer(alpha = 0.6f)
-                                        .clickable { uriHandler.openUri("https://www.openstreetmap.org/copyright") },
-                                    color = Color.Black.copy(alpha = 0.2f),
-                                    shape = MaterialTheme.shapes.extraSmall
-                                ) {
-                                    Text(
-                                        text = "© OpenStreetMap contributors",
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White
-                                    )
-                                }
+                                    // 著作権表示 (OSM)
+                                    val uriHandler = LocalUriHandler.current
+                                    Surface(
+                                        modifier = Modifier
+                                            .align(Alignment.TopCenter)
+                                            .padding(top = 4.dp)
+                                            .graphicsLayer(alpha = 0.6f)
+                                            .clickable { uriHandler.openUri("https://www.openstreetmap.org/copyright") },
+                                        color = Color.Black.copy(alpha = 0.2f),
+                                        shape = MaterialTheme.shapes.extraSmall
+                                    ) {
+                                        Text(
+                                            text = "© OpenStreetMap contributors",
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.White
+                                        )
+                                    }
 
-                                // 情報オーバーレイ（下部に配置、コンパクトなカード形式）
-                                Surface(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                                    shape = RoundedCornerShape(10.dp),
-                                    tonalElevation = 2.dp,
-                                    shadowElevation = 2.dp
-                                ) {
-                                    if (isEditingName) {
-                                        Column(
-                                            modifier = Modifier.padding(10.dp),
-                                            horizontalAlignment = Alignment.Start
-                                        ) {
-                                            OutlinedTextField(
-                                                value = editableName,
-                                                onValueChange = { editableName = it },
-                                                label = { Text(stringResource(Res.string.detail_label_name)) },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                singleLine = true,
-                                                colors = OutlinedTextFieldDefaults.colors(
-                                                    focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
-                                                )
-                                            )
-                                            Spacer(modifier = Modifier.height(6.dp))
-                                            Box(modifier = Modifier.fillMaxWidth()) {
-                                                OutlinedButton(
-                                                    onClick = { typeDropdownExpanded = true }, 
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
-                                                ) {
-                                                    val typeLabel = stringResource(Res.string.detail_label_type).replace("%s", selectedType.getDisplayName())
-                                                    Text(typeLabel)
-                                                    Spacer(modifier = Modifier.weight(1f))
-                                                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                                                }
-                                                DropdownMenu(expanded = typeDropdownExpanded, onDismissRequest = { typeDropdownExpanded = false }) {
-                                                    ActivityType.entries.forEach { type ->
-                                                        DropdownMenuItem(text = { Text(type.getDisplayName()) }, onClick = { selectedType = type; typeDropdownExpanded = false })
-                                                    }
-                                                }
-                                            }
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                                                horizontalArrangement = Arrangement.End
-                                            ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier.clickable {
-                                                        val next = !isMapPinned
-                                                        isMapPinned = next
-                                                        KmpDependencies.appSettings.isDetailMapPinned = next
-                                                        coroutineScope.launch { scrollState.scrollTo(0) }
-                                                    }
-                                                ) {
-                                                    Text(stringResource(Res.string.detail_label_pin_map), style = MaterialTheme.typography.labelSmall)
-                                                    Switch(
-                                                        checked = isMapPinned,
-                                                        onCheckedChange = { checked ->
-                                                            isMapPinned = checked
-                                                            KmpDependencies.appSettings.isDetailMapPinned = checked
-                                                            coroutineScope.launch { scrollState.scrollTo(0) }
-                                                        },
-                                                        modifier = Modifier.scale(0.55f)
-                                                    )
-                                                }
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier.clickable { isPrivacyMapLocal = !isPrivacyMapLocal }
-                                                ) {
-                                                    Text(stringResource(Res.string.detail_label_privacy), style = MaterialTheme.typography.labelSmall)
-                                                    Switch(
-                                                        checked = isPrivacyMapLocal,
-                                                        onCheckedChange = { isPrivacyMapLocal = it },
-                                                        modifier = Modifier.scale(0.55f)
-                                                    )
-                                                }
-                                            }
-                                            Button(
-                                                onClick = {
-                                                    if (runId != -1L) {
-                                                        viewModel.viewModelScope.launch {
-                                                            viewModel.updateRunName(runId, editableName)
-                                                            viewModel.updateActivityType(runId, selectedType, KmpDependencies.appSettings.calorieProfile())
-                                                            isEditingName = false
-                                                            val updatedRun = viewModel.getRunDetails(runId)
-                                                            runActivity = updatedRun
-                                                            updatedRun?.let { runObj ->
-                                                                actions.syncWithHealthConnect(runObj) { _, _ -> }
-                                                                actions.triggerAutoExport(runObj)
-                                                            }
-                                                        }
-                                                    } else {
-                                                        isEditingName = false
-                                                    }
-                                                },
-                                                modifier = Modifier.align(Alignment.End).padding(top = 6.dp)
-                                            ) {
-                                                Text(stringResource(Res.string.detail_save))
-                                            }
-                                        }
-                                    } else {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 10.dp, vertical = 4.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            // 左側：ワークアウト名称と種別・日付（コンパクト表示）
+                                    // 情報オーバーレイ（下部に配置、コンパクトなカード形式）
+                                    Surface(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        tonalElevation = 2.dp,
+                                        shadowElevation = 2.dp
+                                    ) {
+                                        if (isEditingName) {
                                             Column(
-                                                modifier = Modifier.weight(1f)
+                                                modifier = Modifier.padding(10.dp),
+                                                horizontalAlignment = Alignment.Start
                                             ) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(
-                                                        text = editableName.ifEmpty { selectedType.getDisplayName() },
-                                                        style = MaterialTheme.typography.titleSmall,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.onSurface,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                        modifier = Modifier.weight(1f, fill = false)
+                                                OutlinedTextField(
+                                                    value = editableName,
+                                                    onValueChange = { editableName = it },
+                                                    label = { Text(stringResource(Res.string.detail_label_name)) },
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    singleLine = true,
+                                                    colors = OutlinedTextFieldDefaults.colors(
+                                                        focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
                                                     )
-                                                    IconButton(
-                                                        onClick = { isEditingName = true },
-                                                        modifier = Modifier.size(24.dp).padding(start = 2.dp)
+                                                )
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Box(modifier = Modifier.fillMaxWidth()) {
+                                                    OutlinedButton(
+                                                        onClick = { typeDropdownExpanded = true }, 
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
                                                     ) {
-                                                        Icon(
-                                                            Icons.Default.Edit,
-                                                            contentDescription = "Edit",
-                                                            modifier = Modifier.size(13.dp),
-                                                            tint = MaterialTheme.colorScheme.primary
+                                                        val typeLabel = stringResource(Res.string.detail_label_type).replace("%s", selectedType.getDisplayName())
+                                                        Text(typeLabel)
+                                                        Spacer(modifier = Modifier.weight(1f))
+                                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                                    }
+                                                    DropdownMenu(expanded = typeDropdownExpanded, onDismissRequest = { typeDropdownExpanded = false }) {
+                                                        ActivityType.entries.forEach { type ->
+                                                            DropdownMenuItem(text = { Text(type.getDisplayName()) }, onClick = { selectedType = type; typeDropdownExpanded = false })
+                                                        }
+                                                    }
+                                                }
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                                    horizontalArrangement = Arrangement.End
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.clickable {
+                                                            val next = !isMapPinned
+                                                            isMapPinned = next
+                                                            KmpDependencies.appSettings.isDetailMapPinned = next
+                                                            coroutineScope.launch { scrollState.scrollTo(0) }
+                                                        }
+                                                    ) {
+                                                        Text(stringResource(Res.string.detail_label_pin_map), style = MaterialTheme.typography.labelSmall)
+                                                        Switch(
+                                                            checked = isMapPinned,
+                                                            onCheckedChange = { checked ->
+                                                                isMapPinned = checked
+                                                                KmpDependencies.appSettings.isDetailMapPinned = checked
+                                                                coroutineScope.launch { scrollState.scrollTo(0) }
+                                                            },
+                                                            modifier = Modifier.scale(0.55f)
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.clickable { isPrivacyMapLocal = !isPrivacyMapLocal }
+                                                    ) {
+                                                        Text(stringResource(Res.string.detail_label_privacy), style = MaterialTheme.typography.labelSmall)
+                                                        Switch(
+                                                            checked = isPrivacyMapLocal,
+                                                            onCheckedChange = { isPrivacyMapLocal = it },
+                                                            modifier = Modifier.scale(0.55f)
                                                         )
                                                     }
                                                 }
-                                                Text(
-                                                    text = if (editableName.isNotEmpty()) {
-                                                        "${selectedType.getDisplayName()} · ${run.startTime.toString().substringBefore("T")}"
-                                                    } else {
-                                                        run.startTime.toString().substringBefore("T")
+                                                Button(
+                                                    onClick = {
+                                                        if (runId != -1L) {
+                                                            viewModel.viewModelScope.launch {
+                                                                viewModel.updateRunName(runId, editableName)
+                                                                viewModel.updateActivityType(runId, selectedType, KmpDependencies.appSettings.calorieProfile())
+                                                                isEditingName = false
+                                                                val updatedRun = viewModel.getRunDetails(runId)
+                                                                runActivity = updatedRun
+                                                                updatedRun?.let { runObj ->
+                                                                    actions.syncWithHealthConnect(runObj) { _, _ -> }
+                                                                    actions.triggerAutoExport(runObj)
+                                                                }
+                                                            }
+                                                        } else {
+                                                            isEditingName = false
+                                                        }
                                                     },
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.outline,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
+                                                    modifier = Modifier.align(Alignment.End).padding(top = 6.dp)
+                                                ) {
+                                                    Text(stringResource(Res.string.detail_save))
+                                                }
                                             }
-
-                                            Spacer(modifier = Modifier.width(6.dp))
-
-                                            // 右側：固定トグル & プライバシートグル
+                                        } else {
                                             Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 10.dp, vertical = 4.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier.clickable {
-                                                        val next = !isMapPinned
-                                                        isMapPinned = next
-                                                        KmpDependencies.appSettings.isDetailMapPinned = next
-                                                        coroutineScope.launch { scrollState.scrollTo(0) }
-                                                    }
+                                                // 左側：ワークアウト名称と種別・日付（コンパクト表示）
+                                                Column(
+                                                    modifier = Modifier.weight(1f)
                                                 ) {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Text(
+                                                            text = editableName.ifEmpty { selectedType.getDisplayName() },
+                                                            style = MaterialTheme.typography.titleSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onSurface,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier.weight(1f, fill = false)
+                                                        )
+                                                        IconButton(
+                                                            onClick = { isEditingName = true },
+                                                            modifier = Modifier.size(24.dp).padding(start = 2.dp)
+                                                        ) {
+                                                            Icon(
+                                                                Icons.Default.Edit,
+                                                                contentDescription = "Edit",
+                                                                modifier = Modifier.size(13.dp),
+                                                                tint = MaterialTheme.colorScheme.primary
+                                                            )
+                                                        }
+                                                    }
                                                     Text(
-                                                        text = stringResource(Res.string.detail_label_pin_map),
-                                                        style = MaterialTheme.typography.labelSmall
-                                                    )
-                                                    Switch(
-                                                        checked = isMapPinned,
-                                                        onCheckedChange = { checked ->
-                                                            isMapPinned = checked
-                                                            KmpDependencies.appSettings.isDetailMapPinned = checked
-                                                            coroutineScope.launch { scrollState.scrollTo(0) }
+                                                        text = if (editableName.isNotEmpty()) {
+                                                            "${selectedType.getDisplayName()} · ${run.startTime.toString().substringBefore("T")}"
+                                                        } else {
+                                                            run.startTime.toString().substringBefore("T")
                                                         },
-                                                        modifier = Modifier.scale(0.55f)
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.outline,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
                                                     )
                                                 }
 
-                                                Spacer(modifier = Modifier.width(2.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
 
+                                                // 右側：固定トグル & プライバシートグル
                                                 Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier.clickable { isPrivacyMapLocal = !isPrivacyMapLocal }
+                                                    verticalAlignment = Alignment.CenterVertically
                                                 ) {
-                                                    Text(
-                                                        text = stringResource(Res.string.detail_label_privacy),
-                                                        style = MaterialTheme.typography.labelSmall
-                                                    )
-                                                    Switch(
-                                                        checked = isPrivacyMapLocal,
-                                                        onCheckedChange = { isPrivacyMapLocal = it },
-                                                        modifier = Modifier.scale(0.55f)
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.clickable {
+                                                            val next = !isMapPinned
+                                                            isMapPinned = next
+                                                            KmpDependencies.appSettings.isDetailMapPinned = next
+                                                            coroutineScope.launch { scrollState.scrollTo(0) }
+                                                        }
+                                                    ) {
+                                                        Text(
+                                                            text = stringResource(Res.string.detail_label_pin_map),
+                                                            style = MaterialTheme.typography.labelSmall
+                                                        )
+                                                        Switch(
+                                                            checked = isMapPinned,
+                                                            onCheckedChange = { checked ->
+                                                                isMapPinned = checked
+                                                                KmpDependencies.appSettings.isDetailMapPinned = checked
+                                                                coroutineScope.launch { scrollState.scrollTo(0) }
+                                                            },
+                                                            modifier = Modifier.scale(0.55f)
+                                                        )
+                                                    }
+
+                                                    Spacer(modifier = Modifier.width(2.dp))
+
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.clickable { isPrivacyMapLocal = !isPrivacyMapLocal }
+                                                    ) {
+                                                        Text(
+                                                            text = stringResource(Res.string.detail_label_privacy),
+                                                            style = MaterialTheme.typography.labelSmall
+                                                        )
+                                                        Switch(
+                                                            checked = isPrivacyMapLocal,
+                                                            onCheckedChange = { isPrivacyMapLocal = it },
+                                                            modifier = Modifier.scale(0.55f)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // 屋内（GPSルートなし）ワークアウト：マップを非表示にし、ヘッダー情報カードのみスッキリ表示
+                            Surface(
+                                tonalElevation = 2.dp,
+                                shape = MaterialTheme.shapes.medium,
+                                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                            ) {
+                                if (isEditingName) {
+                                    Column(
+                                        modifier = Modifier.padding(14.dp),
+                                        horizontalAlignment = Alignment.Start
+                                    ) {
+                                        OutlinedTextField(
+                                            value = editableName,
+                                            onValueChange = { editableName = it },
+                                            label = { Text(stringResource(Res.string.detail_label_name)) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            singleLine = true
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Box(modifier = Modifier.fillMaxWidth()) {
+                                            OutlinedButton(
+                                                onClick = { typeDropdownExpanded = true },
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                val typeLabel = stringResource(Res.string.detail_label_type).replace("%s", selectedType.getDisplayName())
+                                                Text(typeLabel)
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                            }
+                                            DropdownMenu(expanded = typeDropdownExpanded, onDismissRequest = { typeDropdownExpanded = false }) {
+                                                ActivityType.entries.forEach { type ->
+                                                    DropdownMenuItem(text = { Text(type.getDisplayName()) }, onClick = { selectedType = type; typeDropdownExpanded = false })
+                                                }
+                                            }
+                                        }
+                                        Button(
+                                            onClick = {
+                                                if (runId != -1L) {
+                                                    viewModel.viewModelScope.launch {
+                                                        viewModel.updateRunName(runId, editableName)
+                                                        viewModel.updateActivityType(runId, selectedType, KmpDependencies.appSettings.calorieProfile())
+                                                        isEditingName = false
+                                                        val updatedRun = viewModel.getRunDetails(runId)
+                                                        runActivity = updatedRun
+                                                        updatedRun?.let { runObj ->
+                                                            actions.syncWithHealthConnect(runObj) { _, _ -> }
+                                                            actions.triggerAutoExport(runObj)
+                                                        }
+                                                    }
+                                                } else {
+                                                    isEditingName = false
+                                                }
+                                            },
+                                            modifier = Modifier.align(Alignment.End).padding(top = 8.dp)
+                                        ) {
+                                            Text(stringResource(Res.string.detail_save))
+                                        }
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = editableName.ifEmpty { selectedType.getDisplayName() },
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f, fill = false)
+                                                )
+                                                IconButton(
+                                                    onClick = { isEditingName = true },
+                                                    modifier = Modifier.size(28.dp).padding(start = 4.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Edit,
+                                                        contentDescription = "Edit",
+                                                        modifier = Modifier.size(16.dp),
+                                                        tint = MaterialTheme.colorScheme.primary
                                                     )
                                                 }
                                             }
+                                            Text(
+                                                text = if (editableName.isNotEmpty()) {
+                                                    "${selectedType.getDisplayName()} · ${run.startTime.toString().substringBefore("T")}"
+                                                } else {
+                                                    run.startTime.toString().substringBefore("T")
+                                                },
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.outline
+                                            )
                                         }
                                     }
                                 }
@@ -471,7 +579,7 @@ fun DetailScreen(runId: Long, actions: AppActions, onBack: () -> Unit) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .then(if (isMapPinned) Modifier.weight(1f).verticalScroll(scrollState) else Modifier)
+                                .then(if (effectiveMapPinned) Modifier.weight(1f).verticalScroll(scrollState) else Modifier)
                                 .padding(horizontal = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
