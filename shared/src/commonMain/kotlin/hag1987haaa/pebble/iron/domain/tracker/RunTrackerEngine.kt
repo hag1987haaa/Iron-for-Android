@@ -796,10 +796,13 @@ class RunTrackerEngine(
                         pebbleMessenger?.sendNotification(1)
                     }
                     val timeMapDelay = appSettings?.autoShowMapAfterTimeNotificationSeconds ?: 0
-                    if (timeMapDelay > 0) {
+                    val usesGpsForTimeMap = WorkoutTypeRegistry.getDefinition(s.activityType).usesGps
+                    if (usesGpsForTimeMap && timeMapDelay > 0) {
                         scope.launch {
                             delay(timeMapDelay * 1000L)
-                            if (_statistics.value.status == RunStatus.ACTIVE) {
+                            if (_statistics.value.status == RunStatus.ACTIVE &&
+                                WorkoutTypeRegistry.getDefinition(_statistics.value.activityType).usesGps
+                            ) {
                                 println("RunTrackerEngine: Auto-opening map $timeMapDelay s after time notification")
                                 openMap()
                             }
@@ -818,10 +821,13 @@ class RunTrackerEngine(
                         pebbleMessenger?.sendNotification(0)
                     }
                     val distMapDelay = appSettings?.autoShowMapAfterDistNotificationSeconds ?: 0
-                    if (distMapDelay > 0) {
+                    val usesGpsForDistMap = WorkoutTypeRegistry.getDefinition(s.activityType).usesGps
+                    if (usesGpsForDistMap && distMapDelay > 0) {
                         scope.launch {
                             delay(distMapDelay * 1000L)
-                            if (_statistics.value.status == RunStatus.ACTIVE) {
+                            if (_statistics.value.status == RunStatus.ACTIVE &&
+                                WorkoutTypeRegistry.getDefinition(_statistics.value.activityType).usesGps
+                            ) {
                                 println("RunTrackerEngine: Auto-opening map $distMapDelay s after dist notification")
                                 openMap()
                             }

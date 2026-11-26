@@ -439,4 +439,8 @@
     <string name="settings_workout_order_reset_title">種別リストを初期値に戻しますか？</string>
     <string name="settings_workout_order_reset_desc">すべてのワークアウト種別が標準の並び順で有効になります。</string>
     <string name="settings_workout_hidden_label">非表示</string>
+    <string name="settings_profile_gps_title">GPS トラッキング</string>
+    <string name="settings_profile_gps_on">ON（屋外）</string>
+    <string name="settings_profile_gps_off">OFF（屋内）</string>
+    <string name="settings_profile_gps_off_desc">屋内種目のため、GPS計測およびマップ自動起動はオフになります。</string>
 </resources>

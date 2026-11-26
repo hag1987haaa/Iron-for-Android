@@ -439,4 +439,8 @@
     <string name="settings_workout_order_reset_title">Reset workout list?</string>
     <string name="settings_workout_order_reset_desc">All workout types will be enabled in the default order.</string>
     <string name="settings_workout_hidden_label">Hidden</string>
+    <string name="settings_profile_gps_title">GPS Tracking</string>
+    <string name="settings_profile_gps_on">ON (Outdoor)</string>
+    <string name="settings_profile_gps_off">OFF (Indoor)</string>
+    <string name="settings_profile_gps_off_desc">GPS tracking and watch auto-open map are disabled for this indoor workout.</string>
 </resources>

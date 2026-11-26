@@ -529,13 +529,104 @@ private fun WorkoutProfileCardContent(
     activityMapZooms: Map<String, Int>,
     viewModel: SettingsViewModel
 ) {
-    val defaults = WorkoutTypeRegistry.getDefinition(selectedActivityType).watchDefaults
+    val definition = WorkoutTypeRegistry.getDefinition(selectedActivityType)
+    val defaults = definition.watchDefaults
+    val usesGps = definition.usesGps
     val isHrZoneEnabled = activityHrZoneEnabled[selectedActivityType.name] ?: false
     val currentMin = activityHrZoneMins[selectedActivityType.name] ?: defaults.hrZoneMin
     val currentMax = activityHrZoneMaxs[selectedActivityType.name] ?: defaults.hrZoneMax
     val currentZoom = activityMapZooms[selectedActivityType.name] ?: defaults.mapZoom
 
+    var showCopyDialog by remember { mutableStateOf(false) }
+
+    if (showCopyDialog) {
+        CopyWorkoutProfileDialog(
+            targetActivityType = selectedActivityType,
+            onDismiss = { showCopyDialog = false },
+            onConfirm = { source, copyMid, copyLower, copyHrZone, copyMapZoom ->
+                viewModel.copyWorkoutProfile(
+                    source = source,
+                    target = selectedActivityType,
+                    copyMid = copyMid,
+                    copyLower = copyLower,
+                    copyHrZone = copyHrZone,
+                    copyMapZoom = copyMapZoom
+                )
+                showCopyDialog = false
+            }
+        )
+    }
+
     Column(modifier = Modifier.padding(14.dp)) {
+        // 0. 他の種別から設定をコピー（プロフィール全体のアクションとして最上部に配置）
+        OutlinedButton(
+            onClick = { showCopyDialog = true },
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.ContentCopy,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = stringResource(Res.string.settings_profile_copy_button),
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
+
+        // 1. GPS トラッキング有無の表示
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = if (usesGps) Icons.Default.GpsFixed else Icons.Default.GpsOff,
+                    contentDescription = null,
+                    tint = if (usesGps) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = stringResource(Res.string.settings_profile_gps_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    if (!usesGps) {
+                        Text(
+                            text = stringResource(Res.string.settings_profile_gps_off_desc),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Surface(
+                color = if (usesGps) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = stringResource(if (usesGps) Res.string.settings_profile_gps_on else Res.string.settings_profile_gps_off),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (usesGps) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+        }
+
+        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
+
         // 1. 心拍ゾーン通知（種別ごと ON/OFF + Min/Max BPM）
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -627,106 +718,65 @@ private fun WorkoutProfileCardContent(
             )
         }
 
-        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
+        if (usesGps) {
+            HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(vertical = 12.dp))
 
-        // 2. マップ初期拡大率（種別ごと）
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(Res.string.settings_profile_map_zoom_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = stringResource(Res.string.settings_map_zooms_desc),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-            }
-            var zoomExpanded by remember { mutableStateOf(false) }
-            Box {
-                TextButton(
-                    onClick = { zoomExpanded = true },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                ) {
-                    Text(getZoomLevelLabel(currentZoom), style = MaterialTheme.typography.bodySmall)
+            // 2. マップ初期拡大率（GPS を使う種別のみ）
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(Res.string.settings_profile_map_zoom_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = stringResource(Res.string.settings_map_zooms_desc),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
                 }
-                DropdownMenu(
-                    expanded = zoomExpanded,
-                    onDismissRequest = { zoomExpanded = false }
-                ) {
-                    listOf(13, 14, 15, 16, 17, 18).forEach { z ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = getZoomLevelLabel(z),
-                                    style = if (z == currentZoom) {
-                                        MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                                    } else {
-                                        MaterialTheme.typography.bodyMedium
-                                    },
-                                    color = if (z == currentZoom) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    }
-                                )
-                            },
-                            onClick = {
-                                viewModel.updateActivityMapZoom(selectedActivityType, z)
-                                zoomExpanded = false
-                            }
-                        )
+                var zoomExpanded by remember { mutableStateOf(false) }
+                Box {
+                    TextButton(
+                        onClick = { zoomExpanded = true },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(getZoomLevelLabel(currentZoom), style = MaterialTheme.typography.bodySmall)
+                    }
+                    DropdownMenu(
+                        expanded = zoomExpanded,
+                        onDismissRequest = { zoomExpanded = false }
+                    ) {
+                        listOf(13, 14, 15, 16, 17, 18).forEach { z ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = getZoomLevelLabel(z),
+                                        style = if (z == currentZoom) {
+                                            MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                        } else {
+                                            MaterialTheme.typography.bodyMedium
+                                        },
+                                        color = if (z == currentZoom) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        }
+                                    )
+                                },
+                                onClick = {
+                                    viewModel.updateActivityMapZoom(selectedActivityType, z)
+                                    zoomExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
             }
-        }
-
-        HorizontalDivider(thickness = 0.5.dp, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
-
-        // 3. 他の種別から設定をコピー
-        var showCopyDialog by remember { mutableStateOf(false) }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            TextButton(
-                onClick = { showCopyDialog = true },
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ContentCopy,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = stringResource(Res.string.settings_profile_copy_button),
-                    style = MaterialTheme.typography.labelMedium
-                )
-            }
-        }
-
-        if (showCopyDialog) {
-            CopyWorkoutProfileDialog(
-                targetActivityType = selectedActivityType,
-                onDismiss = { showCopyDialog = false },
-                onConfirm = { source, copyMid, copyLower, copyHrZone, copyMapZoom ->
-                    viewModel.copyWorkoutProfile(
-                        source = source,
-                        target = selectedActivityType,
-                        copyMid = copyMid,
-                        copyLower = copyLower,
-                        copyHrZone = copyHrZone,
-                        copyMapZoom = copyMapZoom
-                    )
-                    showCopyDialog = false
-                }
-            )
         }
     }
 }
@@ -737,6 +787,7 @@ private fun CopyWorkoutProfileDialog(
     onDismiss: () -> Unit,
     onConfirm: (source: ActivityType, copyMid: Boolean, copyLower: Boolean, copyHrZone: Boolean, copyMapZoom: Boolean) -> Unit
 ) {
+    val targetUsesGps = WorkoutTypeRegistry.getDefinition(targetActivityType).usesGps
     val candidates = remember(targetActivityType) {
         ActivityType.entries.filter { it != targetActivityType }
     }
@@ -744,12 +795,13 @@ private fun CopyWorkoutProfileDialog(
         mutableStateOf(candidates.firstOrNull() ?: targetActivityType)
     }
     var sourceDropdownExpanded by remember { mutableStateOf(false) }
-    var copyMid by remember { mutableStateOf(true) }
-    var copyLower by remember { mutableStateOf(true) }
     var copyHrZone by remember { mutableStateOf(false) }
     var copyMapZoom by remember { mutableStateOf(false) }
+    var copyMid by remember { mutableStateOf(true) }
+    var copyLower by remember { mutableStateOf(true) }
 
-    val hasAnySelection = copyMid || copyLower || copyHrZone || copyMapZoom
+    val effectiveCopyMapZoom = targetUsesGps && copyMapZoom
+    val hasAnySelection = copyMid || copyLower || copyHrZone || effectiveCopyMapZoom
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -813,6 +865,19 @@ private fun CopyWorkoutProfileDialog(
                 )
                 Spacer(Modifier.height(4.dp))
 
+                // 画面の表示順と一致させる（心拍ゾーン → マップ拡大率 → 中段 → 下段）
+                CopyOptionCheckboxRow(
+                    label = stringResource(Res.string.settings_notif_hr_zone_title),
+                    checked = copyHrZone,
+                    onCheckedChange = { copyHrZone = it }
+                )
+                if (targetUsesGps) {
+                    CopyOptionCheckboxRow(
+                        label = stringResource(Res.string.settings_profile_map_zoom_title),
+                        checked = copyMapZoom,
+                        onCheckedChange = { copyMapZoom = it }
+                    )
+                }
                 CopyOptionCheckboxRow(
                     label = stringResource(Res.string.settings_section_mid_data),
                     checked = copyMid,
@@ -823,21 +888,11 @@ private fun CopyWorkoutProfileDialog(
                     checked = copyLower,
                     onCheckedChange = { copyLower = it }
                 )
-                CopyOptionCheckboxRow(
-                    label = stringResource(Res.string.settings_notif_hr_zone_title),
-                    checked = copyHrZone,
-                    onCheckedChange = { copyHrZone = it }
-                )
-                CopyOptionCheckboxRow(
-                    label = stringResource(Res.string.settings_profile_map_zoom_title),
-                    checked = copyMapZoom,
-                    onCheckedChange = { copyMapZoom = it }
-                )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(selectedSource, copyMid, copyLower, copyHrZone, copyMapZoom) },
+                onClick = { onConfirm(selectedSource, copyMid, copyLower, copyHrZone, effectiveCopyMapZoom) },
                 enabled = hasAnySelection && selectedSource != targetActivityType
             ) {
                 Text(stringResource(Res.string.settings_profile_copy_confirm))
